@@ -549,6 +549,8 @@ jobs:
           $env:PATH = "$env:LIBCLANG_PATH;$env:PATH"
           $resource = & $env:CLANG_PATH -print-resource-dir
           if ($LASTEXITCODE -ne 0) { throw "Could not locate Clang's resource headers" }
+          # bindgen parses this with POSIX shlex, so use forward slashes.
+          $resource = $resource.Trim().Replace([char]92, [char]47)
           $env:BINDGEN_EXTRA_CLANG_ARGS = "-resource-dir=$resource"
           & $env:CLANG_PATH --version
           cargo build --locked --profile app -p concat --target ${{ matrix.target }} 2>&1 | Tee-Object -FilePath build.log
