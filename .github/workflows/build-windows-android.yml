@@ -12,8 +12,17 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  validate:
+    name: Check bundled assets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - run: python3 scripts/ci/check-bundled-assets.py
+
   windows:
     name: Windows EXE
+    needs: validate
     uses: ./.github/workflows/build-app.yml
     with:
       ref: ${{ github.sha }}
@@ -22,6 +31,7 @@ jobs:
 
   android:
     name: Android APK
+    needs: validate
     uses: ./.github/workflows/mobile.yml
     with:
       ref: ${{ github.sha }}
