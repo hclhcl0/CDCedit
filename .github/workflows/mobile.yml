@@ -176,6 +176,7 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: src
+          cache-on-failure: true
           key: ${{ matrix.target }}
 
       # A release APK has to be signed, and cargo-apk signs it as it builds,

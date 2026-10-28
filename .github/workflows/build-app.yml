@@ -503,6 +503,7 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: src
+          cache-on-failure: true
           key: ${{ matrix.target }}
           env-vars: CARGO CC CFLAGS CXX CMAKE RUST GGML ORT
 
@@ -513,6 +514,7 @@ jobs:
       # read, but the step summary is public - so on failure the tail of the
       # build goes there, and a red run explains itself to anyone.
       - name: Build
+        if: matrix.platform != 'windows'
         # An Intel Mac runner is the slow one: its release build ran past
         # sixty minutes in v0.2.7-rc.1.
         timeout-minutes: ${{ matrix.platform == 'macos' && matrix.arch == 'x86_64' && 100 || 60 }}
@@ -521,6 +523,28 @@ jobs:
         run: |
           set -o pipefail
           cargo build --profile app -p concat --target ${{ matrix.target }} 2>&1 | tee build.log
+
+      - name: Build (Windows)
+        if: matrix.platform == 'windows'
+        timeout-minutes: 60
+        shell: pwsh
+        working-directory: src
+        run: |
+          $ErrorActionPreference = "Stop"
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vs = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vs) { throw "Visual C++ tools are unavailable" }
+          Import-Module "$vs\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+          Enter-VsDevShell -VsInstallPath $vs -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
+          # Keep clang's include detection and the loaded libclang on the same installation.
+          $env:CLANG_PATH = Join-Path $env:LIBCLANG_PATH 'clang.exe'
+          $env:PATH = "$env:LIBCLANG_PATH;$env:PATH"
+          $resource = & $env:CLANG_PATH -print-resource-dir
+          if ($LASTEXITCODE -ne 0) { throw "Could not locate Clang's resource headers" }
+          $env:BINDGEN_EXTRA_CLANG_ARGS = "-resource-dir=$resource"
+          & $env:CLANG_PATH --version
+          cargo build --locked --profile app -p concat --target ${{ matrix.target }} 2>&1 | Tee-Object -FilePath build.log
+          exit $LASTEXITCODE
 
       - name: Build log to the summary (failure only)
         if: failure()

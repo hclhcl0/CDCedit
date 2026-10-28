@@ -170,7 +170,7 @@ pub fn transcribe(
             |_| "Could not connect to Gemini. Check your API key, network and model access.",
         )?;
     match socket.get_mut() {
-        MaybeTlsStream::NativeTls(stream) => {
+        MaybeTlsStream::Rustls(stream) => {
             stream
                 .get_mut()
                 .set_read_timeout(Some(Duration::from_millis(250)))

@@ -94,7 +94,7 @@ workspace = true
 
 [dependencies.tungstenite]
 version = "0.28"
-features = ["native-tls"]
+features = ["rustls-tls-webpki-roots"]
 
 [dependencies.base64]
 version = "0.22"
