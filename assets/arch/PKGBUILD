@@ -1,0 +1,29 @@
+# Maintainer: noxygalaxy <noxycraftyt@gmail.com>
+pkgname=cdcedit
+pkgver=${CONCAT_VERSION:?CONCAT_VERSION must be set}
+pkgrel=1
+pkgdesc="Free and open source video editor"
+arch=('x86_64' 'aarch64')
+url="https://github.com/jub0t/Concat"
+license=('AGPL-3.0-or-later')
+depends=('glibc' 'gtk3' 'fontconfig' 'freetype2' 'libxkbcommon' 'mesa' 'alsa-lib')
+options=('!strip' '!debug')
+source=()
+
+stage=${CONCAT_STAGE:?CONCAT_STAGE must point at the staged folder}
+
+package() {
+  install -Dm755 "$stage/cdcedit" "$pkgdir/opt/cdcedit/cdcedit"
+  install -d "$pkgdir/opt/cdcedit/lib"
+  cp -a "$stage"/lib/. "$pkgdir/opt/cdcedit/lib/"
+
+  install -d "$pkgdir/usr/bin"
+  printf '#!/bin/sh\nexec /opt/cdcedit/cdcedit "$@"\n' > "$pkgdir/usr/bin/cdcedit"
+  chmod 755 "$pkgdir/usr/bin/cdcedit"
+  install -Dm644 "$stage/cdcedit.desktop" "$pkgdir/usr/share/applications/cdcedit.desktop"
+  sed -i 's|^Exec=cdcedit|Exec=/opt/cdcedit/cdcedit %U|' "$pkgdir/usr/share/applications/cdcedit.desktop"
+  install -Dm644 "$stage/cdcedit.png" "$pkgdir/usr/share/icons/hicolor/256x256/apps/cdcedit.png"
+
+  install -Dm644 "$stage/LICENSE" "$pkgdir/usr/share/licenses/cdcedit/LICENSE"
+  install -Dm644 "$stage/THIRD_PARTY_NOTICES.md" "$pkgdir/usr/share/licenses/cdcedit/THIRD_PARTY_NOTICES.md"
+}

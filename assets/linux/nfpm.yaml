@@ -1,0 +1,70 @@
+# CDCedit's Linux packages: one description for the .deb and the .rpm.
+#
+# Built by build-app.yml with nfpm from the staged folder the AppImage is
+# also made of, so every Linux bundle ships the same files. The program lives
+# whole under /opt/cdcedit - the binary finds its libraries in lib/ beside
+# itself, by rpath, and nothing else on the system has to line up - with
+# a launcher on the path, a desktop entry and an icon where the desktop
+# looks for them. The version and architecture are handed in as
+# environment; the files are named relative to the staged folder, which
+# is where nfpm is run from:
+#
+#   cd stage/CDCedit-0.2.8-linux-x86_64
+#   VERSION=0.2.8 NFPM_ARCH=amd64 nfpm package -f ../../assets/linux/nfpm.yaml -p deb -t ..
+name: cdcedit
+arch: ${NFPM_ARCH}
+platform: linux
+version: ${VERSION}
+section: video
+priority: optional
+maintainer: CDCedit contributors
+vendor: CDCedit contributors
+license: AGPL-3.0-or-later
+description: |
+  Free and open source video editor.
+  Timeline editing, effects, transitions, titles, captions and speech,
+  with FFmpeg underneath and hardware-accelerated preview and export.
+
+contents:
+  - src: cdcedit
+    dst: /opt/cdcedit/cdcedit
+    file_info:
+      mode: 0755
+  - src: lib/*
+    dst: /opt/cdcedit/lib/
+  - src: pkg/cdcedit
+    dst: /usr/bin/cdcedit
+    file_info:
+      mode: 0755
+  - src: pkg/cdcedit.desktop
+    dst: /usr/share/applications/cdcedit.desktop
+  - src: cdcedit.png
+    dst: /usr/share/icons/hicolor/256x256/apps/cdcedit.png
+  - src: LICENSE
+    dst: /usr/share/doc/cdcedit/LICENSE
+  - src: THIRD_PARTY_NOTICES.md
+    dst: /usr/share/doc/cdcedit/THIRD_PARTY_NOTICES.md
+
+# What the binary loads from the system rather than from lib/: the
+# toolkit the file dialogs use, sound, fonts and OpenGL. Named as each
+# family names them.
+overrides:
+  deb:
+    depends:
+      - libc6
+      - libgtk-3-0
+      - libfontconfig1
+      - libfreetype6
+      - libxkbcommon0
+      - libxkbcommon-x11-0
+      - libgl1
+      - libasound2 | libasound2t64
+  rpm:
+    depends:
+      - gtk3
+      - fontconfig
+      - freetype
+      - libxkbcommon
+      - libxkbcommon-x11
+      - mesa-libGL
+      - alsa-lib

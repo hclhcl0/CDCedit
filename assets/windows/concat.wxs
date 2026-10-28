@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  CDCedit's Windows Installer package, the .msi beside the Inno Setup .exe.
+
+  Built by build-app.yml with WiX from the staged folder the .exe is made
+  of, so the two installers ship the same files. The .exe is the
+  one a person double-clicks; this is the one an administrator deploys -
+  Group Policy, Intune, winget - and it installs for the machine, into
+  Program Files, with a Start menu entry and a clean uninstall. Handed in:
+
+    wix build -arch x64 -d Version=0.2.8 -d Root=C:\...\CDCedit
+              -d Stage=C:\...\stage\CDCedit-0.2.8-windows-x86_64
+              -o stage\CDCedit-0.2.8-windows-x86_64.msi assets\windows\concat.wxs
+
+  Root is the repository: WiX resolves a source path against where it is
+  run from, not against this file.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <!-- One upgrade code for the life of the product, so a newer .msi
+       replaces an older one rather than sitting beside it. -->
+  <Package Name="CDCedit"
+           Manufacturer="CDCedit contributors"
+           Version="$(var.Version)"
+           UpgradeCode="D34B87CE-512D-4BF2-AB1B-A35DFB595F39"
+           Scope="perMachine"
+           Language="1033">
+    <MajorUpgrade DowngradeErrorMessage="A newer version of CDCedit is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="cdcedit.ico" SourceFile="$(var.Root)\assets\icons\cdcedit.ico" />
+    <Property Id="ARPPRODUCTICON" Value="cdcedit.ico" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="CDCedit" />
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ShortcutFolder" Name="CDCedit" />
+    </StandardDirectory>
+
+    <Feature Id="Main" Title="CDCedit" Level="1">
+      <ComponentGroupRef Id="Program" />
+      <ComponentRef Id="StartMenu" />
+    </Feature>
+
+    <!-- Every file in the staged folder, as it is there. -->
+    <ComponentGroup Id="Program" Directory="INSTALLFOLDER">
+      <Files Include="$(var.Stage)\**" />
+    </ComponentGroup>
+
+    <Component Id="StartMenu" Directory="ShortcutFolder" Guid="69418EE8-AE28-41CB-B145-0AC9158A69FC">
+      <Shortcut Id="StartMenuShortcut"
+                Name="CDCedit"
+                Description="Video editor"
+                Target="[INSTALLFOLDER]cdcedit.exe"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="cdcedit.ico" />
+      <!-- The way in when a graphics driver draws the window as coloured
+           squares: it turns off Settings > General > Draw on the GPU,
+           which that window hides. -->
+      <Shortcut Id="SafeGraphicsShortcut"
+                Name="CDCedit (safe graphics)"
+                Description="CDCedit, drawn in software"
+                Target="[INSTALLFOLDER]cdcedit.exe"
+                Arguments="--software"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="cdcedit.ico" />
+      <RemoveFolder Id="RemoveShortcutFolder" On="uninstall" />
+      <RegistryValue Root="HKCU" Key="Software\CDCedit" Name="StartMenu" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+  </Package>
+</Wix>

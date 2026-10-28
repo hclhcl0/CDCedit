@@ -1,0 +1,165 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+import { I18n } from "../i18n.slint";
+import { Theme } from "../theme/theme.slint";
+import { Button, Field, DialogRow, DialogSection } from "../primitives/modal.slint";
+import { Select } from "../primitives/select.slint";
+import { NumberField } from "../primitives/number-field.slint";
+import { Switch } from "../inspector/controls.slint";
+
+export struct DubbingRowData { text: string, start: float, end: float, generated: bool }
+export struct DubbingData {
+    mode: int, provider: int, cloud-voice: string, cloud-model: string,
+    model-choice: int, extended-settings: bool, delivery: string,
+    stability: float, similarity: float, style: float, speed: float, speaker-boost: bool,
+    source: int, sources: [string], whisper: int, whispers: [string], rows: [DubbingRowData],
+    has-preview: bool, can-apply: bool, mute-original: bool,
+}
+export component DubbingPanel inherits VerticalLayout {
+    in property <DubbingData> data;
+    callback action(action: int, index: int, text: string, value: float);
+    DialogSection {
+        first: true;
+        title: I18n.t("dubbing.workspace");
+        DialogRow {
+            label: I18n.t("dubbing.mode");
+            Select {
+                options: [I18n.t("speech.textToSpeech"), I18n.t("dubbing.textTrack"), I18n.t("dubbing.videoVoice")];
+                current: root.data.mode;
+                changed(index) => { root.action(0,index,"",0); }
+            }
+        }
+        DialogRow {
+            label: I18n.t("captions.provider");
+            Select {
+                options: ["Local", "Gemini TTS", "ElevenLabs"];
+                current: root.data.provider;
+                changed(index) => { root.action(1,index,"",0); }
+            }
+        }
+        if root.data.provider != 0: Button {
+            label: I18n.t("settings.configureApi");
+            ghost: true;
+            clicked => { root.action(2,0,"",0); }
+        }
+        if root.data.provider != 0: DialogRow {
+            label: I18n.t("common.model");
+            Select {
+                options: root.data.provider == 1 ? ["Gemini 3.8 Flash TTS", "Gemini 3.8 Flash-Lite TTS", I18n.t("dubbing.customModel")] : ["Eleven v3", "Eleven v4", "Eleven v4 Turbo", "Flash v2.5", "Multilingual v2", I18n.t("dubbing.customModel")];
+                current: root.data.model-choice;
+                changed(index) => { root.action(24,index,"",0); }
+            }
+        }
+        if root.data.provider != 0 && root.data.model-choice == (root.data.provider == 1 ? 2 : 5): DialogRow {
+            label: I18n.t("dubbing.modelId");
+            Field { value: root.data.cloud-model; technical: true; edited(text) => { root.action(4,0,text,0); } }
+        }
+        if root.data.provider != 0: DialogRow {
+            label: I18n.t("dubbing.voiceId");
+            Field { value: root.data.cloud-voice; technical: true; edited(text) => { root.action(3,0,text,0); } }
+        }
+        if root.data.provider == 1: DialogRow {
+            label: I18n.t("dubbing.delivery");
+            Field { value: root.data.delivery; placeholder: I18n.t("dubbing.deliveryExample"); edited(text) => { root.action(18,0,text,0); } }
+        }
+        if root.data.provider == 2: DialogRow {
+            label: I18n.t("dubbing.stability");
+            if root.data.cloud-model == "eleven_v3": Select {
+                options: [I18n.t("dubbing.creative"), I18n.t("dubbing.natural"), I18n.t("dubbing.robust")];
+                current: Math.round(root.data.stability * 2);
+                changed(index) => { root.action(19,0,"",index * 0.5); }
+            }
+            if root.data.cloud-model != "eleven_v3": NumberField { value: root.data.stability; minimum: 0; maximum: 1; precision: 2; step: 0.05; changed(value) => { root.action(19,0,"",value); } }
+        }
+        if root.data.provider == 2: DialogRow {
+            label: I18n.t("dubbing.similarity");
+            NumberField { value: root.data.similarity; minimum: 0; maximum: 1; precision: 2; step: 0.05; changed(value) => { root.action(20,0,"",value); } }
+        }
+        if root.data.provider == 2 && root.data.extended-settings: DialogRow {
+            label: I18n.t("dubbing.style");
+            NumberField { value: root.data.style; minimum: 0; maximum: 1; precision: 2; step: 0.05; changed(value) => { root.action(21,0,"",value); } }
+        }
+        if root.data.provider == 2 && root.data.extended-settings: DialogRow {
+            label: I18n.t("common.speed");
+            NumberField { value: root.data.speed; minimum: 0.7; maximum: 1.2; precision: 2; step: 0.05; unit: "×"; changed(value) => { root.action(22,0,"",value); } }
+        }
+        if root.data.provider == 2 && root.data.extended-settings: DialogRow {
+            label: I18n.t("dubbing.speakerBoost");
+            Switch { checked: root.data.speaker-boost; toggled(on) => { root.action(23,on ? 1 : 0,"",0); } }
+        }
+        if root.data.provider != 0: Button {
+            label: I18n.t("dubbing.resetSettings"); ghost: true;
+            clicked => { root.action(25,0,"",0); }
+        }
+        if root.data.provider == 2 && !root.data.extended-settings: Text {
+            text: I18n.t("dubbing.basicSettingsHint");
+            color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap;
+        }
+        if root.data.provider != 0: Text {
+            text: I18n.t("dubbing.cloudNotice");
+            color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap;
+        }
+        if root.data.provider == 0: Text {
+            text: I18n.t("dubbing.localNotice");
+            color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap;
+        }
+        if root.data.mode != 0: DialogRow {
+            label: I18n.t("dubbing.source");
+            Select { options: root.data.sources; current: root.data.source; placeholder: I18n.t("dubbing.chooseSource"); changed(index) => { root.action(5,index,"",0); } }
+        }
+        if root.data.mode != 0: DialogRow {
+            label: "Whisper";
+            Select { options: root.data.whispers; current: root.data.whisper; placeholder: I18n.t("common.noneInstalled"); changed(index) => { root.action(15,index,"",0); } }
+        }
+        if root.data.mode == 1: Button {
+            label: I18n.t("dubbing.loadTrack"); enabled: root.data.sources.length > 0;
+            clicked => { root.action(6,0,"",0); }
+        }
+        if root.data.mode == 2: Button {
+            label: I18n.t("dubbing.recognize"); enabled: root.data.sources.length > 0 && root.data.whispers.length > 0;
+            clicked => { root.action(7,0,"",0); }
+        }
+        if root.data.mode != 0 && root.data.rows.length > 0: Button {
+            label: I18n.t("dubbing.generateUnified");
+            clicked => { root.action(8,0,"",0); }
+        }
+        if root.data.mode == 2: DialogRow {
+            label: I18n.t("dubbing.muteOriginal");
+            Switch { checked: root.data.mute-original; toggled(on) => { root.action(17,on ? 1 : 0,"",0); } }
+        }
+        if root.data.mode == 2: Text {
+            text: I18n.t("dubbing.muteNotice"); color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap;
+        }
+        if root.data.rows.length > 0: HorizontalLayout {
+            spacing: 8px;
+            Button { label: I18n.t("dubbing.listenAll"); clicked => { root.action(10,-1,"",0); } }
+            Button { label: I18n.t("dubbing.stop"); ghost: true; clicked => { root.action(16,0,"",0); } }
+            Button { label: I18n.t("dubbing.apply"); primary: true; enabled: root.data.can-apply; clicked => { root.action(11,0,"",0); } }
+        }
+        if root.data.rows.length > 0: Text {
+            text: I18n.t("dubbing.reviewNotice"); color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap;
+        }
+    }
+    if root.data.mode != 0 && root.data.rows.length > 0: Flickable {
+        height: 280px;
+        content-height: root.data.rows.length * 136px;
+        content-width: self.width;
+        for row[index] in root.data.rows: Rectangle {
+            x: 14px; y: index * 136px; width: parent.width - 28px; height: 128px;
+            background: Theme.well; border-radius: Theme.r;
+            VerticalLayout {
+                padding: 8px; spacing: 6px;
+                Text { text: "\{index + 1} · " + (row.generated ? I18n.t("dubbing.generated") : I18n.t("dubbing.needsGeneration")); color: row.generated ? Theme.accent : Theme.fg-muted; font-size: Theme.fs-sm; }
+                Field { value: row.text; edited(text) => { root.action(12,index,text,0); } }
+                HorizontalLayout {
+                    spacing: 8px;
+                    Text { text: I18n.t("dubbing.start"); color: Theme.fg-muted; vertical-alignment: center; }
+                    NumberField { value: row.start; minimum: 0; precision: 2; step: 0.1; unit: "s"; changed(value) => { root.action(13,index,"",value); } }
+                    Text { text: I18n.t("dubbing.end"); color: Theme.fg-muted; vertical-alignment: center; }
+                    NumberField { value: row.end; minimum: 0; precision: 2; step: 0.1; unit: "s"; changed(value) => { root.action(14,index,"",value); } }
+                    Button { label: I18n.t("dubbing.regenerate"); clicked => { root.action(9,index,"",0); } }
+                    Button { label: I18n.t("dubbing.listen"); enabled: row.generated; clicked => { root.action(10,index,"",0); } }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,21 @@
+# Dubbing studio
+
+Open **Text to speech / Lồng tiếng** from the timeline's speaker tool or File menu. The workflow selector has three modes:
+
+- **Text to speech**: write a script, choose Local, Gemini TTS or ElevenLabs, generate a preview, listen, then Apply.
+- **Dub a text track**: choose a track with titles, load all titles, edit the sentences and timeline start/end times, then generate. The text is read as one unified narration, matched back to sentences using Whisper word timestamps, and fitted to the target slots with pitch-preserving tempo filters. Individual sentences can be regenerated without rebuilding the rest.
+- **Replace video speech**: choose a video/audio clip and an installed Whisper model, recognize speech, then edit sentence text and timeline times. Generate the whole script or regenerate/listen to individual sentences. Preview the full dub before Apply.
+
+Local synthesis reuses installed Kokoro, Pocket TTS and Chatterbox voices and sample controls. The bundled Local models currently target English/Chinese or English; they do not promise Vietnamese TTS. Gemini defaults to `gemini-3.8-flash-tts` with voice `Kore`; ElevenLabs defaults to `eleven_v3` and an editable voice ID. Set Gemini and ElevenLabs API keys once in **Settings → General**. Gemini captions and TTS share the Gemini key. Fields are masked; Windows saves DPAPI ciphertext tied to the current account. Other platforms use the account-private settings file. Keys are excluded from activity logs and project files. Cloud generation transmits the script and may incur service charges. Local Whisper is used for alignment regardless of TTS provider.
+
+Cloud TTS offers model presets plus an editable custom model ID. Gemini Flash / Flash-Lite TTS use a voice name and reading-style instructions (accent, pacing, tone); style is sent as speech metadata rather than included in the spoken script. ElevenLabs v3, v4, v4 Turbo, Flash v2.5 and Multilingual v2 expose stability and similarity. Extended controls (style exaggeration, speed 0.7–1.2, speaker boost) are shown and sent only for supported v2/v3 models; v4 uses stability/similarity only. v3 stability uses Creative / Natural / Robust values. Model IDs, voices and parameters persist between sessions. Changing them invalidates generated audio and requires a new preview. The same settings apply to full-track synthesis, chunked narration and sentence regeneration.
+
+Long cloud scripts split automatically into requests with the same voice/model and are joined before alignment. A dubbing pass supports up to 20,000 characters and a target span of 30 minutes. Low-confidence alignment fails visibly instead of guessing sentence boundaries. Target intervals must be finite, positive, ordered and non-overlapping; extreme tempo changes outside 0.25–4x are refused. Review alignment and sound quality before publishing.
+
+Generation, recognition and previews do not add timeline clips. Apply imports the reviewed WAV and adds a narration clip; for video replacement, the optional mute-original setting mutes the whole original clip including music. Original files remain unchanged. Adding narration and muting the source are one undoable timeline batch; imported preview media remains in the bin after undo. Editing text, voice or timing invalidates the previous approval. Switching projects cancels work; switching timelines prevents applying a stale draft.
+
+Gemini captions additionally accept binary WebSocket JSON responses and finalized input transcripts independently of conversational turn completion. Regression tests cover both message orderings.
+
+Validation: speech unit tests include WAV rendering with silence gaps and Vietnamese text matching. An optional integration test downloads Kokoro and Whisper into a dedicated test directory and exercises synthesis → word recognition → sentence alignment → timed preview. Live cloud recognition and cloud synthesis require the user's API credentials and are not claimed as verified by local tests.
+
+API references: [Gemini TTS](https://ai.google.dev/gemini-api/docs/speech-generation), [ElevenLabs TTS](https://elevenlabs.io/docs/api-reference/text-to-speech/convert), [Gemini Live](https://ai.google.dev/gemini-api/docs/live-api/live-transcribe).
