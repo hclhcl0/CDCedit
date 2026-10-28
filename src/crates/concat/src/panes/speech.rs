@@ -849,7 +849,7 @@ impl SpeechPane {
             ready: if self.dub.provider == 0 {
                 !installed(&studio.settings.voices).is_empty()
             } else {
-                !self.dub.key().trim().is_empty()
+                !self.dub.key(studio).trim().is_empty()
             },
             estimate: self.estimate(studio).into(),
             message: self.message.as_str().into(),
