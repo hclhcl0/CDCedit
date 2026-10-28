@@ -500,10 +500,18 @@ jobs:
       # CC, CXX, CMAKE_*, and GGML_* and ORT_* added to the default set),
       # so a change to any of them is a new key rather than a stale
       # target/ served under the old one.
+      # Thin LTO retains release optimisation without the long whole-program
+      # optimisation pass measured on the hosted Windows runner.
+      - name: Thin LTO (Windows)
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: '"CARGO_PROFILE_APP_LTO=thin" | Out-File -FilePath $env:GITHUB_ENV -Append'
+
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: src
           cache-on-failure: true
+          cache-workspace-crates: ${{ matrix.platform == 'windows' }}
           key: ${{ matrix.target }}
           env-vars: CARGO CC CFLAGS CXX CMAKE RUST GGML ORT
 
