@@ -61,3 +61,6 @@ desktop.ini
 
 # Local build toolchains and downloaded dependencies
 /.local-tools/
+
+# Locally packaged applications
+/downloads/
