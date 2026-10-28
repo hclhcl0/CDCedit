@@ -51,6 +51,10 @@ name: Build for phones
 on:
   workflow_call:
     inputs:
+      android_only:
+        description: Build and smoke-test Android without iOS
+        type: boolean
+        default: false
       ref:
         description: The ref to build, when it is not the one this runs on
         type: string
@@ -348,6 +352,7 @@ jobs:
           if-no-files-found: warn
 
   ios:
+    if: ${{ !inputs.android_only }}
     name: iOS arm64
     runs-on: macos-15
     timeout-minutes: 90
@@ -459,6 +464,7 @@ jobs:
   # device one. mobile-env.sh does not know the simulator yet, so the
   # build's environment is written out in the build step below.
   ios-simulator:
+    if: ${{ !inputs.android_only }}
     name: iOS simulator smoke
     runs-on: macos-15
     timeout-minutes: 90

@@ -1,0 +1,29 @@
+name: Build CDCedit EXE and APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: cdcedit-windows-android-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    name: Windows EXE
+    uses: ./.github/workflows/build-app.yml
+    with:
+      ref: ${{ github.sha }}
+      windows_only: true
+    secrets: inherit
+
+  android:
+    name: Android APK
+    uses: ./.github/workflows/mobile.yml
+    with:
+      ref: ${{ github.sha }}
+      android_only: true
+    secrets: inherit
