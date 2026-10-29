@@ -106,6 +106,12 @@ jobs:
     name: Android ${{ matrix.abi }}
     runs-on: ubuntu-24.04
     timeout-minutes: 90
+    # The hosted runner stopped while compiling the large generated Slint app
+    # crate (exit 143). Bound peak memory during Android release builds.
+    env:
+      CARGO_PROFILE_RELEASE_LTO: "false"
+      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"
+      CARGO_BUILD_JOBS: "2"
     # arm64 is the APK that ships. x86_64 is the same source built for CI's
     # emulators, which run x86_64 and could not start the arm64 one: the
     # launch check below installs it, and it never leaves the run.
