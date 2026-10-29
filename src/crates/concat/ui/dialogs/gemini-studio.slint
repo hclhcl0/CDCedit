@@ -1,0 +1,190 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+import { Theme } from "../theme/theme.slint";
+import { Glyph } from "../icons.slint";
+import { Modal, DialogSection, DialogRow, Field, Button } from "../primitives/modal.slint";
+import { Select } from "../primitives/select.slint";
+import { NumberField } from "../primitives/number-field.slint";
+import { Switch } from "../inspector/controls.slint";
+import { PaneScroll } from "../workspace/pane.slint";
+export struct GeminiTurnData { speaker:int, text:string, style:string, start:float, end:float, generated:bool }
+export struct GeminiVoiceData { name:string, detail:string }
+export struct GeminiStudioData {
+    open:bool, mobile:bool, busy:bool, ready:bool, timed:bool, mode:int, model:int, temperature:float,
+    text:string, style:string, voices:[string], a:int, b:int, turns:[GeminiTurnData],
+    library:[GeminiVoiceData], key-names:[string], key-index:int,
+    filter-language:string, filter-gender:int, filter-accent:string, filter-pitch:int, filter-search:string,
+    name:string, description:string, language:string, gender:int, reference:string, consent:string, rights:bool,
+    message:string, has-preview:bool, created-id:string,
+}
+export component StudioText inherits Rectangle {
+    in property <string> value;
+    in property <string> placeholder;
+    in property <bool> read-only;
+    callback edited(text:string);
+    pure callback splice(text:string,tag:string,at:int)->string;
+    property <string> draft;
+    init=>{root.draft=root.value;}
+    changed value=>{if (!input.has-focus){root.draft=root.value;}}
+    public function insert-token(tag:string){
+        let at=input.cursor-position-byte-offset;
+        root.draft=root.splice(root.draft,tag,at);root.edited(root.draft);input.focus();
+        input.set-selection-offsets(at + tag.character-count + 1, at + tag.character-count + 1);
+    }
+    height:100px; background:Theme.well;border-radius:Theme.r;clip:true;
+    input:=TextInput {
+        x:8px;y:8px;width:parent.width - 16px;height:parent.height - 16px;
+        text <=> root.draft;color:Theme.fg;font-size:Theme.fs;single-line:false;wrap:word-wrap;read-only:root.read-only;
+        edited=>{root.edited(self.text);}
+    }
+    if root.draft=="" && !input.has-focus:Text {
+        x:8px;y:8px;width:parent.width - 16px;text:root.placeholder;color:Theme.fg-dim;font-size:Theme.fs;wrap:word-wrap;
+    }
+}
+component Expressions inherits Select {
+    callback insert(tag:string);
+    options:["+ Biểu cảm", "Cười", "Khóc", "Thở dài", "Ho", "Hít thở", "Hít mạnh", "Nghỉ ngắn", "Nghỉ dài"];
+    current:0;
+    changed(choice)=>{if(choice>0){root.insert(["","<laugh>","<cry>","<sigh>","<cough>","<breath>","<gasp>","<short pause>","<long pause>"][choice]);}root.current=0;}
+}
+export component GeminiStudioDialog inherits Modal {
+    in property <GeminiStudioData> data;
+    callback action(action:int,index:int,text:string,value:float);
+    pure callback insert-tag(text:string,tag:string,at:int)->string;
+    open:root.data.open;title:"Gemini 3.8 · Studio giọng nói";glyph:Glyph.mic;
+    surface-width:700px;dismissable:true;
+    closed=>{root.action(1,0,"",0);}
+    VerticalLayout {
+        spacing:8px;
+        PaneScroll {
+            height:Math.max(160px,Math.min(540px,root.height - 220px));finger:root.data.mobile;
+            VerticalLayout {
+                spacing:10px;
+                DialogSection {
+                    first:true;title:"Công cụ Gemini TTS 3.8";
+                    Select {options:["Hội thoại A/B & phản ứng xen lời","Phong cách & biểu cảm","Thiết kế giọng từ mô tả","Tái tạo giọng từ mẫu","Thư viện giọng mở rộng"];current:root.data.mode;changed(index)=>{root.action(3,index,"",0);}}
+                    DialogRow {label:"Mô hình";Select{options:["Gemini 3.8 Flash TTS","Gemini 3.8 Flash-Lite TTS"];current:root.data.model;changed(i)=>{root.action(4,i,"",0);}}}
+                    DialogRow {label:"Key / dự án";Select{options:root.data.key-names;current:root.data.key-index;changed(i)=>{root.action(10,i,"",0);}}}
+                    Text {text:"Dùng key trong Cài đặt. Google có thể tính phí. Giọng tự tạo được lưu tại dự án của key đã tạo; chọn key dự án khi tải thư viện.";color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
+                    if !root.data.ready:Text {text:"Chưa có Gemini API key. Hãy thêm trong Cài đặt → Chung.";color:Theme.fg;font-size:Theme.fs;wrap:word-wrap;}
+                }
+                if root.data.mode==0 || root.data.mode==1:DialogSection {
+                    title:"Giọng & cách diễn đạt";
+                    DialogRow {label:"Nhân vật A";Select{options:root.data.voices;current:root.data.a;changed(i)=>{root.action(8,i,"",0);}}}
+                    if root.data.mode==0:DialogRow {label:"Nhân vật B";Select{options:root.data.voices;current:root.data.b;changed(i)=>{root.action(9,i,"",0);}}}
+                    DialogRow {label:"Temperature";NumberField{value:root.data.temperature;minimum:0;maximum:2;precision:2;step:0.1;changed(v)=>{root.action(5,0,"",v);}}}
+                    Text {text:"Giọng có sẵn: tạo chung hai người trong một lượt. Có giọng tự tạo: tạo từng lượt rồi ghép. Chọn giọng từ thư viện để thêm vào danh sách A/B.";color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
+                }
+                if root.data.mode==0:DialogSection {
+                    title:"Các lượt thoại";
+                    if root.data.timed:Text{text:"Đang giữ mốc SRT. Tạo từng câu rồi co giãn vào khung; WAV có cả khoảng lặng từ mốc 0. Tối đa 100 câu và mốc 0–30 phút/lượt.";color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
+                    if root.data.timed:Button{label:"Bỏ mốc SRT, tạo hội thoại tự nhiên";ghost:true;clicked=>{root.action(26,0,"",0);}}
+                    Text{text:"Chèn |ừ, đúng vậy| trong lời thoại để thử phản ứng xen lời. Dùng giọng có sẵn và tạo toàn bộ để có hội thoại chồng lời tự nhiên.";color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
+                    for turn[index] in root.data.turns:VerticalLayout {
+                        spacing:6px;
+                        HorizontalLayout {
+                            Text{text:"Lượt \{index + 1}";color:Theme.fg;font-size:Theme.fs;vertical-alignment:center;}
+                            Select {options:["Nhân vật A","Nhân vật B"];current:turn.speaker;changed(i)=>{root.action(22,index,i==0?"A":"B",0);}}
+                            Button{label:"Xoá";ghost:true;clicked=>{root.action(21,index,"",0);}}
+                        }
+                        if root.data.timed && !root.data.mobile:HorizontalLayout {
+                            Text{text:"Bắt đầu";color:Theme.fg-muted;vertical-alignment:center;}
+                            NumberField{value:turn.start;minimum:0;precision:2;step:0.1;unit:"s";changed(v)=>{root.action(27,index,"",v);}}
+                            Text{text:"Kết thúc";color:Theme.fg-muted;vertical-alignment:center;}
+                            NumberField{value:turn.end;minimum:0;precision:2;step:0.1;unit:"s";changed(v)=>{root.action(28,index,"",v);}}
+                        }
+                        if root.data.timed && root.data.mobile:VerticalLayout {
+                            spacing:6px;
+                            Text{text:"Bắt đầu";color:Theme.fg-muted;}
+                            NumberField{value:turn.start;minimum:0;precision:2;step:0.1;unit:"s";changed(v)=>{root.action(27,index,"",v);}}
+                            Text{text:"Kết thúc";color:Theme.fg-muted;}
+                            NumberField{value:turn.end;minimum:0;precision:2;step:0.1;unit:"s";changed(v)=>{root.action(28,index,"",v);}}
+                        }
+                        Field {value:turn.style;placeholder:"Phong cách lượt này: vui, buồn, thì thầm, tức giận…";edited(text)=>{root.action(24,index,text,0);}}
+                        line:=StudioText {value:turn.text;placeholder:"Lời thoại…";edited(text)=>{root.action(23,index,text,0);}splice(text,tag,at)=>{return root.insert-tag(text,tag,at);}}
+                        VerticalLayout {
+                            spacing:6px;
+                            Expressions{insert(tag)=>{line.insert-token(tag);}}
+                            Button{label:"+ Phản ứng";ghost:true;clicked=>{root.action(25,index,"",0);}}
+                            Button{label:"Tạo thử lượt này";clicked=>{root.action(31,index,"",0);}}
+                            if root.data.timed && turn.generated:Button{label:"Nghe giọng đã tạo";clicked=>{root.action(29,index,"",0);}}
+                        }
+                        Rectangle{height:1px;background:Theme.line;}
+                    }
+                    Button{label:"+ Thêm lượt thoại";block:true;enabled:!root.data.timed;clicked=>{root.action(20,0,"",0);}}
+                    Button{label:"Tạo toàn bộ hội thoại";primary:true;block:true;enabled:root.data.ready;clicked=>{root.action(30,0,"",0);}}
+                }
+                if root.data.mode==1:DialogSection {
+                    title:"Lời đọc & biểu cảm";
+                    DialogRow{label:"Phong cách";Field{value:root.data.style;placeholder:"VD: ấm áp, chậm rãi; hoặc giận dữ, nói nhanh";edited(text)=>{root.action(7,0,text,0);}}}
+                    Select{options:["Chọn phong cách…","Vui vẻ","Buồn","Tức giận","Thì thầm","Kể chuyện","Tin tức","Nói nhanh","Nói chậm"];current:0;changed(i)=>{if(i>0){root.action(7,0,["","cheerful and friendly","sad and emotional","angry and forceful","whispering softly","warm storytelling","clear professional newsreader","speaking rapidly","speaking slowly"][i],0);}}}
+                    script:=StudioText{value:root.data.text;placeholder:"Văn bản cần đọc…";edited(text)=>{root.action(6,0,text,0);}splice(text,tag,at)=>{return root.insert-tag(text,tag,at);}}
+                    Expressions{insert(tag)=>{script.insert-token(tag);}}
+                    Text{text:"Phong cách áp dụng cả lượt. Thẻ <laugh>, <cry>… tạo tiếng biểu cảm tại vị trí chèn.";color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
+                    Button{label:"Tạo giọng diễn cảm";primary:true;block:true;enabled:root.data.ready;clicked=>{root.action(30,0,"",0);}}
+                }
+                if root.data.mode==2 || root.data.mode==3:DialogSection {
+                    title:root.data.mode==2?"Thiết kế giọng mới":"Tái tạo giọng người nói";
+                    DialogRow{label:"Tên giọng";Field{value:root.data.name;max-length:100;edited(text)=>{root.action(50,0,text,0);}}}
+                    if root.data.mode==2:VerticalLayout {
+                        spacing:8px;
+                        StudioText{value:root.data.description;placeholder:"Mô tả nhân vật: chất giọng, độ tuổi, vùng miền, cách nói…";edited(text)=>{root.action(51,0,text,0);}splice(text,tag,at)=>{return root.insert-tag(text,tag,at);}}
+                        DialogRow{label:"Ngôn ngữ";Field{value:root.data.language;placeholder:"vi-VN";edited(text)=>{root.action(53,0,text,0);}}}
+                        DialogRow{label:"Giới tính giọng";Select{options:["Không chỉ định","Nữ","Nam","Trung tính"];current:root.data.gender;changed(i)=>{root.action(52,i,"",0);}}}
+                    }
+                    if root.data.mode==3:VerticalLayout {
+                        spacing:8px;
+                        Button{label:"Chọn mẫu giọng (10–30 giây)";block:true;clicked=>{root.action(54,0,"",0);}}
+                        Text{text:root.data.reference;color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
+                        Button{label:"Chọn bản ghi đồng ý của người nói";block:true;clicked=>{root.action(55,0,"",0);}}
+                        Text{text:root.data.consent;color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
+                        Text{text:"Hai bản ghi phải là giọng thật của cùng người trưởng thành. Bản đồng ý cần đọc câu Google yêu cầu, ví dụ tiếng Anh:";color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
+                        Text{text:"I am the owner of this voice and I consent to Google using this voice to create a synthetic voice model.";color:Theme.fg;font-size:Theme.fs;wrap:word-wrap;}
+                        DialogRow{label:"Tôi có quyền sử dụng và sự đồng ý của người nói";Switch{checked:root.data.rights;toggled(on)=>{root.action(57,on?1:0,"",0);}}}
+                        Text{text:"Bấm tạo sẽ gửi hai bản ghi tới Google để xác minh và tạo hồ sơ giọng lưu trên dự án.";color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
+                    }
+                    Button{label:root.data.mode==2?"Tạo giọng từ mô tả":"Gửi mẫu & tạo giọng";primary:true;block:true;enabled:root.data.ready && (root.data.mode==2 || root.data.rights);clicked=>{root.action(58,0,"",0);}}
+                    if root.data.created-id!="":VerticalLayout {
+                        Text{text:"Giọng đã tạo: " + root.data.created-id;color:Theme.fg;font-size:Theme.fs;wrap:word-wrap;}
+                        Field{value:root.data.text;placeholder:"Lời đọc thử";edited(text)=>{root.action(6,0,text,0);}}
+                        Button{label:"Tạo lời đọc thử với giọng A";block:true;clicked=>{root.action(59,0,"",0);}}
+                    }
+                }
+                if root.data.mode==4:DialogSection {
+                    title:"Thư viện giọng Gemini";
+                    DialogRow{label:"Ngôn ngữ";Field{value:root.data.filter-language;placeholder:"Tất cả hoặc vi-VN";edited(text)=>{root.action(41,0,text,0);}}}
+                    DialogRow{label:"Giới tính";Select{options:["Tất cả","Nữ","Nam","Trung tính"];current:root.data.filter-gender;changed(i)=>{root.action(42,i,"",0);}}}
+                    DialogRow{label:"Vùng / giọng";Field{value:root.data.filter-accent;placeholder:"Tên accent theo thư viện";edited(text)=>{root.action(43,0,text,0);}}}
+                    DialogRow{label:"Cao độ";Select{options:["Tất cả","Trầm","Vừa","Cao"];current:root.data.filter-pitch;changed(i)=>{root.action(44,i,"",0);}}}
+                    DialogRow{label:"Tìm tên / kiểu giọng";Field{value:root.data.filter-search;placeholder:"VD: warm, narrator…";edited(text)=>{root.action(45,0,text,0);}}}
+                    Button{label:"Tải / lọc thư viện";block:true;enabled:root.data.ready;clicked=>{root.action(40,0,"",0);}}
+                    Field{value:root.data.text;placeholder:"Câu dùng để nghe thử giọng";edited(text)=>{root.action(6,0,text,0);}}
+                    for voice[index] in root.data.library:VerticalLayout {
+                        spacing:6px;
+                        Text{text:voice.name;color:Theme.fg;font-size:Theme.fs;wrap:word-wrap;}
+                        Text{text:voice.detail;color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
+                        VerticalLayout {
+                            spacing:6px;
+                            Button{label:"Tạo mẫu nghe";clicked=>{root.action(47,index,"",0);}}
+                            Button{label:"Dùng cho A";clicked=>{root.action(46,index,"A",0);}}
+                            Button{label:"Dùng cho B";clicked=>{root.action(46,index,"B",0);}}
+                        }
+                        Rectangle{height:1px;background:Theme.line;}
+                    }
+                }
+            }
+        }
+        Text{text:root.data.message;color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
+        if root.data.busy:Button{label:"Dừng yêu cầu";clicked=>{root.action(2,0,"",0);}}
+        if !root.data.mobile:HorizontalLayout {
+            Button{label:"Nghe thử";enabled:root.data.has-preview && !root.data.busy;clicked=>{root.action(32,0,"",0);}}
+            Button{label:"Dừng nghe";ghost:true;clicked=>{root.action(34,0,"",0);}}
+            Button{label:"Lưu .WAV…";primary:true;enabled:root.data.has-preview && !root.data.busy;clicked=>{root.action(33,0,"",0);}}
+        }
+        if root.data.mobile:VerticalLayout {
+            spacing:6px;
+            Button{label:"Nghe thử";block:true;enabled:root.data.has-preview && !root.data.busy;clicked=>{root.action(32,0,"",0);}}
+            Button{label:"Dừng nghe";block:true;ghost:true;clicked=>{root.action(34,0,"",0);}}
+            Button{label:"Lưu .WAV…";block:true;primary:true;enabled:root.data.has-preview && !root.data.busy;clicked=>{root.action(33,0,"",0);}}
+        }
+    }
+}

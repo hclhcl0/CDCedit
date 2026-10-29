@@ -48,7 +48,7 @@ use crate::studio::Studio;
 use crate::ui::{NewVoiceData, SpeechSheetData};
 
 /// The default Kokoro speaker: `af_heart`.
-const DEFAULT_VOICE: i32 = 3;
+const DEFAULT_VOICE: i32 = 0;
 /// The default Pocket voice: Bria, the bundle's first recording.
 const DEFAULT_POCKET_VOICE: i32 = 1000;
 /// The default Chatterbox voice: the same recording, read by Chatterbox.
@@ -174,6 +174,7 @@ pub enum SpeechMsg {
     /// why not.
     DubbingAction(i32, i32, String, f32),
     DubFinished(u64, Box<Result<DubResult, String>>),
+    VoiceCatalog(Result<Vec<concat_speech::voice_catalog::Voice>, String>),
 }
 
 /// The Voices shelf's New voice sheet: a recording from the system's
@@ -524,6 +525,16 @@ impl SpeechPane {
             SpeechMsg::Progress(stage) => self.pace.report(stage),
             SpeechMsg::DubbingAction(action, index, text, value) => {
                 self.dub_action(action, index, text, value, studio)
+            }
+            SpeechMsg::VoiceCatalog(result) => {
+                self.dub.catalog_loading = false;
+                match result {
+                    Ok(voices) => {
+                        self.dub.catalog = voices;
+                        self.message.clear();
+                    }
+                    Err(error) => self.message = error,
+                }
             }
             SpeechMsg::DubFinished(generation, result) => {
                 self.dub_finished(generation, *result, studio)
@@ -1132,6 +1143,7 @@ fn voice_label(name: &str) -> (String, String) {
         None => String::new(),
     };
     let accent = match prefix.chars().next() {
+        Some('v') => "Tiếng Việt".to_owned(),
         Some('a') => t("speech.american"),
         Some('b') => t("speech.british"),
         Some('e') => t("speech.spanish"),

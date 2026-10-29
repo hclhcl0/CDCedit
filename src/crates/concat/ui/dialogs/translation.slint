@@ -1,0 +1,119 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+import { Theme } from "../theme/theme.slint";
+import { Glyph } from "../icons.slint";
+import { Modal,DialogSection,DialogRow,Button,Field } from "../primitives/modal.slint";
+import { Select } from "../primitives/select.slint";
+import { NumberField } from "../primitives/number-field.slint";
+import { Switch } from "../inspector/controls.slint";
+import { PaneScroll } from "../workspace/pane.slint";
+import { StudioText } from "gemini-studio.slint";
+export struct TranslationRowData {id:int,source:string,translated:string,speaker:int,timing:string,warning:string}
+export struct TranslationData {
+    open:bool,mobile:bool,busy:bool,media:bool,source-name:string,language:int,whisper:int,models:[string],
+    model:string,natural:bool,glossary:string,reviewed:bool,offset:float,message:string,
+    rows:[TranslationRowData],total:int,translated-count:int,page:int,pages:int,can-export:bool,ready:bool,has-project:bool,
+}
+component TranslationPair inherits Rectangle {
+    in property <bool> mobile;
+    in property <string> original;
+    in property <string> translated;
+    callback edited(text:string);
+    height:root.mobile?260px:140px;
+    VerticalLayout {
+        x:0;y:0;width:root.mobile?parent.width:(parent.width - 8px)/2;
+        height:root.mobile?120px:140px;spacing:4px;
+        Text{text:"Bản gốc";color:Theme.fg-muted;font-size:Theme.fs-sm;}
+        StudioText{value:root.original;read-only:true;}
+    }
+    VerticalLayout {
+        x:root.mobile?0px:(parent.width + 8px)/2;y:root.mobile?132px:0px;
+        width:root.mobile?parent.width:(parent.width - 8px)/2;height:root.mobile?120px:140px;spacing:4px;
+        Text{text:"Bản dịch tiếng Việt (có thể sửa)";color:Theme.fg-muted;font-size:Theme.fs-sm;}
+        StudioText{value:root.translated;placeholder:"Chưa dịch…";edited(text)=>{root.edited(text);}}
+    }
+}
+export component TranslationDialog inherits Modal {
+    in property <TranslationData> data;
+    callback action(action:int,index:int,text:string,value:float);
+    open:root.data.open;title:"Dịch phụ đề & lồng tiếng Việt";glyph:Glyph.text-mark;
+    surface-width:820px;dismissable:true;
+    closed=>{root.action(1,0,"",0);}
+    VerticalLayout {
+        spacing:8px;
+        PaneScroll {
+            height:Math.max(180px,Math.min(560px,root.height - 240px));finger:root.data.mobile;
+            VerticalLayout {
+                spacing:10px;
+                DialogSection {
+                    first:true;title:"1. Nạp phụ đề hoặc nhận dạng tiếng gốc";
+                    Button{label:"Chọn file SRT / video / audio…";block:true;clicked=>{root.action(3,0,"",0);}}
+                    Text{text:root.data.source-name;color:Theme.fg;font-size:Theme.fs;wrap:word-wrap;}
+                    DialogRow {label:"Ngôn ngữ nguồn";Select{options:["Tự nhận diện","Tiếng Anh","Tiếng Trung","Tiếng Nhật","Tiếng Hàn","Tiếng Pháp","Tiếng Đức","Tiếng Tây Ban Nha","Tiếng Nga","Tiếng Thái","Tiếng Indonesia","Tiếng Việt"];current:root.data.language;changed(i)=>{root.action(4,i,"",0);}}}
+                    if root.data.media:VerticalLayout {
+                        DialogRow{label:"Whisper Local";Select{options:root.data.models;current:root.data.whisper;placeholder:"Chưa tải model";changed(i)=>{root.action(6,i,"",0);}}}
+                        Button{label:"Nhận dạng tiếng gốc bằng Local";block:true;enabled:root.data.models.length>0;clicked=>{root.action(10,0,"",0);}}
+                    }
+                    Button{label:"Cài đặt model / API key";ghost:true;clicked=>{root.action(5,0,"",0);}}
+                    Text{text:"Local nhận dạng ngôn ngữ gốc, không ép sang tiếng Việt. Nạp SRT thì bỏ qua bước nhận dạng. SRT cần UTF-8.";color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
+                }
+                DialogSection {
+                    title:"2. Dịch sang tiếng Việt";
+                    DialogRow{label:"Kiểu dịch";Select{options:["Sát nghĩa","Tự nhiên để lồng tiếng"];current:root.data.natural?1:0;changed(i)=>{root.action(7,i,"",0);}}}
+                    Field{value:root.data.glossary;max-length:4000;placeholder:"Tên riêng, thuật ngữ, cách xưng hô…";edited(text)=>{root.action(8,0,text,0);}}
+                    Select{options:["Chọn mô hình dịch…","Gemini 3.6 Flash","Gemini 3.5 Flash-Lite","Gemini 2.5 Flash"];current:0;changed(i)=>{if(i>0){root.action(9,0,["","gemini-3.6-flash","gemini-3.5-flash-lite","gemini-2.5-flash"][i],0);}}}
+                    DialogRow{label:"Model ID";Field{value:root.data.model;max-length:120;edited(text)=>{root.action(9,0,text,0);}}}
+                    Text{text:"Dùng Gemini và danh sách key chung trong Cài đặt. Chỉ gửi văn bản phụ đề và thuật ngữ, không gửi video/audio ở bước dịch. Có thể phát sinh phí.";color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
+                    Button{label:"Dịch toàn bộ sang tiếng Việt";primary:true;block:true;enabled:root.data.total>0 && root.data.ready;clicked=>{root.action(11,0,"",0);}}
+                    if !root.data.ready:Text{text:"Cần Gemini API key để dịch; vẫn có thể nhận dạng và xuất bản gốc bằng Local.";color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
+                }
+                if root.data.total>0:DialogSection {
+                    title:"3. Đối chiếu và duyệt bản dịch";
+                    Text{text:"Đã có bản dịch: \{root.data.translated-count}/\{root.data.total} câu. Giữ nguyên lời gốc và mốc thời gian; cảnh báo độ dài chỉ là ước tính.";color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
+                    for row in root.data.rows:VerticalLayout {
+                        spacing:6px;
+                        if !root.data.mobile:HorizontalLayout {
+                            Text{text:"Câu \{row.id + 1} · " + row.timing;color:Theme.fg;font-size:Theme.fs;vertical-alignment:center;}
+                            Select{options:["Nhân vật A","Nhân vật B"];current:row.speaker;changed(i)=>{root.action(15,row.id,i==0?"A":"B",0);}}
+                        }
+                        if root.data.mobile:VerticalLayout {
+                            spacing:6px;
+                            Text{text:"Câu \{row.id + 1} · " + row.timing;color:Theme.fg;font-size:Theme.fs;wrap:word-wrap;}
+                            Select{options:["Nhân vật A","Nhân vật B"];current:row.speaker;changed(i)=>{root.action(15,row.id,i==0?"A":"B",0);}}
+                        }
+                        TranslationPair{mobile:root.data.mobile;original:row.source;translated:row.translated;edited(text)=>{root.action(13,row.id,text,0);}}
+                        if row.warning!="":Text{text:row.warning;color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
+                        HorizontalLayout {
+                            Button{label:"Dịch lại câu";enabled:root.data.ready;clicked=>{root.action(12,row.id,"",0);}}
+                            Button{label:"AI rút gọn";enabled:root.data.ready;clicked=>{root.action(14,row.id,"",0);}}
+                        }
+                        Rectangle{height:1px;background:Theme.line;}
+                    }
+                    HorizontalLayout {
+                        Button{label:"Trang trước";enabled:root.data.page>0;clicked=>{root.action(17,root.data.page - 1,"",0);}}
+                        Text{text:"\{root.data.page + 1}/\{root.data.pages}";color:Theme.fg-muted;font-size:Theme.fs;vertical-alignment:center;}
+                        Button{label:"Trang sau";enabled:root.data.page + 1<root.data.pages;clicked=>{root.action(17,root.data.page + 1,"",0);}}
+                    }
+                    DialogRow{label:"Tôi đã đối chiếu và duyệt bản dịch";Switch{checked:root.data.reviewed;toggled(on)=>{root.action(16,on?1:0,"",0);}}}
+                    DialogRow{label:"Bắt đầu trên timeline";NumberField{value:root.data.offset;minimum:0;precision:2;step:0.1;unit:"s";changed(v)=>{root.action(18,0,"",v);}}}
+                    Text{text:"Độ lệch chỉ dùng khi áp dụng phụ đề xuống timeline. Xuất SRT và lồng tiếng dùng mốc thời gian của file nguồn.";color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
+                    Button{label:"Áp dụng phụ đề Việt xuống timeline";block:true;enabled:root.data.can-export && root.data.has-project;clicked=>{root.action(23,0,"",0);}}
+                    Button{label:"Lồng tiếng theo mốc SRT (1 giọng)";block:true;enabled:root.data.can-export;clicked=>{root.action(24,0,"",0);}}
+                    Button{label:"Lồng tiếng A/B theo mốc SRT";block:true;enabled:root.data.can-export;clicked=>{root.action(25,0,"",0);}}
+                }
+            }
+        }
+        Text{text:root.data.message;color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
+        if root.data.busy:Button{label:"Dừng";clicked=>{root.action(2,0,"",0);}}
+        if !root.data.mobile:HorizontalLayout {
+            Button{label:"Lưu SRT Việt";primary:true;enabled:!root.data.busy && root.data.can-export;clicked=>{root.action(20,0,"",0);}}
+            Button{label:"SRT song ngữ";enabled:!root.data.busy && root.data.can-export;clicked=>{root.action(21,0,"",0);}}
+            Button{label:"SRT gốc";enabled:!root.data.busy && root.data.total>0;clicked=>{root.action(22,0,"",0);}}
+        }
+        if root.data.mobile:VerticalLayout {
+            spacing:6px;
+            Button{label:"Lưu SRT Việt";block:true;primary:true;enabled:!root.data.busy && root.data.can-export;clicked=>{root.action(20,0,"",0);}}
+            Button{label:"SRT song ngữ";block:true;enabled:!root.data.busy && root.data.can-export;clicked=>{root.action(21,0,"",0);}}
+            Button{label:"SRT gốc";block:true;enabled:!root.data.busy && root.data.total>0;clicked=>{root.action(22,0,"",0);}}
+        }
+    }
+}

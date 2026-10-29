@@ -126,6 +126,22 @@ impl Studio {
         self.request_preview();
     }
 
+    pub fn standalone_project_dir(&self) -> std::path::PathBuf {
+        if let Some(session) = self.session.as_ref() {
+            return std::path::PathBuf::from(session.path());
+        }
+        let dir = self.host.dirs.data.join("standalone-workspace");
+        let _ = std::fs::create_dir_all(&dir);
+        let manifest = dir.join("concat.json");
+        if !manifest.is_file() {
+            let _ = std::fs::write(
+                &manifest,
+                r#"{"concat":"0.3.2","name":"Standalone","video":{"width":1920,"height":1080,"rateNum":30,"rateDen":1}}"#,
+            );
+        }
+        dir
+    }
+
     /// A card on the Audio page was clicked: its sound plays through the
     /// speakers as a sound from the bin does, without being in the bin, or
     /// pauses when it is the one playing. `card` names it for its card's
@@ -137,13 +153,7 @@ impl Studio {
             self.source_toggle();
             return;
         }
-        let Some(project_dir) = self
-            .session
-            .as_ref()
-            .map(|session| std::path::PathBuf::from(session.path()))
-        else {
-            return;
-        };
+        let project_dir = self.standalone_project_dir();
         let summary = match concat_host::media::probe(&path.to_string_lossy()) {
             Ok(summary) => summary,
             Err(error) => {

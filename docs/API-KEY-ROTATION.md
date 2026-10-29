@@ -1,0 +1,9 @@
+# Shared API key pools
+
+In Settings → General, enter up to 32 Gemini keys or 32 ElevenLabs keys in the corresponding masked field, separated by semicolons or commas (pasted whitespace-separated lists also parse). The heading counts unique nonempty entries. Existing single-key settings remain compatible. Windows continues to encrypt the entire credential field with current-user DPAPI; no credentials are added to projects or activity logs. Other platforms retain their existing private settings storage policy.
+
+Gemini text correction/proposal requests, Gemini TTS and Gemini Live share the Gemini pool. ElevenLabs TTS and voice catalog retrieval share the ElevenLabs pool. Each request begins on the next key in its service pool. Each unique key is tried at most once per request, with failover only for explicit HTTP 401, 403 or 429 responses. Invalid models/voices (400/404), cancellation, timeouts and network failures stop immediately. All-key failure reports the count and a redacted error. Quotas may be shared across keys of the same project/account; multiple keys do not guarantee additional quota.
+
+A TTS chunk is retried only after an explicit rejected request; successful earlier chunks are retained. Gemini Live can switch keys while establishing the session, but does not replay the clip after an accepted session begins sending audio. ElevenLabs catalog pages stay on one key/account for the whole catalog request. Voice IDs and access must be compatible with every ElevenLabs account used for TTS.
+
+Rotation counters live only in memory and restart with the app. There is no automatic purchase, model change or retry loop beyond the configured key list. Failed keys are not permanently removed or disabled. Regression tests cover parsing/deduplication, bounded attempt order, redaction, cancellation and non-replay of ambiguous errors. No app build or live provider calls were run while builds are on hold.

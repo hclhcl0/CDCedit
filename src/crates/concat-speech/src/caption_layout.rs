@@ -27,6 +27,12 @@ fn lines(text: &str, columns: usize) -> Vec<String> {
             }
             line.push_str(&part.concat());
             length += size;
+            if length >= (columns / 2).max(8)
+                && word.ends_with(['.', '!', '?', ';', ':', ','])
+            {
+                result.push(std::mem::take(&mut line));
+                length = 0;
+            }
         }
     }
     if !line.is_empty() {

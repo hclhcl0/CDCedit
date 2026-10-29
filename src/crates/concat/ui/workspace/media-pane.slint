@@ -8,6 +8,7 @@ import { HairlineSplitter } from "splitter.slint";
 import { PaneKind, PaneSwitcher } from "pane-switcher.slint";
 import { TextAlignment } from "../timeline/model.slint";
 import { CatalogueEntryData, Library } from "../inspector/clip-inspector.slint";
+import { Button } from "../primitives/modal.slint";
 import { SearchField } from "../inspector/controls.slint";
 import { Select } from "../primitives/select.slint";
 import { Wave } from "../primitives/wave.slint";
@@ -1742,6 +1743,7 @@ export component MediaPane inherits Rectangle {
     changed jump-token => { root.tab = 0; }
 
     callback import-media();
+    callback import-link();
     callback filter-changed(filter: MediaFilter);
     /// The sort dropdown beside the import button picked a new order.
     callback sort-changed(index: int);
@@ -2428,6 +2430,7 @@ export component MediaPane inherits Rectangle {
                         busy: root.importing;
                         clicked => { root.import-media(); }
                     }
+                    Button { label:I18n.t("links.import"); ghost:true; clicked=>{root.import-link();} }
                     Rectangle { horizontal-stretch: 1; }
                     // Sort, and sort only: narrowing the bin by kind is the
                     // sidebar's, where each kind carries its count and the

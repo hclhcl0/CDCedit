@@ -45,7 +45,7 @@ use concat_host::{AppDirs, SingleFlight, projects};
 use serde::{Deserialize, Serialize};
 use sherpa_onnx::{
     GenerationConfig, OfflineTts, OfflineTtsConfig, OfflineTtsKokoroModelConfig,
-    OfflineTtsModelConfig, OfflineTtsPocketModelConfig,
+    OfflineTtsModelConfig, OfflineTtsPocketModelConfig, OfflineTtsVitsModelConfig,
 };
 
 use crate::{DownloadProgress, JobStage};
@@ -99,83 +99,82 @@ struct KnownModel {
 /// conversion of Kyutai's 100M model: English, and it reads in any voice
 /// it is given a few seconds of.
 const KNOWN_MODELS: &[KnownModel] = &[
-    #[cfg(feature = "chatterbox")]
     KnownModel {
-        id: crate::chatterbox::BUNDLE_ID,
-        label: "Chatterbox Turbo (studio)",
-        blurb: "The closest to a studio voice; reads in Pocket's recordings or any sample of your own. English, slow, a gigabyte.",
-        approx_bytes: crate::chatterbox::BUNDLE_BYTES,
-        // Nine files, each checked against its own digest in
-        // `chatterbox::FILES`; this row never reaches `verify`.
-        sha256: "",
+        id: "vits-piper-vi_VN-vais1000-medium",
+        label: "Piper Tiếng Việt — VAIS-1000 (Chuẩn 22kHz — Tốt nhất)",
+        blurb: "Giọng nữ miền Bắc chuẩn (22 kHz), chất lượng cao nhất ở chế độ Local (~67 MB).",
+        approx_bytes: 67_154_040,
+        sha256: "fa1367710767d36ed5cf13b4a449e20c35ffd12791c2e47c2e64142bfa55551a",
     },
     KnownModel {
-        id: POCKET_ID,
-        label: "Pocket TTS (cloning)",
-        blurb: "Reads in any voice, including one from a clip on the timeline. English.",
-        approx_bytes: 98_336_520,
-        sha256: "2f3b88823cbbb9bf0b2477ec8ae7b3fec417b3a87b6bb5f256dba66f2ad967cb",
+        id: "vits-piper-vi_VN-vivos-x_low",
+        label: "Piper Tiếng Việt — VIVOS Đa giọng (Chuẩn)",
+        blurb: "Bộ 65 giọng đọc tiếng Việt (Bắc/Nam), bản đầy đủ (~33 MB).",
+        approx_bytes: 33_409_065,
+        sha256: "bee4ce76bdf4cc82c17b451c40d6244c5e87d2e847703ab4986c3243c43f8a5d",
     },
     KnownModel {
-        id: "kokoro-int8-multi-lang-v1_0",
-        label: "Kokoro (compact)",
-        blurb: "The recommended build: same voices, a third of the download.",
-        approx_bytes: 132_353_410,
-        sha256: "72c347230107ef8a31098ec4d468a605244beef5f1ed00db97efa13518800653",
+        id: "vits-piper-vi_VN-vais1000-medium-int8",
+        label: "Piper Tiếng Việt — VAIS-1000 (Nhanh / int8)",
+        blurb: "Giọng nữ miền Bắc chuẩn (22 kHz), bản nén int8 nhẹ (~22 MB), tốc độ cao.",
+        approx_bytes: 21_574_925,
+        sha256: "60e8b82a27cfb9bfa527f5789f0879d02ec73a7397659973b937c823c326d5dd",
     },
     KnownModel {
-        id: "kokoro-multi-lang-v1_0",
-        label: "Kokoro (full precision)",
-        blurb: "Bit-perfect weights for the skeptical; rarely audibly better.",
-        approx_bytes: 349_886_476,
-        sha256: "60703707bc05ccd48d60e1eb723f38b07d6e474795a0b6a588d7220400e0f7a4",
+        id: "vits-piper-vi_VN-vivos-x_low-int8",
+        label: "Piper Tiếng Việt — VIVOS Đa giọng (Nhanh / int8)",
+        blurb: "Bộ 65 giọng đọc tiếng Việt (Bắc/Nam), bản nén int8 siêu nhẹ (~15 MB).",
+        approx_bytes: 14_683_150,
+        sha256: "dcbae732d8f8b574f66e3fb147d9210cf4bbeadaec498308dcddb85e5bf0122f",
+    },
+    KnownModel {
+        id: "vits-piper-vi_VN-25hours_single-low",
+        label: "Piper Tiếng Việt — 25Hours (Chuẩn)",
+        blurb: "Giọng đọc tiếng Việt 25Hours bản đầy đủ (~67 MB).",
+        approx_bytes: 67_059_380,
+        sha256: "8aa8bbe88a1cb26ef4f33de56fced1720e72ec00491d23a3551de25a53c75149",
+    },
+    KnownModel {
+        id: "vits-piper-vi_VN-25hours_single-low-int8",
+        label: "Piper Tiếng Việt — 25Hours (Nhanh / int8)",
+        blurb: "Giọng đọc tiếng Việt 25Hours bản nén int8 nhẹ (~21 MB).",
+        approx_bytes: 21_222_102,
+        sha256: "88df4b7fdff4bd441f1f1fa9f4b4d0f03b8777d69fd0d423912e3f78bba57312",
     },
 ];
 
-/// The speakers we offer, by Kokoro v1.0 speaker id.
-///
-/// The model bundles 53 voices across nine languages, but its lexicons (and
-/// sherpa's text frontend) only genuinely cover English and Chinese, so only
-/// those are listed. The name encodes accent and gender - `af` American
-/// female, `bm` British male, `zf` Chinese female - which the caller decodes
-/// for display rather than us shipping 36 label strings.
+/// Vietnamese speakers for local Piper VITS models (0 is default for single-speaker VAIS/25Hours and VIVOS #1; 0..29 for VIVOS multi-speaker).
 const VOICES: &[(i32, &str)] = &[
-    (0, "af_alloy"),
-    (1, "af_aoede"),
-    (2, "af_bella"),
-    (3, "af_heart"),
-    (4, "af_jessica"),
-    (5, "af_kore"),
-    (6, "af_nicole"),
-    (7, "af_nova"),
-    (8, "af_river"),
-    (9, "af_sarah"),
-    (10, "af_sky"),
-    (11, "am_adam"),
-    (12, "am_echo"),
-    (13, "am_eric"),
-    (14, "am_fenrir"),
-    (15, "am_liam"),
-    (16, "am_michael"),
-    (17, "am_onyx"),
-    (18, "am_puck"),
-    (19, "am_santa"),
-    (20, "bf_alice"),
-    (21, "bf_emma"),
-    (22, "bf_isabella"),
-    (23, "bf_lily"),
-    (24, "bm_daniel"),
-    (25, "bm_fable"),
-    (26, "bm_george"),
-    (27, "bm_lewis"),
-    (45, "zf_xiaobei"),
-    (46, "zf_xiaoni"),
-    (47, "zf_xiaoxiao"),
-    (48, "zf_xiaoyi"),
-    (49, "zm_yunjian"),
-    (50, "zm_yunxi"),
-    (51, "zm_yunxia"),
-    (52, "zm_yunyang"),
+    (0, "vf_Mai (Mặc định / VAIS / VIVOS #1)"),
+    (1, "vm_Minh (VIVOS #2)"),
+    (2, "vf_Lan (VIVOS #3)"),
+    (3, "vf_Hương (VIVOS #4)"),
+    (4, "vm_Nam (VIVOS #5)"),
+    (5, "vf_Linh (VIVOS #6)"),
+    (6, "vm_Hùng (VIVOS #7)"),
+    (7, "vf_Hà (VIVOS #8)"),
+    (8, "vm_Tuấn (VIVOS #9)"),
+    (9, "vf_Ngọc (VIVOS #10)"),
+    (10, "vm_Đức (VIVOS #11)"),
+    (11, "vf_Trang (VIVOS #12)"),
+    (12, "vm_Kiên (VIVOS #13)"),
+    (13, "vf_Thảo (VIVOS #14)"),
+    (14, "vm_Long (VIVOS #15)"),
+    (15, "vf_Phương (VIVOS #16)"),
+    (16, "vm_Quân (VIVOS #17)"),
+    (17, "vf_Yến (VIVOS #18)"),
+    (18, "vm_Bình (VIVOS #19)"),
+    (19, "vf_Châu (VIVOS #20)"),
+    (20, "vm_Khánh (VIVOS #21)"),
+    (21, "vf_Thư (VIVOS #22)"),
+    (22, "vm_Hoàng (VIVOS #23)"),
+    (23, "vf_Tâm (VIVOS #24)"),
+    (24, "vm_Dũng (VIVOS #25)"),
+    (25, "vf_Nhung (VIVOS #26)"),
+    (26, "vm_Sơn (VIVOS #27)"),
+    (27, "vf_Vân (VIVOS #28)"),
+    (28, "vm_Tùng (VIVOS #29)"),
+    (29, "vf_Oanh (VIVOS #30)"),
 ];
 
 /// The voices Pocket TTS offers, by our own id, out of Kokoro's range.
@@ -277,10 +276,21 @@ fn models_dir(dirs: &AppDirs) -> Result<PathBuf, String> {
     Ok(dir)
 }
 
+fn is_safe_model_id(id: &str) -> bool {
+    !id.is_empty()
+        && !id.starts_with('.')
+        && !id.contains("..")
+        && !id.contains('/')
+        && !id.contains('\\')
+}
+
 fn model_dir(dirs: &AppDirs, id: &str) -> Result<PathBuf, String> {
-    // Ids come from our own table; anything else is a bug, not input.
-    known(id).ok_or_else(|| format!("unknown model {id:?}"))?;
-    Ok(models_dir(dirs)?.join(id))
+    let path = models_dir(dirs)?.join(id);
+    if known(id).is_some() || (is_safe_model_id(id) && path.is_dir()) {
+        Ok(path)
+    } else {
+        Err(format!("unknown model {id:?}"))
+    }
 }
 
 /// The `.onnx` network inside an unpacked bundle. Located by scanning rather
@@ -550,19 +560,48 @@ impl Speech {
     /// Models and voices, for the settings panel and the speech dialog.
     pub fn status(dirs: &AppDirs) -> Result<TtsStatus, String> {
         let dir = models_dir(dirs)?;
+        let mut models: Vec<ModelStatus> = KNOWN_MODELS
+            .iter()
+            .map(|model| ModelStatus {
+                id: model.id.to_owned(),
+                family: family_of(model.id),
+                label: model.label.to_owned(),
+                blurb: model.blurb.to_owned(),
+                size_bytes: model.approx_bytes,
+                downloaded: model_downloaded(dirs, model.id),
+            })
+            .collect();
+        if let Ok(entries) = std::fs::read_dir(&dir) {
+            let mut custom: Vec<ModelStatus> = entries
+                .flatten()
+                .filter_map(|entry| {
+                    let path = entry.path();
+                    if !path.is_dir() {
+                        return None;
+                    }
+                    let id = path.file_name()?.to_str()?;
+                    if !is_safe_model_id(id) || known(id).is_some() {
+                        return None;
+                    }
+                    let onnx = onnx_file(&path)?;
+                    let size_bytes = std::fs::metadata(&onnx).map(|m| m.len()).unwrap_or(0);
+                    Some(ModelStatus {
+                        id: id.to_owned(),
+                        family: family_of(id),
+                        label: format!("Thủ công: {id}"),
+                        blurb: "Mô hình TTS (.onnx) thêm thủ công trong thư mục tts-models."
+                            .to_owned(),
+                        size_bytes,
+                        downloaded: true,
+                    })
+                })
+                .collect();
+            custom.sort_by(|a, b| a.id.cmp(&b.id));
+            models.extend(custom);
+        }
         Ok(TtsStatus {
             models_dir: dir.to_string_lossy().into_owned(),
-            models: KNOWN_MODELS
-                .iter()
-                .map(|model| ModelStatus {
-                    id: model.id.to_owned(),
-                    family: family_of(model.id),
-                    label: model.label.to_owned(),
-                    blurb: model.blurb.to_owned(),
-                    size_bytes: model.approx_bytes,
-                    downloaded: model_downloaded(dirs, model.id),
-                })
-                .collect(),
+            models,
             voices: VOICES
                 .iter()
                 .map(|(id, name)| VoiceInfo {
@@ -963,7 +1002,7 @@ impl Speech {
         // recording, decoded here to what the model listens at.
         let generation = match family {
             Family::Kokoro => GenerationConfig {
-                sid: request.voice,
+                sid: request.voice.clamp(0, (tts.num_speakers() - 1).max(0)),
                 speed,
                 silence_scale,
                 ..Default::default()
@@ -1245,32 +1284,52 @@ fn load_kokoro(dir: &Path, accelerated: bool) -> Result<OfflineTts, String> {
         let path = dir.join(name);
         path.is_file().then(|| path.to_string_lossy().into_owned())
     };
-    let lexicon: Vec<String> = ["lexicon-us-en.txt", "lexicon-zh.txt"]
-        .iter()
-        .filter_map(|name| existing(name))
-        .collect();
+    let data_dir = {
+        let data = dir.join("espeak-ng-data");
+        data.is_dir().then(|| data.to_string_lossy().into_owned())
+    };
+    let dict_dir = {
+        let dict = dir.join("dict");
+        dict.is_dir().then(|| dict.to_string_lossy().into_owned())
+    };
 
-    let config = OfflineTtsConfig {
-        model: OfflineTtsModelConfig {
+    let model = if dir.join("voices.bin").is_file() {
+        let lexicon: Vec<String> = ["lexicon-us-en.txt", "lexicon-zh.txt"]
+            .iter()
+            .filter_map(|name| existing(name))
+            .collect();
+        OfflineTtsModelConfig {
             kokoro: OfflineTtsKokoroModelConfig {
                 model: Some(network.to_string_lossy().into_owned()),
                 voices: existing("voices.bin"),
                 tokens: existing("tokens.txt"),
-                data_dir: {
-                    let data = dir.join("espeak-ng-data");
-                    data.is_dir().then(|| data.to_string_lossy().into_owned())
-                },
-                dict_dir: {
-                    let dict = dir.join("dict");
-                    dict.is_dir().then(|| dict.to_string_lossy().into_owned())
-                },
+                data_dir,
+                dict_dir,
                 lexicon: (!lexicon.is_empty()).then(|| lexicon.join(",")),
                 ..Default::default()
             },
             num_threads: threads(),
             provider: Some(provider(accelerated).to_owned()),
             ..Default::default()
-        },
+        }
+    } else {
+        OfflineTtsModelConfig {
+            vits: OfflineTtsVitsModelConfig {
+                model: Some(network.to_string_lossy().into_owned()),
+                tokens: existing("tokens.txt"),
+                data_dir,
+                dict_dir,
+                lexicon: existing("lexicon.txt"),
+                ..Default::default()
+            },
+            num_threads: threads(),
+            provider: Some(provider(accelerated).to_owned()),
+            ..Default::default()
+        }
+    };
+
+    let config = OfflineTtsConfig {
+        model,
         ..Default::default()
     };
 

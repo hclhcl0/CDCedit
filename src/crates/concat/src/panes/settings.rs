@@ -279,7 +279,7 @@ impl SettingsPane {
                     .languages
                     .iter()
                     .position(|language| {
-                        Some(language.code.as_str()) == studio.prefs.locale.as_deref()
+                        language.code.as_str() == studio.prefs.locale.as_deref().unwrap_or("vi")
                     })
                     .unwrap_or(0);
                 self.playhead_stops = studio.prefs.playhead_stops_at_end;
@@ -965,7 +965,11 @@ impl SettingsPane {
             capturing: self.capturing.clone().unwrap_or_default().into(),
             language: self.language as i32,
             gemini_api_key: studio.prefs.gemini_api_key.expose().into(),
+            gemini_key_count: concat_speech::api_keys::parse(studio.prefs.gemini_api_key.expose())
+                .len() as i32,
             eleven_api_key: studio.prefs.eleven_api_key.expose().into(),
+            eleven_key_count: concat_speech::api_keys::parse(studio.prefs.eleven_api_key.expose())
+                .len() as i32,
             log_level: LOG_LEVELS
                 .iter()
                 .position(|level| *level == log::max_level())

@@ -17,9 +17,12 @@
 //! (sherpa-onnx's static libraries) stays out of everything that does not
 //! speak.
 
+pub mod api_keys;
 #[cfg(feature = "chatterbox")]
 pub mod chatterbox;
+pub mod gemini_studio;
 pub mod transcribe;
+pub mod translation;
 pub mod tts;
 
 pub use transcribe::Transcriber;
@@ -123,3 +126,5 @@ pub mod cloud_tts;
 pub mod dubbing;
 
 pub mod caption_layout;
+
+pub mod voice_catalog;

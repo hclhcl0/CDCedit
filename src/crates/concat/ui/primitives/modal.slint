@@ -132,7 +132,7 @@ export component Modal inherits Rectangle {
 
         body := VerticalLayout {
             Rectangle {
-                height: 42px;
+                height: root.fill ? 50px : 42px;
 
                 // What drags a floating card, under the title and the ×.
                 if root.floating: TouchArea {
@@ -185,8 +185,8 @@ export component Modal inherits Rectangle {
                     if root.dismissable || root.floating: VerticalLayout {
                         alignment: center;
                         Rectangle {
-                            width: 26px;
-                            height: 26px;
+                            width: root.fill ? 44px : 26px;
+                            height: root.fill ? 44px : 26px;
                             border-radius: Theme.r-sm;
                             background: shut.has-hover ? Theme.field : Colors.transparent;
 
@@ -211,9 +211,9 @@ export component Modal inherits Rectangle {
                 // note and the close button leave over — the same trick the
                 // window's own title bar uses for the project name.
                 centre := HorizontalLayout {
-                    x: (parent.width - self.preferred-width) / 2;
+                    x: root.fill ? 14px : (parent.width - self.preferred-width) / 2;
                     y: 0;
-                    width: self.preferred-width;
+                    width: root.fill ? parent.width - 72px : self.preferred-width;
                     height: parent.height;
                     spacing: 8px;
 
@@ -228,6 +228,7 @@ export component Modal inherits Rectangle {
 
                     Text {
                         text: root.title;
+                        overflow: elide;
                         color: Theme.fg;
                         font-size: Theme.fs-lg;
                         font-weight: Theme.weight-title;
@@ -701,6 +702,17 @@ export component Field inherits Rectangle {
     in property <int> max-length;
 
     callback edited(text: string);
+    /// Optional text splice supplied by the narration editor for inline vocal events.
+    pure callback splice-token(text: string, token: string, at: int) -> string;
+    public function insert-token(token: string) {
+        let at = input.cursor-position-byte-offset;
+        root.draft = root.splice-token(root.draft, token, at);
+        root.kept = root.draft;
+        root.edited(root.draft);
+        input.focus();
+        input.set-selection-offsets(at + token.character-count + 1, at + token.character-count + 1);
+    }
+
 
     // A layout owns its children's size on both axes: it reads min, preferred
     // and max, and a bare `height` is none of those. Without a max the row

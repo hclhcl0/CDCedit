@@ -895,6 +895,47 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
     // the dialog is asked on a turn of its own with the studio unborrowed;
     // a phone's picker is another screen, and its files come back later.
     // See `host::pick_files_then`.
+    editor.on_import_link(on_window!(|state| {
+        state.handle(Msg::Links(crate::panes::link_import::LinkMsg::Action(
+            0,
+            0,
+            String::new(),
+        )));
+    }));
+    app.on_translation_action(on_window!(
+        |state, action: i32, index: i32, text: SharedString, value: f32| {
+            state.handle(Msg::Translation(
+                crate::panes::translation::TranslationMsg::Action(
+                    action,
+                    index,
+                    text.to_string(),
+                    value,
+                ),
+            ));
+        }
+    ));
+    app.on_gemini_studio_action(on_window!(
+        |state, action: i32, index: i32, text: SharedString, value: f32| {
+            state.handle(Msg::Gemini(crate::panes::gemini_studio::GeminiMsg::Action(
+                action,
+                index,
+                text.to_string(),
+                value,
+            )));
+        }
+    ));
+    app.on_gemini_studio_insert_tag(|text: SharedString, tag: SharedString, at: i32| {
+        panes::speech::insert_tag(text.as_str(), tag.as_str(), at.max(0) as usize).into()
+    });
+    app.on_link_import_action(on_window!(
+        |state, action: i32, index: i32, text: slint::SharedString| {
+            state.handle(Msg::Links(crate::panes::link_import::LinkMsg::Action(
+                action,
+                index,
+                text.to_string(),
+            )));
+        }
+    ));
     editor.on_import_media(|| {
         Shell::with(|shell, _| {
             if shell.studio.borrow().session.is_none() {
@@ -2235,6 +2276,18 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
     }));
     app.on_captions_gemini_language_changed(on_window!(|state, index: i32| {
         state.handle(Msg::Captions(CaptionsMsg::GeminiLanguageChanged(index)));
+    }));
+    app.on_captions_gemini_proofread_toggled(on_window!(|state, on: bool| {
+        state.handle(Msg::Captions(CaptionsMsg::GeminiProofreadToggled(on)));
+    }));
+    app.on_captions_glossary_edited(on_window!(|state, text: slint::SharedString| {
+        state.handle(Msg::Captions(CaptionsMsg::GlossaryEdited(text.to_string())));
+    }));
+    app.on_captions_review_choice(on_window!(|state, index: i32, choice: i32| {
+        state.handle(Msg::Captions(CaptionsMsg::ReviewChoice(index, choice)));
+    }));
+    app.on_captions_review_apply(on_window!(|state, use_choices: bool| {
+        state.handle(Msg::Captions(CaptionsMsg::ReviewApply(use_choices)));
     }));
     app.on_captions_model_changed(on_window!(|state, index: i32| {
         state.handle(Msg::Captions(CaptionsMsg::ModelChanged(index)));

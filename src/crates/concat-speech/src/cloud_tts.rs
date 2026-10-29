@@ -10,10 +10,16 @@ use std::{
 };
 
 /// Settings supported by the selected cloud model; not project state.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct VoiceOptions {
     pub delivery: String,
+    /// Sampling temperature for Gemini speech generation.
+    pub temperature: f32,
+    /// Vietnamese accent instruction: 0 default, 1 north, 2 central, 3 south.
+    pub accent: i32,
+    /// Gemini speaking style preset.
+    pub delivery_preset: i32,
     pub stability: f32,
     pub similarity: f32,
     pub style: f32,
@@ -24,6 +30,9 @@ impl Default for VoiceOptions {
     fn default() -> Self {
         Self {
             delivery: String::new(),
+            temperature: 1.0,
+            accent: 0,
+            delivery_preset: 0,
             stability: 0.5,
             similarity: 0.75,
             style: 0.0,
@@ -32,7 +41,12 @@ impl Default for VoiceOptions {
         }
     }
 }
-pub const GEMINI_MODELS: &[&str] = &["gemini-3.8-flash-tts", "gemini-3.8-flash-lite-tts"];
+pub const GEMINI_MODELS: &[&str] = &[
+    "gemini-3.8-flash-tts",
+    "gemini-3.8-flash-lite-tts",
+    "gemini-2.5-flash-preview-tts",
+    "gemini-2.5-pro-preview-tts",
+];
 pub const ELEVEN_MODELS: &[&str] = &[
     "eleven_v3",
     "eleven_v4",
@@ -140,7 +154,20 @@ fn script_chunks(text: &str, limit: usize) -> Result<Vec<String>, String> {
     let mut chunks = Vec::new();
     let mut current = String::new();
     let mut count = 0;
-    for word in text.split_whitespace() {
+    // Keep inline vocal events such as <short pause> together across requests.
+    let mut in_tag = false;
+    for word in text
+        .split(|c: char| {
+            if c == '<' {
+                in_tag = true;
+            }
+            if c == '>' {
+                in_tag = false;
+            }
+            c.is_whitespace() && !in_tag
+        })
+        .filter(|word| !word.is_empty())
+    {
         let size = word.chars().count();
         if size > limit {
             return Err("A word is longer than the speech service limit".into());
@@ -165,6 +192,28 @@ fn script_chunks(text: &str, limit: usize) -> Result<Vec<String>, String> {
     Ok(chunks)
 }
 fn synthesize_one(
+    provider: i32,
+    keys: &str,
+    model: &str,
+    voice: &str,
+    text: &str,
+    previous: &str,
+    project: &str,
+    cancel: &AtomicBool,
+    options: &VoiceOptions,
+) -> Result<PathBuf, String> {
+    let pool = match provider {
+        1 => crate::api_keys::Provider::Gemini,
+        2 => crate::api_keys::Provider::ElevenLabs,
+        _ => return Err("Unknown TTS provider".into()),
+    };
+    crate::api_keys::with_keys(pool, keys, cancel, |key| {
+        synthesize_one_key(
+            provider, key, model, voice, text, previous, project, cancel, options,
+        )
+    })
+}
+fn synthesize_one_key(
     provider: i32,
     key: &str,
     model: &str,
@@ -191,19 +240,9 @@ fn synthesize_one(
     {
         return Err("Invalid voice name or voice ID".into());
     }
-    let mut part = json!({"type":"text","text":text});
-    if !options.delivery.trim().is_empty() {
-        part["annotations"] = json!([{"type":"speech_metadata", "style":options.delivery.trim()}]);
-    }
     let (url, header, body) = if provider == 1 {
-        (
-            "https://generativelanguage.googleapis.com/v1beta/interactions".to_owned(),
-            "x-goog-api-key",
-            json!({
-                "model": model, "input": [{"type":"user_input","content":[part]}],
-                "response_format":{"type":"audio"}, "generation_config":{"speech_config":[{"voice":voice}]}
-            }),
-        )
+        let (url, body) = gemini_request(model, voice, text, options)?;
+        (url, "x-goog-api-key", body)
     } else if provider == 2 {
         (
             format!("https://api.elevenlabs.io/v1/text-to-speech/{voice}?output_format=pcm_24000"),
@@ -224,12 +263,7 @@ fn synthesize_one(
         .set(header, key.trim())
         .set("Content-Type", "application/json")
         .send_bytes(&body)
-        .map_err(|error| match error {
-            ureq::Error::Status(code, _) => format!(
-                "TTS service returned HTTP {code}. Check the API key, model, voice and quota."
-            ),
-            _ => "Could not reach the TTS service. Check your network or retry.".into(),
-        })?;
+        .map_err(|error| crate::api_keys::http_error("TTS service", error))?;
     let mut bytes = Vec::new();
     response
         .into_reader()
@@ -241,7 +275,12 @@ fn synthesize_one(
         return Err("TTS response is too large".into());
     }
     let wav = if provider == 1 {
-        gemini_audio(&serde_json::from_slice(&bytes).map_err(|_| "Invalid Gemini TTS response")?)?
+        let response = serde_json::from_slice(&bytes).map_err(|_| "Invalid Gemini TTS response")?;
+        if is_gemini_25(model) {
+            gemini_25_audio(&response)?
+        } else {
+            gemini_audio(&response)?
+        }
     } else {
         pcm_wav(&bytes, 24_000)?
     };
@@ -249,7 +288,98 @@ fn synthesize_one(
     std::fs::write(&file, wav).map_err(|e| e.to_string())?;
     Ok(file)
 }
-fn gemini_audio(response: &Value) -> Result<Vec<u8>, String> {
+fn is_gemini_25(model: &str) -> bool {
+    matches!(
+        model,
+        "gemini-2.5-flash-preview-tts" | "gemini-2.5-pro-preview-tts"
+    )
+}
+fn gemini_request(
+    model: &str,
+    voice: &str,
+    text: &str,
+    options: &VoiceOptions,
+) -> Result<(String, Value), String> {
+    if !options.temperature.is_finite() || !(0.0..=2.0).contains(&options.temperature) {
+        return Err("Temperature must be between 0 and 2.".into());
+    }
+    if is_gemini_25(model) {
+        let prompt = if options.delivery.trim().is_empty() {
+            text.to_owned()
+        } else {
+            format!(
+                "Read aloud exactly the transcript below. Do not read the instructions. Delivery instructions: {}\n\nTranscript:\n{}",
+                options.delivery.trim(),
+                text
+            )
+        };
+        Ok((
+            format!(
+                "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+            ),
+            json!({"contents":[{"role":"user","parts":[{"text":prompt}]}],"generationConfig":{
+                "temperature":options.temperature,"responseModalities":["AUDIO"],
+                "speechConfig":{"voiceConfig":{"prebuiltVoiceConfig":{"voiceName":voice}}}
+            }}),
+        ))
+    } else {
+        let mut part = json!({"type":"text","text":text});
+        if !options.delivery.trim().is_empty() {
+            part["annotations"] =
+                json!([{"type":"speech_metadata","style":options.delivery.trim()}]);
+        }
+        Ok((
+            "https://generativelanguage.googleapis.com/v1beta/interactions".into(),
+            json!({
+                "model":model,"input":[{"type":"user_input","content":[part]}],"response_format":{"type":"audio"},
+                "generation_config":{"temperature":options.temperature,"speech_config":[{"voice":voice}]}
+            }),
+        ))
+    }
+}
+fn gemini_25_audio(response: &Value) -> Result<Vec<u8>, String> {
+    let candidate = response["candidates"]
+        .as_array()
+        .and_then(|c| c.first())
+        .ok_or("Gemini returned no audio candidate. Check quota and safety restrictions.")?;
+    let mut pcm = Vec::new();
+    for part in candidate["content"]["parts"]
+        .as_array()
+        .into_iter()
+        .flatten()
+    {
+        let Some(audio) = part.get("inlineData").or_else(|| part.get("inline_data")) else {
+            continue;
+        };
+        let mime = audio
+            .get("mimeType")
+            .or_else(|| audio.get("mime_type"))
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        if !mime.starts_with("audio/L16;") && !mime.starts_with("audio/pcm;") {
+            return Err("Unexpected Gemini 2.5 audio format.".into());
+        }
+        if !mime.split(';').any(|p| p.trim() == "rate=24000") {
+            return Err("Expected Gemini 2.5 mono 24 kHz PCM.".into());
+        }
+        if mime
+            .split(';')
+            .any(|p| p.trim().starts_with("channels=") && p.trim() != "channels=1")
+        {
+            return Err("Expected mono Gemini audio.".into());
+        }
+        let data = audio["data"]
+            .as_str()
+            .ok_or("Gemini audio data is missing")?;
+        pcm.extend(
+            STANDARD
+                .decode(data)
+                .map_err(|_| "Invalid Gemini audio encoding")?,
+        );
+    }
+    pcm_wav(&pcm, 24_000)
+}
+pub(crate) fn gemini_audio(response: &Value) -> Result<Vec<u8>, String> {
     let audio = response
         .get("steps")
         .and_then(Value::as_array)
@@ -307,6 +437,50 @@ pub fn write_wav(path: &Path, samples: &[f32], rate: u32) -> Result<(), String> 
 mod tests {
     use super::*;
     #[test]
+    fn gemini_versions_use_their_own_protocol_and_temperature() {
+        let mut options = VoiceOptions::default();
+        options.temperature = 0.35;
+        options.delivery = "Warm narration".into();
+        let (url, body) =
+            gemini_request("gemini-2.5-flash-preview-tts", "Kore", "Xin chào", &options).unwrap();
+        assert!(url.ends_with("gemini-2.5-flash-preview-tts:generateContent"));
+        assert!((body["generationConfig"]["temperature"].as_f64().unwrap() - 0.35).abs() < 0.0001);
+        assert_eq!(
+            body["generationConfig"]["speechConfig"]["voiceConfig"]["prebuiltVoiceConfig"]["voiceName"],
+            "Kore"
+        );
+        assert!(
+            body["contents"][0]["parts"][0]["text"]
+                .as_str()
+                .unwrap()
+                .ends_with("Xin chào")
+        );
+        let (url, body) =
+            gemini_request("gemini-3.8-flash-tts", "Kore", "Xin chào", &options).unwrap();
+        assert!(url.ends_with("/interactions"));
+        assert_eq!(body["input"][0]["content"][0]["text"], "Xin chào");
+        assert!(body["generation_config"]["temperature"].is_number());
+        options.temperature = f32::NAN;
+        assert!(gemini_request("gemini-2.5-pro-preview-tts", "Kore", "test", &options).is_err());
+        let restored: VoiceOptions = serde_json::from_str("{}").unwrap();
+        assert_eq!(restored.temperature, 1.0);
+    }
+    #[test]
+    fn gemini_25_pcm_is_wrapped_and_text_only_or_wrong_rate_rejected() {
+        let response = json!({"candidates":[{"content":{"parts":[{"inlineData":{"mimeType":"audio/L16;codec=pcm;rate=24000", "data":STANDARD.encode([1,0,2,0])}}]}}]});
+        let wav = gemini_25_audio(&response).unwrap();
+        assert_eq!(&wav[44..], &[1, 0, 2, 0]);
+        assert_eq!(&wav[..4], b"RIFF");
+        assert!(
+            gemini_25_audio(&json!({"candidates":[{"content":{"parts":[{"text":"no audio"}]}}]}))
+                .is_err()
+        );
+        let mut bad = response;
+        bad["candidates"][0]["content"]["parts"][0]["inlineData"]["mimeType"] =
+            json!("audio/L16;rate=16000");
+        assert!(gemini_25_audio(&bad).is_err());
+    }
+    #[test]
     fn model_capabilities_filter_request_settings() {
         let options = VoiceOptions {
             stability: 0.66,
@@ -362,6 +536,23 @@ mod tests {
             .unwrap_err()
             .contains("cancelled")
         );
+    }
+    #[test]
+    fn inline_vocal_tags_survive_chunking_and_gemini_request() {
+        let text = "Xin <short pause> chào <laugh>";
+        let chunks = script_chunks(text, 16).unwrap();
+        assert_eq!(chunks.join(" "), text);
+        for chunk in chunks {
+            assert_eq!(chunk.matches('<').count(), chunk.matches('>').count());
+        }
+        let (_, body) = gemini_request(
+            "gemini-3.8-flash-tts",
+            "Kore",
+            text,
+            &VoiceOptions::default(),
+        )
+        .unwrap();
+        assert_eq!(body["input"][0]["content"][0]["text"], text);
     }
     #[test]
     fn long_unicode_scripts_split_without_losing_words() {

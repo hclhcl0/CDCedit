@@ -345,13 +345,103 @@ impl StartPane {
                 };
             }
             StartMsg::Link(name) => {
-                if name == "shortcuts" {
-                    use crate::panes::settings::{SHORTCUTS_PAGE, SettingsMsg};
-                    studio.handle(crate::panes::Msg::Settings(SettingsMsg::Open));
-                    studio.handle(crate::panes::Msg::Settings(SettingsMsg::PageChanged(
-                        SHORTCUTS_PAGE,
-                    )));
-                    return;
+                match name.as_str() {
+                    "shortcuts" => {
+                        use crate::panes::settings::{SHORTCUTS_PAGE, SettingsMsg};
+                        studio.handle(crate::panes::Msg::Settings(SettingsMsg::Open));
+                        studio.handle(crate::panes::Msg::Settings(SettingsMsg::PageChanged(
+                            SHORTCUTS_PAGE,
+                        )));
+                        return;
+                    }
+                    "tool-captions" => {
+                        use crate::panes::captions::CaptionsMsg;
+                        studio.handle(crate::panes::Msg::Captions(CaptionsMsg::Open));
+                        studio.captions.from_voice = true;
+                        if studio.captions.standalone_file.is_none() {
+                            studio.handle(crate::panes::Msg::Captions(CaptionsMsg::SourceChanged(
+                                -2,
+                            )));
+                        }
+                        return;
+                    }
+                    "tool-translation" => {
+                        studio.handle(crate::panes::Msg::Translation(
+                            crate::panes::translation::TranslationMsg::Action(
+                                0,
+                                0,
+                                String::new(),
+                                0.0,
+                            ),
+                        ));
+                        return;
+                    }
+                    "tool-gemini-dialogue"
+                    | "tool-gemini-performance"
+                    | "tool-gemini-design"
+                    | "tool-gemini-replication"
+                    | "tool-gemini-library"
+                    | "tool-gemini-reactions" => {
+                        let mode = match name.as_str() {
+                            "tool-gemini-performance" => 1,
+                            "tool-gemini-design" => 2,
+                            "tool-gemini-replication" => 3,
+                            "tool-gemini-library" => 4,
+                            _ => 0,
+                        };
+                        studio.handle(crate::panes::Msg::Gemini(
+                            crate::panes::gemini_studio::GeminiMsg::Action(
+                                0,
+                                mode,
+                                String::new(),
+                                0.0,
+                            ),
+                        ));
+                        return;
+                    }
+                    "tool-tts" => {
+                        use crate::panes::speech::SpeechMsg;
+                        studio.speech.dub.mode = 0;
+                        studio.handle(crate::panes::Msg::Speech(SpeechMsg::Open));
+                        return;
+                    }
+                    "tool-dubbing" => {
+                        use crate::panes::speech::SpeechMsg;
+                        if studio.speech.dub.mode == 0 {
+                            studio.speech.dub.mode = 2;
+                            studio.speech.dub.mute_original = true;
+                        }
+                        studio.handle(crate::panes::Msg::Speech(SpeechMsg::Open));
+                        if studio.speech.dub.standalone_media.is_none()
+                            && studio.speech.dub.standalone_srt.is_none()
+                        {
+                            studio.handle(crate::panes::Msg::Speech(SpeechMsg::DubbingAction(
+                                33,
+                                0,
+                                String::new(),
+                                0.0,
+                            )));
+                        }
+                        return;
+                    }
+                    "tool-links" => {
+                        use crate::panes::link_import::LinkMsg;
+                        studio.handle(crate::panes::Msg::Links(LinkMsg::Action(
+                            0,
+                            0,
+                            String::new(),
+                        )));
+                        return;
+                    }
+                    "tool-cutout" => {
+                        run_standalone_cutout();
+                        return;
+                    }
+                    "tool-enhance" => {
+                        run_standalone_enhance();
+                        return;
+                    }
+                    _ => {}
                 }
                 let Some(url) = link(&name) else {
                     log::warn!("start: no link is called {name:?}");
@@ -550,6 +640,282 @@ impl StartPane {
             sort: self.sort,
         }
     }
+}
+
+fn run_standalone_cutout() {
+    crate::host::after_dialog(
+        move || {
+            let src = platform::pick_files(
+                "Chọn ảnh để tách nền AI",
+                Some(("Images", &["png", "jpg", "jpeg", "webp", "bmp"])),
+            )?
+            .into_iter()
+            .next()?;
+            let folder = src
+                .parent()
+                .map(PathBuf::from)
+                .unwrap_or_else(|| PathBuf::from(home_folder("Documents")));
+            let stem = src
+                .file_stem()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_else(|| "image".to_owned());
+            let dst = platform::save_file(
+                "Lưu ảnh tách nền (.PNG)",
+                &folder,
+                &format!("{stem}-tach-nen.png"),
+                ("PNG Image", &["png"]),
+            )?;
+            let dst = if dst
+                .extension()
+                .is_some_and(|e| e.eq_ignore_ascii_case("png"))
+            {
+                dst
+            } else {
+                dst.with_extension("png")
+            };
+            Some((src, dst))
+        },
+        |studio, _, _, (src, dst)| {
+            if studio.host.cutouts.is_busy() {
+                studio.notify(
+                    "Đang có tác vụ Tách nền AI khác đang chạy, vui lòng đợi…",
+                    true,
+                );
+                return;
+            }
+            let summary = match concat_host::media::probe(&src.to_string_lossy()) {
+                Ok(s) => s,
+                Err(e) => {
+                    studio.notify(&crate::host::probe_error(&e), true);
+                    return;
+                }
+            };
+            let (width, height) = summary
+                .video
+                .as_ref()
+                .map(|v| (v.width, v.height))
+                .unwrap_or((0, 0));
+            if width == 0 || height == 0 {
+                studio.notify("Ảnh đã chọn không hợp lệ.", true);
+                return;
+            }
+            let project = studio.standalone_project_dir();
+            let cutouts = std::sync::Arc::clone(&studio.host.cutouts);
+            let media_path = src.to_string_lossy().into_owned();
+            // Clear any cached mask for this path in the standalone workspace so a fresh pass runs.
+            let mask_folder = concat_vision::mask_dir(
+                &project,
+                &media_path,
+                concat_project::model::Subject::Auto,
+            );
+            let _ = std::fs::remove_dir_all(&mask_folder);
+            let request = concat_host::AnalyseRequest {
+                project: project.clone(),
+                media_path: media_path.clone(),
+                media_size: (width, height),
+                still: true,
+                subject: concat_project::model::Subject::Auto,
+                ranges: vec![(0.0, 1.0)],
+            };
+            studio.notify("Đang xử lý Tách nền Ảnh AI…", false);
+            crate::host::spawn(
+                move || -> Result<PathBuf, String> {
+                    let mut last_pct = -1i32;
+                    let mut progress = |p: concat_host::cutout::Progress| {
+                        let msg = match p {
+                            concat_host::cutout::Progress::Fetching { received, total } => {
+                                let pct = if total > 0 {
+                                    ((received as f64 / total as f64) * 100.0).round() as i32
+                                } else {
+                                    0
+                                };
+                                if (pct - last_pct).abs() < 10 {
+                                    return;
+                                }
+                                last_pct = pct;
+                                format!("Đang tải mô hình Tách nền AI… {pct}%")
+                            }
+                            concat_host::cutout::Progress::Analysing(f) => {
+                                let pct = (f * 100.0).round() as i32;
+                                if (pct - last_pct).abs() < 25 {
+                                    return;
+                                }
+                                last_pct = pct;
+                                format!("Đang tách nền ảnh AI… {pct}%")
+                            }
+                        };
+                        crate::host::on_ui(move |studio, _, _| {
+                            studio.notify(&msg, false);
+                        });
+                    };
+                    cutouts.analyse(&request, &mut progress)?;
+                    let store = concat_vision::MaskStore::open(&mask_folder);
+                    let mask = store.mask_at(0.0).ok_or_else(|| {
+                        "Không tìm thấy chủ thể để tách nền trong ảnh.".to_owned()
+                    })?;
+                    use concat_media::FrameSource;
+                    let mut decoder = concat_media::Decoder::open(
+                        &media_path,
+                        &concat_media::DecodeOptions::default().in_software(),
+                    )
+                    .map_err(|e| e.to_string())?;
+                    let mut frame = decoder
+                        .next_frame()
+                        .map_err(|e| e.to_string())?
+                        .ok_or_else(|| "Không thể đọc dữ liệu điểm ảnh.".to_owned())?;
+                    let (fw, fh) = (frame.width(), frame.height());
+                    let pixels = frame.pixels_mut();
+                    for y in 0..fh {
+                        let v = (y as f32 + 0.5) / fh.max(1) as f32;
+                        for x in 0..fw {
+                            let u = (x as f32 + 0.5) / fw.max(1) as f32;
+                            let alpha = mask.sample(u, v);
+                            let idx = ((y * fw + x) * 4 + 3) as usize;
+                            pixels[idx] = (f32::from(pixels[idx]) * alpha).round() as u8;
+                        }
+                    }
+                    if let Some(parent) = dst.parent() {
+                        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+                    }
+                    image::save_buffer_with_format(
+                        &dst,
+                        frame.pixels(),
+                        fw,
+                        fh,
+                        image::ColorType::Rgba8,
+                        image::ImageFormat::Png,
+                    )
+                    .map_err(|e| e.to_string())?;
+                    Ok(dst)
+                },
+                |studio, _, _, result| match result {
+                    Ok(saved) => {
+                        let _ = platform::reveal(&saved.to_string_lossy());
+                        studio.notify(
+                            &format!("Đã tách nền ảnh thành công: {}", saved.display()),
+                            false,
+                        );
+                    }
+                    Err(error) => {
+                        studio.notify(&format!("Lỗi tách nền ảnh: {error}"), true);
+                    }
+                },
+            );
+        },
+    );
+}
+
+fn run_standalone_enhance() {
+    crate::host::after_dialog(
+        move || {
+            let src = platform::pick_files(
+                "Chọn Ảnh hoặc Video để làm nét AI (2x)",
+                Some((
+                    "Images & Video",
+                    &[
+                        "png", "jpg", "jpeg", "webp", "bmp", "mp4", "mov", "mkv", "webm",
+                    ],
+                )),
+            )?
+            .into_iter()
+            .next()?;
+            let ext_lower = src
+                .extension()
+                .map(|e| e.to_string_lossy().to_ascii_lowercase())
+                .unwrap_or_default();
+            let is_video = matches!(ext_lower.as_str(), "mp4" | "mov" | "mkv" | "webm");
+            let out_ext = if is_video { "mp4" } else { "png" };
+            let filter_name = if is_video { "MP4 Video" } else { "PNG Image" };
+            let folder = src
+                .parent()
+                .map(PathBuf::from)
+                .unwrap_or_else(|| PathBuf::from(home_folder("Documents")));
+            let stem = src
+                .file_stem()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_else(|| "media".to_owned());
+            let dst = platform::save_file(
+                "Lưu file Làm nét AI (2x)",
+                &folder,
+                &format!("{stem}-lam-net-2x.{out_ext}"),
+                (filter_name, &[out_ext]),
+            )?;
+            let dst = if dst
+                .extension()
+                .is_some_and(|e| e.eq_ignore_ascii_case(out_ext))
+            {
+                dst
+            } else {
+                dst.with_extension(out_ext)
+            };
+            Some((src, dst, !is_video))
+        },
+        |studio, _, _, (src, dst, still)| {
+            if studio.host.enhancers.is_busy() {
+                studio.notify(
+                    "Đang có tác vụ Làm nét AI khác đang chạy, vui lòng đợi…",
+                    true,
+                );
+                return;
+            }
+            let enhancers = std::sync::Arc::clone(&studio.host.enhancers);
+            let _ = std::fs::remove_file(&dst);
+            let request = concat_host::EnhanceRequest {
+                media_path: src.to_string_lossy().into_owned(),
+                still,
+                factor: 2,
+                strength: concat_host::enhance::DEFAULT_STRENGTH,
+                target: dst.clone(),
+                span: None,
+            };
+            studio.notify("Đang xử lý Làm nét AI (Real-ESRGAN 2x)…", false);
+            crate::host::spawn(
+                move || {
+                    let mut last_pct = -1i32;
+                    let mut progress = |p: concat_host::enhance::Progress| {
+                        let msg = match p {
+                            concat_host::enhance::Progress::Fetching { received, total } => {
+                                let pct = if total > 0 {
+                                    ((received as f64 / total as f64) * 100.0).round() as i32
+                                } else {
+                                    0
+                                };
+                                if (pct - last_pct).abs() < 10 {
+                                    return;
+                                }
+                                last_pct = pct;
+                                format!("Đang tải mô hình Làm nét AI… {pct}%")
+                            }
+                            concat_host::enhance::Progress::Analysing(f) => {
+                                let pct = (f * 100.0).round() as i32;
+                                if (pct - last_pct).abs() < 10 {
+                                    return;
+                                }
+                                last_pct = pct;
+                                format!("Đang làm nét AI (2x)… {pct}%")
+                            }
+                        };
+                        crate::host::on_ui(move |studio, _, _| {
+                            studio.notify(&msg, false);
+                        });
+                    };
+                    enhancers.enhance(&request, &mut progress)
+                },
+                |studio, _, _, result| match result {
+                    Ok(saved) => {
+                        let _ = platform::reveal(&saved.to_string_lossy());
+                        studio.notify(
+                            &format!("Đã làm nét 2x thành công: {}", saved.display()),
+                            false,
+                        );
+                    }
+                    Err(error) => {
+                        studio.notify(&format!("Lỗi làm nét AI: {error}"), true);
+                    }
+                },
+            );
+        },
+    );
 }
 
 #[cfg(test)]

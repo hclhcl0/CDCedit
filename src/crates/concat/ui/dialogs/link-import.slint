@@ -1,0 +1,103 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+import { I18n } from "../i18n.slint";
+import { Theme } from "../theme/theme.slint";
+import { Glyph } from "../icons.slint";
+import { Modal, DialogSection, DialogRow, Button, Field, Progress } from "../primitives/modal.slint";
+import { Select } from "../primitives/select.slint";
+import { Switch } from "../inspector/controls.slint";
+import { PaneScroll } from "../workspace/pane.slint";
+
+export struct LinkImportItem { title:string, detail:string, selected:bool, thumbnail:image }
+export struct LinkImportData {
+    mobile:bool, open:bool, links:string, busy:bool, progress:float, speed:string, message:string,
+    ready:bool, connected:bool, audio:bool, drive-auth:bool, quality:int,
+    cookie-name:string, items:[LinkImportItem], can-download:bool,
+}
+export component LinkImportDialog inherits Modal {
+    in property <LinkImportData> data;
+    callback action(action:int,index:int,text:string);
+    property <string> draft;
+    property <bool> typing;
+    init => {root.draft=root.data.links;}
+    changed data => {if (!root.typing || !root.data.open) {root.draft=root.data.links;}}
+    open: root.data.open;
+    title: I18n.t("links.title");
+    glyph: Glyph.folder;
+    surface-width: 620px;
+    surface-height: 650px;
+    closed => { root.action(1,0,""); }
+    VerticalLayout {
+    PaneScroll {
+        finger:root.data.mobile;
+        vertical-stretch:1;
+        VerticalLayout {
+            DialogSection {
+                first:true;
+                title: I18n.t("links.sources");
+                Text {text:root.data.mobile ? I18n.t("links.mobileHint") : I18n.t("links.hint");color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
+                Rectangle {
+                    height:95px; background:Theme.field; border-radius:Theme.r; clip:true;
+                    input := TextInput {
+                        x:8px;y:8px;width:parent.width - 16px;height:parent.height - 16px;
+                        text <=> root.draft; color:Theme.fg; font-size:Theme.fs;
+                        enabled:!root.data.busy;
+                        changed has-focus => {root.typing=self.has-focus;}
+                        edited => {root.action(2,0,self.text);}
+                    }
+                }
+                HorizontalLayout {
+                    spacing:8px;
+                    if !root.data.mobile: Button {label:root.data.ready ? I18n.t("links.updateTools") : I18n.t("links.installTools");enabled:!root.data.busy;ghost:true;clicked=>{root.action(9,0,"");}}
+                    Button {label:I18n.t("links.inspect");enabled:(root.data.mobile || root.data.ready) && !root.data.busy;clicked=>{root.action(11,0,"");}}
+                }
+                if !root.data.mobile: DialogRow {label:I18n.t("links.quality");Select {options:[I18n.t("links.best"),"1080p","720p","480p"];current:root.data.quality;enabled:!root.data.busy;changed(index)=>{root.action(3,index,"");}}}
+                if !root.data.mobile: DialogRow {label:I18n.t("links.audioOnly");Switch {checked:root.data.audio;enabled:!root.data.busy;toggled(on)=>{root.action(4,on ? 1 : 0,"");}}}
+                if !root.data.mobile: Text {text:I18n.t("links.driveOriginal");color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
+            }
+            if !root.data.mobile: DialogSection {
+                title:"Google Drive";
+                HorizontalLayout {
+                    spacing:8px;
+                    Button {label:root.data.connected ? I18n.t("links.reconnect") : I18n.t("links.connect");enabled:root.data.ready && !root.data.busy;clicked=>{root.action(10,0,"");}}
+                    if root.data.connected: Button {label:I18n.t("links.disconnect");ghost:true;enabled:!root.data.busy;clicked=>{root.action(15,0,"");}}
+                }
+                DialogRow {label:I18n.t("links.useAccount");Switch {checked:root.data.drive-auth;enabled:!root.data.busy && root.data.connected;toggled(on)=>{root.action(5,on ? 1 : 0,"");}}}
+                Text {text:I18n.t("links.driveHint");color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
+            }
+            if !root.data.mobile: DialogSection {
+                title:I18n.t("links.session");
+                HorizontalLayout {
+                    spacing:8px;
+                    Button {label:I18n.t("links.chooseCookies");ghost:true;enabled:!root.data.busy;clicked=>{root.action(13,0,"");}}
+                    if root.data.cookie-name != "": Button {label:I18n.t("links.clearCookies");ghost:true;enabled:!root.data.busy;clicked=>{root.action(14,0,"");}}
+                }
+                if root.data.cookie-name != "": Text {text:root.data.cookie-name;color:Theme.fg-muted;font-size:Theme.fs-sm;}
+                Text {text:I18n.t("links.cookieHint");color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
+            }
+            if root.data.items.length > 0: DialogSection {
+                title:I18n.t("links.selectMedia");
+                Button {label:I18n.t("links.toggleAll");ghost:true;enabled:!root.data.busy;clicked=>{root.action(7,0,"");}}
+                for item[index] in root.data.items: VerticalLayout {
+                    HorizontalLayout {
+                        spacing:8px;
+                        Switch {checked:item.selected;enabled:!root.data.busy;toggled(on)=>{root.action(6,index,"");}}
+                        Image {source:item.thumbnail;width:56px;height:40px;image-fit:contain;}
+                        Text {text:item.title;color:Theme.fg;font-size:Theme.fs;wrap:word-wrap;horizontal-stretch:1;}
+                    }
+                    Text {text:item.detail;color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
+                }
+            }
+        }
+    }
+    DialogSection {
+        if root.data.busy: Progress {value:root.data.progress;}
+        if root.data.speed != "": Text {text:root.data.speed;color:Theme.fg-muted;font-size:Theme.fs-sm;}
+        if root.data.message != "": Text {text:root.data.message;color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;max-height:70px;overflow:elide;}
+        HorizontalLayout {
+            spacing:8px;
+            Button {label:I18n.t("links.download");primary:true;enabled:root.data.can-download;clicked=>{root.action(12,0,"");}}
+            if root.data.busy: Button {label:I18n.t("common.cancel");ghost:true;clicked=>{root.action(8,0,"");}}
+        }
+    }
+    }
+}

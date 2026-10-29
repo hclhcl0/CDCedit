@@ -12,6 +12,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 #[derive(Default)]
 pub struct Dubbing {
+    pub catalog: Vec<concat_speech::voice_catalog::Voice>,
+    pub catalog_loading: bool,
+    pub gender: i32,
+    pub show_paid: bool,
     pub mode: i32,
     pub provider: i32,
     pub preferences_loaded: bool,
@@ -31,6 +35,8 @@ pub struct Dubbing {
     pub timeline: String,
     pub signature: String,
     pub source_clip: Option<String>,
+    pub standalone_srt: Option<(PathBuf, String)>,
+    pub standalone_media: Option<(PathBuf, String, f64)>,
 }
 #[derive(Clone, Debug)]
 pub struct DubResult {
@@ -38,6 +44,7 @@ pub struct DubResult {
     preview: Option<PathBuf>,
     listen: bool,
     review_all: bool,
+    notice: Option<String>,
 }
 
 fn report(epoch: u64) -> impl FnMut(JobStage) + Send + 'static {
@@ -115,40 +122,62 @@ impl Dubbing {
 impl SpeechPane {
     fn dub_sources(&self, studio: &Studio) -> Vec<(String, String)> {
         if self.dub.mode == 1 {
-            studio
-                .timeline()
-                .tracks
-                .iter()
-                .filter_map(|track| {
-                    let count = studio
-                        .timeline()
-                        .clips
-                        .iter()
-                        .filter(|c| c.kind == ClipKind::Text && c.track_id == track.id)
-                        .count();
-                    (count > 0).then(|| (track.id.clone(), format!("{} Â· {}", track.id, count)))
-                })
-                .collect()
+            let mut list = Vec::new();
+            if let Some((_, ref label)) = self.dub.standalone_srt {
+                list.push(("__standalone_srt__".to_owned(), label.clone()));
+            }
+            list.extend(studio.timeline().tracks.iter().filter_map(|track| {
+                let count = studio
+                    .timeline()
+                    .clips
+                    .iter()
+                    .filter(|c| c.kind == ClipKind::Text && c.track_id == track.id)
+                    .count();
+                (count > 0).then(|| (track.id.clone(), format!("{} · {}", track.id, count)))
+            }));
+            list
         } else {
-            studio
-                .timeline()
-                .clips
-                .iter()
-                .filter(|c| c.kind == ClipKind::Video || c.kind == ClipKind::Audio)
-                .filter(|c| {
-                    studio
-                        .project()
-                        .media_by_id(&c.media_id)
-                        .is_some_and(|m| m.has_audio)
-                })
-                .map(|c| (c.id.clone(), format!("{} Â· {:.2}s", c.name, c.start)))
-                .collect()
+            let mut list = Vec::new();
+            if let Some((_, ref label, _)) = self.dub.standalone_media {
+                list.push(("__standalone_media__".to_owned(), label.clone()));
+            }
+            list.extend(
+                studio
+                    .timeline()
+                    .clips
+                    .iter()
+                    .filter(|c| c.kind == ClipKind::Video || c.kind == ClipKind::Audio)
+                    .filter(|c| {
+                        studio
+                            .project()
+                            .media_by_id(&c.media_id)
+                            .is_some_and(|m| m.has_audio)
+                    })
+                    .map(|c| (c.id.clone(), format!("{} · {:.2}s", c.name, c.start))),
+            );
+            list
         }
     }
     fn dub_signature(&self, studio: &Studio) -> String {
         let Some((id, _)) = self.dub_sources(studio).get(self.dub.source).cloned() else {
             return String::new();
         };
+        if id == "__standalone_srt__" {
+            return self
+                .dub
+                .standalone_srt
+                .as_ref()
+                .map(|(p, _)| p.to_string_lossy().into_owned())
+                .unwrap_or_default();
+        }
+        if id == "__standalone_media__" {
+            return self
+                .dub
+                .standalone_media
+                .as_ref()
+                .map(|(p, _, _)| p.to_string_lossy().into_owned())
+                .unwrap_or_default();
+        }
         let clips: Vec<_> = studio
             .timeline()
             .clips
@@ -179,6 +208,9 @@ impl SpeechPane {
         if self.running && action != 16 {
             return;
         }
+        let previous_options = self.dub.options.clone();
+        let previous_model = self.dub.model().to_owned();
+        let previous_voice = self.dub.voice().to_owned();
         if matches!(
             action,
             0 | 1 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 12 | 13 | 14 | 18..=25
@@ -205,6 +237,9 @@ impl SpeechPane {
                 studio.settings.open = true;
             }
             3 => {
+                if text == self.dub.voice() {
+                    return;
+                }
                 if self.dub.provider == 1 {
                     self.dub.gemini_voice = text
                 } else {
@@ -216,6 +251,9 @@ impl SpeechPane {
                 self.dub.invalidate();
             }
             4 => {
+                if text == self.dub.model() {
+                    return;
+                }
                 if self.dub.provider == 1 {
                     self.dub.gemini_model = text
                 } else {
@@ -238,6 +276,9 @@ impl SpeechPane {
             11 => self.dub_apply(studio),
             12 => {
                 if let Some(row) = self.dub.rows.get_mut(index.max(0) as usize) {
+                    if row.text == text {
+                        return;
+                    }
                     row.text = text;
                     row.audio = None;
                 }
@@ -279,9 +320,147 @@ impl SpeechPane {
                 }
             }
             25 => self.dub.options = cloud_tts::VoiceOptions::default(),
+            32 if value.is_finite() => self.dub.options.temperature = value.clamp(0.0, 2.0),
+            26 => self.dub.gender = index.clamp(0, 2),
+            27 => self.dub.show_paid = index != 0,
+            28 => {
+                let voices = self.dub_voices();
+                if let Some(voice) = voices.get(index.max(0) as usize) {
+                    let id = voice.id.clone();
+                    self.dub_action(3, 0, id, 0.0, studio);
+                }
+            }
+            29 if !self.dub.catalog_loading => {
+                self.dub.catalog_loading = true;
+                let key = self.dub.key(studio).to_owned();
+                spawn_in_project(
+                    move || concat_speech::voice_catalog::eleven(&key),
+                    move |studio, _, _, result| {
+                        studio.handle(Msg::Speech(SpeechMsg::VoiceCatalog(result)))
+                    },
+                );
+            }
+            30 => {
+                self.dub.options.accent = index.clamp(0, 3);
+                self.dub.invalidate();
+            }
+            31 => {
+                self.dub.options.delivery_preset = index.clamp(0, 6);
+                if self.dub.provider == 2 && cloud_tts::has_extended_settings(self.dub.model()) {
+                    let (stability, style) = [
+                        (0.5, 0.0),
+                        (0.5, 0.0),
+                        (0.5, 0.35),
+                        (1.0, 0.0),
+                        (0.0, 0.6),
+                        (1.0, 0.1),
+                        (0.0, 0.5),
+                    ][index.clamp(0, 6) as usize];
+                    self.dub.options.stability = stability;
+                    self.dub.options.style = style;
+                }
+                self.dub.invalidate();
+            }
+            33 => {
+                if self.dub.mode == 1 {
+                    crate::host::pick_files_then(
+                        "Chọn file phụ đề (.SRT)".to_owned(),
+                        Some(("SubRip Subtitles".to_owned(), &["srt"])),
+                        |studio, _, _, paths| {
+                            if let Some(path) = paths.into_iter().next() {
+                                studio.handle(Msg::Speech(SpeechMsg::DubbingAction(
+                                    34,
+                                    1,
+                                    path.to_string_lossy().into_owned(),
+                                    0.0,
+                                )));
+                            }
+                        },
+                    );
+                } else if self.dub.mode == 2 {
+                    crate::host::pick_files_then(
+                        "Chọn file Video / Audio".to_owned(),
+                        Some((
+                            "Video & Audio".to_owned(),
+                            &[
+                                "mp4", "mov", "mkv", "webm", "avi", "m4v", "mp3", "wav", "m4a",
+                                "flac", "ogg", "aac",
+                            ],
+                        )),
+                        |studio, _, _, paths| {
+                            if let Some(path) = paths.into_iter().next() {
+                                studio.handle(Msg::Speech(SpeechMsg::DubbingAction(
+                                    34,
+                                    2,
+                                    path.to_string_lossy().into_owned(),
+                                    0.0,
+                                )));
+                            }
+                        },
+                    );
+                }
+            }
+            34 => {
+                let path = PathBuf::from(&text);
+                if index == 1 {
+                    let label = path
+                        .file_name()
+                        .map(|n| n.to_string_lossy().into_owned())
+                        .unwrap_or_else(|| "subtitles.srt".to_owned());
+                    self.dub.standalone_srt = Some((path, label));
+                    self.dub.source = 0;
+                    self.dub_load_track(studio);
+                } else if index == 2 {
+                    match media::probe(&path.to_string_lossy()) {
+                        Ok(summary) => {
+                            let duration = summary.duration.unwrap_or(0.0);
+                            if summary.audio.is_none() || duration <= 0.0 {
+                                self.message =
+                                    "File đã chọn không có luồng âm thanh hợp lệ.".to_owned();
+                                return;
+                            }
+                            let name = path
+                                .file_name()
+                                .map(|n| n.to_string_lossy().into_owned())
+                                .unwrap_or_else(|| summary.path);
+                            let label = format!("{name} · {duration:.1}s");
+                            self.dub.standalone_media = Some((path, label, duration));
+                            self.dub.source = 0;
+                            self.dub_clear();
+                        }
+                        Err(e) => {
+                            self.message = crate::host::probe_error(&e);
+                        }
+                    }
+                }
+            }
+            35 => self.dub_save_wav(studio),
+            36 => {
+                let dst = PathBuf::from(&text);
+                let Some(ref src) = self.dub.preview else {
+                    return;
+                };
+                match std::fs::copy(src, &dst) {
+                    Ok(_) => {
+                        let _ = crate::platform::reveal(&dst.to_string_lossy());
+                        studio.notify(
+                            &format!("Đã lưu file âm thanh tại {}", dst.display()),
+                            false,
+                        );
+                    }
+                    Err(e) => {
+                        self.message = format!("Không thể lưu file âm thanh: {e}");
+                    }
+                }
+            }
+
             _ => {}
         }
-        if matches!(action, 3 | 4 | 18..=25) {
+        if matches!(action, 3 | 4 | 18..=25 | 30 | 31 | 32)
+            && (previous_options != self.dub.options
+                || previous_model != self.dub.model()
+                || previous_voice != self.dub.voice())
+        {
             for row in &mut self.dub.rows {
                 row.audio = None;
             }
@@ -289,25 +468,119 @@ impl SpeechPane {
             self.dub.save_preferences(studio);
         }
     }
+    fn dub_save_wav(&mut self, studio: &mut Studio) {
+        let Some(ref _preview) = self.dub.preview else {
+            self.message = "Chưa có bản âm thanh để lưu. Hãy bấm Tạo trước.".to_owned();
+            return;
+        };
+        let (folder, name) = if self.dub.mode == 1
+            && let Some((ref p, _)) = self.dub.standalone_srt
+        {
+            let folder = p
+                .parent()
+                .map(PathBuf::from)
+                .unwrap_or_else(|| PathBuf::from(crate::studio::home_folder("Documents")));
+            let stem = p
+                .file_stem()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_else(|| "thuyet-minh".to_owned());
+            (folder, format!("{stem}-thuyet-minh.wav"))
+        } else if self.dub.mode == 2
+            && let Some((ref p, _, _)) = self.dub.standalone_media
+        {
+            let folder = p
+                .parent()
+                .map(PathBuf::from)
+                .unwrap_or_else(|| PathBuf::from(crate::studio::home_folder("Documents")));
+            let stem = p
+                .file_stem()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_else(|| "doi-giong".to_owned());
+            (folder, format!("{stem}-doi-giong.wav"))
+        } else {
+            let folder = studio
+                .session
+                .as_ref()
+                .map(|s| PathBuf::from(s.path()))
+                .unwrap_or_else(|| PathBuf::from(crate::studio::home_folder("Documents")));
+            (folder, "giong-doc-ai.wav".to_owned())
+        };
+        crate::host::after_dialog(
+            move || {
+                let chosen = crate::platform::save_file(
+                    "Lưu file âm thanh (.WAV)",
+                    &folder,
+                    &name,
+                    ("WAV Audio", &["wav"]),
+                )?;
+                Some(
+                    if chosen
+                        .extension()
+                        .is_some_and(|ext| ext.eq_ignore_ascii_case("wav"))
+                    {
+                        chosen
+                    } else {
+                        chosen.with_extension("wav")
+                    },
+                )
+            },
+            |studio, _, _, path| {
+                studio.handle(Msg::Speech(SpeechMsg::DubbingAction(
+                    36,
+                    0,
+                    path.to_string_lossy().into_owned(),
+                    0.0,
+                )));
+            },
+        );
+    }
     fn dub_load_track(&mut self, studio: &Studio) {
         let Some((track, _)) = self.dub_sources(studio).get(self.dub.source).cloned() else {
             self.message = t("dubbing.chooseSource");
             return;
         };
-        let mut rows: Vec<_> = studio
-            .timeline()
-            .clips
-            .iter()
-            .filter(|c| c.kind == ClipKind::Text && c.track_id == track)
-            .filter_map(|c| {
-                c.text.as_ref().map(|text| Cue {
-                    text: text.content.clone(),
+        let mut rows: Vec<_> = if track == "__standalone_srt__" {
+            let Some((ref path, _)) = self.dub.standalone_srt else {
+                self.message = t("dubbing.chooseSource");
+                return;
+            };
+            let cues = match std::fs::read(path)
+                .map_err(|e| e.to_string())
+                .and_then(|bytes| {
+                    concat_project::srt::parse(&String::from_utf8_lossy(&bytes))
+                        .map_err(|e| e.to_string())
+                }) {
+                Ok(cues) => cues,
+                Err(error) => {
+                    self.message = tf("captions.couldNotReadSubtitles", &[&error]);
+                    return;
+                }
+            };
+            cues.into_iter()
+                .filter(|c| !c.text.trim().is_empty())
+                .map(|c| Cue {
+                    text: c.text.trim().to_owned(),
                     start: c.start,
-                    end: c.start + c.duration,
+                    end: c.end,
                     ..Cue::default()
                 })
-            })
-            .collect();
+                .collect()
+        } else {
+            studio
+                .timeline()
+                .clips
+                .iter()
+                .filter(|c| c.kind == ClipKind::Text && c.track_id == track)
+                .filter_map(|c| {
+                    c.text.as_ref().map(|text| Cue {
+                        text: text.content.clone(),
+                        start: c.start,
+                        end: c.start + c.duration,
+                        ..Cue::default()
+                    })
+                })
+                .collect()
+        };
         rows.sort_by(|a, b| a.start.total_cmp(&b.start));
         if let Err(error) = dubbing::validate(&rows) {
             self.message = error;
@@ -334,16 +607,42 @@ impl SpeechPane {
             self.message = t("dubbing.chooseSource");
             return;
         };
-        let Some(clip) = studio.clip(&id).cloned() else {
-            return;
-        };
-        if clip.speed_curve.is_some() {
-            self.message = t("dubbing.constantSpeed");
-            return;
-        }
-        let Some(media) = studio.project().media_by_id(&clip.media_id) else {
-            return;
-        };
+        let (media_path, audio_stream, source_start, window, clip_start, clip_speed, clip_duration) =
+            if id == "__standalone_media__" {
+                let Some((ref path, _, duration)) = self.dub.standalone_media else {
+                    self.message = t("dubbing.chooseSource");
+                    return;
+                };
+                (
+                    path.to_string_lossy().into_owned(),
+                    None,
+                    0.0,
+                    duration,
+                    0.0,
+                    1.0,
+                    duration,
+                )
+            } else {
+                let Some(clip) = studio.clip(&id).cloned() else {
+                    return;
+                };
+                if clip.speed_curve.is_some() {
+                    self.message = t("dubbing.constantSpeed");
+                    return;
+                }
+                let Some(media) = studio.project().media_by_id(&clip.media_id) else {
+                    return;
+                };
+                (
+                    media.path.clone(),
+                    clip.audio_stream,
+                    clip.source_start,
+                    clip.duration * clip.speed,
+                    clip.start,
+                    clip.speed,
+                    clip.duration,
+                )
+            };
         let Some(model) = installed(&studio.settings.transcribers)
             .get(self.dub.whisper)
             .map(|m| m.id.clone())
@@ -352,14 +651,14 @@ impl SpeechPane {
             return;
         };
         let request = TranscribeRequest {
-            path: media.path.clone(),
-            audio_stream: clip.audio_stream,
-            source_start: clip.source_start,
-            window: clip.duration * clip.speed,
+            path: media_path,
+            audio_stream,
+            source_start,
+            window,
             model_id: model,
         };
         self.dub.signature = self.dub_signature(studio);
-        self.dub.source_clip = Some(id);
+        self.dub.source_clip = (id != "__standalone_media__").then_some(id);
         self.dub.invalidate();
         let (generation, cancel) = self.dub_start(studio);
         let dirs = studio.host.dirs.clone();
@@ -374,8 +673,8 @@ impl SpeechPane {
                     .into_iter()
                     .map(|s| Cue {
                         text: s.text,
-                        start: clip.start + s.start / clip.speed,
-                        end: (clip.start + s.end / clip.speed).min(clip.start + clip.duration),
+                        start: clip_start + s.start / clip_speed,
+                        end: (clip_start + s.end / clip_speed).min(clip_start + clip_duration),
                         ..Cue::default()
                     })
                     .collect();
@@ -384,6 +683,7 @@ impl SpeechPane {
                     preview: None,
                     listen: false,
                     review_all: false,
+                    notice: None,
                 })
             },
             move |studio, _, _, result| {
@@ -434,11 +734,9 @@ impl SpeechPane {
             )
         };
         let project = studio
-            .session
-            .as_ref()
-            .ok_or("Open a project first")?
-            .path()
-            .to_owned();
+            .standalone_project_dir()
+            .to_string_lossy()
+            .into_owned();
         Ok(SpeakRequest {
             model_id: model,
             voice,
@@ -451,6 +749,17 @@ impl SpeechPane {
         })
     }
     pub fn dub_generate(&mut self, row: Option<usize>, studio: &mut Studio) {
+        if self.dub.provider == 2
+            && !self.dub.show_paid
+            && !self
+                .dub
+                .catalog
+                .iter()
+                .any(|v| v.id == self.dub.voice() && v.free)
+        {
+            self.message = t("dubbing.selectFreeVoice");
+            return;
+        }
         if self.running {
             return;
         }
@@ -478,9 +787,10 @@ impl SpeechPane {
             return;
         }
         let merged = row.is_none() && self.dub.mode != 0;
-        let Some(project) = studio.session.as_ref().map(|s| s.path().to_owned()) else {
-            return;
-        };
+        let project = studio
+            .standalone_project_dir()
+            .to_string_lossy()
+            .into_owned();
         let mut rows = self.dub.rows.clone();
         let text = if let Some(index) = row {
             let Some(cue) = rows.get(index) else {
@@ -536,7 +846,27 @@ impl SpeechPane {
             self.dub.model().to_owned(),
             self.dub.voice().to_owned(),
         );
-        let options = self.dub.options.clone();
+        let mut options = self.dub.options.clone();
+        if self.dub.provider == 1 {
+            let accent = [
+                "",
+                "Speak Vietnamese with a Northern Vietnamese accent.",
+                "Speak Vietnamese with a Central Vietnamese accent.",
+                "Speak Vietnamese with a Southern Vietnamese accent.",
+            ][self.dub.options.accent.clamp(0, 3) as usize];
+            let style = [
+                "",
+                "Natural conversational delivery.",
+                "Warm storytelling delivery.",
+                "Clear professional newsreader delivery.",
+                "Energetic advertising delivery.",
+                "Calm gentle delivery.",
+                "Cheerful expressive delivery.",
+            ][self.dub.options.delivery_preset.clamp(0, 6) as usize];
+            options.delivery = format!("{accent} {style} {}", options.delivery)
+                .trim()
+                .to_owned();
+        }
         let speech = Arc::clone(&studio.host.speech);
         let transcriber = Arc::clone(&studio.host.transcriber);
         let dirs = studio.host.dirs.clone();
@@ -593,9 +923,25 @@ impl SpeechPane {
                         window: duration,
                         model_id: whisper.unwrap(),
                     };
-                    let words = transcriber.transcribe_words(&dirs, &request, report(epoch))?;
                     let lines = rows.iter().map(|r| r.text.clone()).collect::<Vec<_>>();
-                    let mut spans = dubbing::align(&lines, &words)?;
+                    let aligned = transcriber
+                        .transcribe_words(&dirs, &request, report(epoch))
+                        .and_then(|words| dubbing::align(&lines, &words));
+                    let mut spans = match aligned {
+                        Ok(spans) => spans,
+                        Err(error) => {
+                            cloud_tts::check_cancel(&cancel)?;
+                            // The full recording is valid even when sentence boundaries are not.
+                            // Preview it without marking any sentence aligned or allowing Apply.
+                            return Ok(DubResult {
+                                rows,
+                                preview: Some(path),
+                                listen: true,
+                                review_all: false,
+                                notice: Some(error),
+                            });
+                        }
+                    };
                     if let Some(last) = spans.last_mut() {
                         last.1 = duration;
                     }
@@ -615,16 +961,21 @@ impl SpeechPane {
                     }
                 }
                 cloud_tts::check_cancel(&cancel)?;
-                let preview = if rows.iter().all(|r| r.audio.is_some()) {
-                    Some(dubbing::render(&rows, &project, &cancel)?)
+                // Speech generation succeeded. Preview/rendering errors must not discard it.
+                let (preview, notice) = if dubbing::missing_audio(&rows).is_empty() {
+                    match dubbing::render(&rows, &project, &cancel) {
+                        Ok(path) => (Some(path), None),
+                        Err(error) => (None, Some(error)),
+                    }
                 } else {
-                    None
+                    (None, None)
                 };
                 Ok(DubResult {
                     rows,
                     preview,
                     listen: false,
                     review_all: false,
+                    notice,
                 })
             },
             move |studio, _, _, result| {
@@ -658,9 +1009,27 @@ impl SpeechPane {
             };
             vec![cue]
         };
-        let Some(project) = studio.session.as_ref().map(|s| s.path().to_owned()) else {
+        let pending = dubbing::missing_audio(&rows);
+        if !pending.is_empty() {
+            let numbers = if index < 0 {
+                pending
+            } else {
+                vec![index as usize + 1]
+            };
+            self.message = tf(
+                "dubbing.missingAudio",
+                &[&numbers
+                    .iter()
+                    .map(usize::to_string)
+                    .collect::<Vec<_>>()
+                    .join(", ")],
+            );
             return;
-        };
+        }
+        let project = studio
+            .standalone_project_dir()
+            .to_string_lossy()
+            .into_owned();
         let (generation, cancel) = self.dub_start(studio);
         let all = self.dub.rows.clone();
         spawn_in_project(
@@ -671,6 +1040,7 @@ impl SpeechPane {
                     preview: Some(preview),
                     listen: true,
                     review_all: index < 0,
+                    notice: None,
                 })
             },
             move |studio, _, _, result| {
@@ -701,6 +1071,11 @@ impl SpeechPane {
         }
         match result {
             Ok(result) => {
+                self.message = result
+                    .notice
+                    .as_ref()
+                    .map(|error| tf("dubbing.previewFailedKeptAudio", &[error]))
+                    .unwrap_or_default();
                 self.dub.rows = result.rows;
                 if result.review_all || !result.listen {
                     self.dub.preview = result.preview.clone();
@@ -724,6 +1099,10 @@ impl SpeechPane {
     }
     fn dub_apply(&mut self, studio: &mut Studio) {
         if self.running || !self.dub.reviewed {
+            return;
+        }
+        if studio.session.is_none() {
+            self.dub_save_wav(studio);
             return;
         }
         if self.dub.timeline != studio.timeline().id
@@ -781,6 +1160,28 @@ impl SpeechPane {
         self.open = false;
         studio.notify(&t("speech.voiceAddedTimeline"), false);
     }
+    fn dub_voices(&self) -> Vec<concat_speech::voice_catalog::Voice> {
+        let catalog = if self.dub.provider == 1 {
+            concat_speech::voice_catalog::gemini()
+        } else {
+            self.dub.catalog.clone()
+        };
+        catalog
+            .into_iter()
+            .filter(|v| {
+                self.dub.provider != 2
+                    || self.dub.options.accent == 0
+                    || v.region == self.dub.options.accent
+            })
+            .filter(|v| {
+                v.matches(
+                    self.dub.model(),
+                    self.dub.gender,
+                    self.dub.provider == 2 && !self.dub.show_paid,
+                )
+            })
+            .collect()
+    }
     pub fn dubbing_data(&self, studio: &Studio) -> DubbingData {
         let sources = self
             .dub_sources(studio)
@@ -802,9 +1203,49 @@ impl SpeechPane {
                 generated: row.audio.is_some(),
             })
             .collect::<Vec<_>>();
+        let pending = dubbing::missing_audio(&self.dub.rows);
         DubbingData {
+            expressions: self.dub.provider == 1
+                && matches!(
+                    self.dub.model(),
+                    "gemini-3.8-flash-tts" | "gemini-3.8-flash-lite-tts"
+                ),
+            pending_audio: if pending.is_empty() {
+                String::new()
+            } else {
+                tf(
+                    "dubbing.missingAudio",
+                    &[&pending
+                        .iter()
+                        .map(usize::to_string)
+                        .collect::<Vec<_>>()
+                        .join(", ")],
+                )
+            }
+            .into(),
+            voice_choice: self
+                .dub_voices()
+                .iter()
+                .position(|v| v.id == self.dub.voice())
+                .map(|i| i as i32 + 1)
+                .unwrap_or(0),
+            voice_names: slint::ModelRc::from(std::rc::Rc::new(slint::VecModel::from(
+                std::iter::once(SharedString::from(t("dubbing.customVoice")))
+                    .chain(
+                        self.dub_voices()
+                            .iter()
+                            .map(|v| SharedString::from(v.name.as_str())),
+                    )
+                    .collect::<Vec<_>>(),
+            ))),
+            voice_gender: self.dub.gender,
+            show_paid: self.dub.show_paid,
+            catalog_loading: self.dub.catalog_loading,
+            accent: self.dub.options.accent,
+            delivery_preset: self.dub.options.delivery_preset,
             mode: self.dub.mode,
             provider: self.dub.provider,
+            temperature: self.dub.options.temperature,
             model_choice: cloud_tts::models(self.dub.provider)
                 .iter()
                 .position(|model| *model == self.dub.model())

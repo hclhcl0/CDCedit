@@ -49,56 +49,31 @@ struct KnownModel {
 
 /// The models the settings panel offers, fastest first.
 ///
-/// All from the official `ggerganov/whisper.cpp` conversions. Nothing bigger
-/// than `small`: `medium` is 1.5 GB and minutes-per-minute on CPU, which is
-/// the opposite of what this feature is for.
+/// Multilingual models from the official `ggerganov/whisper.cpp` conversions.
+/// Tiny is excluded from selection, including previously downloaded variants.
 const KNOWN_MODELS: &[KnownModel] = &[
     KnownModel {
-        id: "tiny.en",
-        label: "Tiny (English)",
-        blurb: "Fastest draft. Rough on names and punctuation.",
-        approx_bytes: 77_704_715,
-        sha256: "921e4cf8686fdd993dcd081a5da5b6c365bfde1162e72b08d75ac75289920b1f",
-        english_only: true,
-    },
-    KnownModel {
-        id: "tiny",
-        label: "Tiny (Multilingual)",
-        blurb: "Fastest draft, any language.",
-        approx_bytes: 77_691_713,
-        sha256: "be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21",
-        english_only: false,
-    },
-    KnownModel {
-        id: "base.en",
-        label: "Base (English)",
-        blurb: "The sweet spot: solid captions at ~10x realtime.",
-        approx_bytes: 147_964_211,
-        sha256: "a03779c86df3323075f5e796cb2ce5029f00ec8869eee3fdfb897afe36c6d002",
-        english_only: true,
-    },
-    KnownModel {
         id: "base",
-        label: "Base (Multilingual)",
-        blurb: "Solid captions, any language.",
+        label: "Base (Tiếng Việt / Đa ngôn ngữ)",
+        blurb: "Nhẹ và nhanh để tạo bản nháp phụ đề tiếng Việt.",
         approx_bytes: 147_951_465,
         sha256: "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe",
         english_only: false,
     },
     KnownModel {
-        id: "small.en",
-        label: "Small (English)",
-        blurb: "Noticeably better wording; a few times slower.",
-        approx_bytes: 487_614_201,
-        sha256: "c6138d6d58ecc8322097e0f987c32f1be8bb0a18532a3f88f734d1bbf9c41e5d",
-        english_only: true,
-    },
-    KnownModel {
         id: "small",
-        label: "Small (Multilingual)",
-        blurb: "Best quality offered, any language.",
+        label: "Small (Tiếng Việt / Đa ngôn ngữ)",
+        blurb: "Cân bằng tốc độ và chất lượng nhận diện tiếng Việt.",
         approx_bytes: 487_601_967,
         sha256: "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b",
+        english_only: false,
+    },
+    KnownModel {
+        id: "medium",
+        label: "Medium (Tiếng Việt / Đa ngôn ngữ — Chất lượng cao)",
+        blurb: "Ưu tiên độ chính xác, tải khoảng 1,53 GB; xử lý chậm hơn Small trên CPU.",
+        approx_bytes: 1_533_763_059,
+        sha256: "6c14d5adee5f86394037b4e4e8b59f1673b6cee10e3cf0b11bbdbee79c156208",
         english_only: false,
     },
 ];
@@ -221,10 +196,21 @@ pub fn cpu_backend() -> Result<String, String> {
         .clone()
 }
 
+fn is_safe_model_id(id: &str) -> bool {
+    !id.is_empty()
+        && !id.starts_with('.')
+        && !id.contains("..")
+        && !id.contains('/')
+        && !id.contains('\\')
+}
+
 fn model_file(dirs: &AppDirs, id: &str) -> Result<PathBuf, String> {
-    // Ids come from our own table; anything else is a bug, not input.
-    known(id).ok_or_else(|| format!("unknown model {id:?}"))?;
-    Ok(models_dir(dirs)?.join(format!("ggml-{id}.bin")))
+    let path = models_dir(dirs)?.join(format!("ggml-{id}.bin"));
+    if known(id).is_some() || (is_safe_model_id(id) && path.is_file()) {
+        Ok(path)
+    } else {
+        Err(format!("unknown model {id:?}"))
+    }
 }
 
 /// Silero VAD v6.2.0 in whisper.cpp's format, from ggml-org/whisper-vad
@@ -392,19 +378,54 @@ impl Transcriber {
     /// Per-model state, for the settings panel.
     pub fn status(dirs: &AppDirs) -> Result<TranscriberStatus, String> {
         let dir = models_dir(dirs)?;
+        let mut models: Vec<ModelStatus> = KNOWN_MODELS
+            .iter()
+            .map(|model| ModelStatus {
+                id: model.id.to_owned(),
+                label: model.label.to_owned(),
+                blurb: model.blurb.to_owned(),
+                english_only: model.english_only,
+                size_bytes: model.approx_bytes,
+                downloaded: dir.join(format!("ggml-{}.bin", model.id)).is_file(),
+            })
+            .collect();
+        if let Ok(entries) = std::fs::read_dir(&dir) {
+            let mut custom: Vec<ModelStatus> = entries
+                .flatten()
+                .filter_map(|entry| {
+                    let path = entry.path();
+                    if !path.is_file() {
+                        return None;
+                    }
+                    let name = path.file_name()?.to_str()?;
+                    let id = name.strip_prefix("ggml-")?.strip_suffix(".bin")?;
+                    if id == "silero-v6.2.0"
+                        || id == "tiny"
+                        || id.starts_with("tiny.")
+                        || id.starts_with("tiny-")
+                        || !is_safe_model_id(id)
+                        || known(id).is_some()
+                    {
+                        return None;
+                    }
+                    let size_bytes = entry.metadata().map(|m| m.len()).unwrap_or(0);
+                    Some(ModelStatus {
+                        id: id.to_owned(),
+                        label: format!("Thủ công: {id}"),
+                        blurb: "Mô hình Whisper (.bin) thêm thủ công trong thư mục whisper-models."
+                            .to_owned(),
+                        english_only: id.ends_with(".en"),
+                        size_bytes,
+                        downloaded: true,
+                    })
+                })
+                .collect();
+            custom.sort_by(|a, b| a.id.cmp(&b.id));
+            models.extend(custom);
+        }
         Ok(TranscriberStatus {
             models_dir: dir.to_string_lossy().into_owned(),
-            models: KNOWN_MODELS
-                .iter()
-                .map(|model| ModelStatus {
-                    id: model.id.to_owned(),
-                    label: model.label.to_owned(),
-                    blurb: model.blurb.to_owned(),
-                    english_only: model.english_only,
-                    size_bytes: model.approx_bytes,
-                    downloaded: dir.join(format!("ggml-{}.bin", model.id)).is_file(),
-                })
-                .collect(),
+            models,
         })
     }
 
@@ -500,7 +521,7 @@ impl Transcriber {
         request: &TranscribeRequest,
         progress: impl FnMut(JobStage) + Send + 'static,
     ) -> Result<Vec<Segment>, String> {
-        self.transcribe_impl(dirs, request, false, progress)
+        self.transcribe_impl(dirs, request, false, Some("vi"), progress)
     }
 
     /// Word-level Whisper timings for matching generated narration back to its script.
@@ -510,7 +531,18 @@ impl Transcriber {
         request: &TranscribeRequest,
         progress: impl FnMut(JobStage) + Send + 'static,
     ) -> Result<Vec<Segment>, String> {
-        self.transcribe_impl(dirs, request, true, progress)
+        self.transcribe_impl(dirs, request, true, Some("vi"), progress)
+    }
+
+    /// Transcribes one clip's audio window with an explicit language code ("vi", "auto", ...).
+    pub fn transcribe_with_language(
+        &self,
+        dirs: &AppDirs,
+        request: &TranscribeRequest,
+        language: Option<&str>,
+        progress: impl FnMut(JobStage) + Send + 'static,
+    ) -> Result<Vec<Segment>, String> {
+        self.transcribe_impl(dirs, request, false, language, progress)
     }
 
     fn transcribe_impl(
@@ -518,6 +550,7 @@ impl Transcriber {
         dirs: &AppDirs,
         request: &TranscribeRequest,
         words: bool,
+        language: Option<&str>,
         mut progress: impl FnMut(JobStage) + Send + 'static,
     ) -> Result<Vec<Segment>, String> {
         let job = self.gate.begin("transcription")?;
@@ -594,7 +627,7 @@ impl Transcriber {
         // over a vocabulary it was never trained on, and "hears" Thai at
         // one percent - so it is simply told English.
         params.set_language(Some(if context.is_multilingual() {
-            "auto"
+            language.unwrap_or("vi")
         } else {
             "en"
         }));

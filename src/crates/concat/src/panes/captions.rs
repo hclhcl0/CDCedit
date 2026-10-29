@@ -59,6 +59,14 @@ pub enum CaptionsMsg {
     ModelChanged(i32),
     ProviderChanged(i32),
     GeminiLanguageChanged(i32),
+    GeminiProofreadToggled(bool),
+    GlossaryEdited(String),
+    ReviewReady(
+        Vec<Segment>,
+        Vec<concat_speech::gemini::CorrectionSuggestion>,
+    ),
+    ReviewChoice(i32, i32),
+    ReviewApply(bool),
     PlacementChanged(i32),
     SizeChanged(i32),
     /// Run the pass the sheet describes.
@@ -70,6 +78,7 @@ pub enum CaptionsMsg {
     Finished(Result<Vec<Segment>, String>),
     /// Asks for a SubRip file to read in.
     ImportSrt,
+    ImportTranslated(Vec<srt::Cue>),
     /// The SubRip file chosen: its cues as captions.
     ImportSrtFrom(PathBuf),
     /// Asks where to write the captions as SubRip.
@@ -77,6 +86,8 @@ pub enum CaptionsMsg {
     /// Where they go.
     ExportSrtTo(PathBuf),
     WrapExisting,
+    /// A standalone audio/video file chosen from disk.
+    FilePicked(PathBuf),
 }
 
 /// The clip a transcription is running over, as the finished segments
@@ -120,6 +131,12 @@ pub struct CaptionsPane {
     pub model: usize,
     pub provider: i32,
     pub gemini_language: i32,
+    pub gemini_proofread: bool,
+    pub glossary: String,
+    review_segments: Option<Vec<Segment>>,
+    review_suggestions: Vec<concat_speech::gemini::CorrectionSuggestion>,
+    review_choices: Vec<usize>,
+    review_timeline: String,
     gemini_cancel: Arc<std::sync::atomic::AtomicBool>,
     /// 0 bottom, 1 centre, 2 top.
     pub placement: usize,
@@ -134,6 +151,10 @@ pub struct CaptionsPane {
     subject: Option<Subject>,
     /// How long each model took this session, for the next run's bar.
     timings: Timings,
+    /// Standalone video/audio file chosen from disk: (path, label, duration).
+    pub standalone_file: Option<(PathBuf, String, f64)>,
+    /// Cues produced in standalone mode, ready to export as `.srt`.
+    pub standalone_cues: Vec<srt::Cue>,
 }
 
 impl CaptionsPane {
@@ -143,17 +164,70 @@ impl CaptionsPane {
         match msg {
             // A run in progress is shown as it is, however the panel is
             // asked for again: closing it never stopped the run.
-            CaptionsMsg::Open | CaptionsMsg::OpenOnClip(_) if self.running => self.open = true,
+            CaptionsMsg::Open | CaptionsMsg::OpenOnClip(_)
+                if self.running || self.review_segments.is_some() =>
+            {
+                self.open = true
+            }
             CaptionsMsg::Open => {
                 let selected = studio.sole_selection();
                 self.open_on(studio, selected, false);
             }
             CaptionsMsg::OpenOnClip(id) => self.open_on(studio, Some(id), true),
             CaptionsMsg::Close => self.open = false,
+            CaptionsMsg::GlossaryEdited(text) if !self.running => self.glossary = text,
+            CaptionsMsg::GlossaryEdited(_) => {}
+            CaptionsMsg::ReviewReady(segments, suggestions) => {
+                if self
+                    .gemini_cancel
+                    .load(std::sync::atomic::Ordering::Relaxed)
+                {
+                    return;
+                }
+                self.running = false;
+                self.open = true;
+                self.review_timeline = studio.timeline().id.clone();
+                self.review_choices = vec![0; suggestions.len()];
+                self.review_suggestions = suggestions;
+                self.review_segments = Some(segments);
+            }
+            CaptionsMsg::ReviewChoice(index, choice) => {
+                if let Some(proposal) = self.review_suggestions.get(index.max(0) as usize) {
+                    if choice >= 0 && choice as usize <= proposal.alternatives.len() {
+                        self.review_choices[index.max(0) as usize] = choice as usize;
+                    }
+                }
+            }
+            CaptionsMsg::ReviewApply(use_choices) => {
+                if self.review_timeline != studio.timeline().id {
+                    self.review_segments = None;
+                    self.review_suggestions.clear();
+                    self.subject = None;
+                    self.message =
+                        "Timeline đã thay đổi. Hãy nhận dạng lại trước khi áp dụng.".into();
+                    return;
+                }
+                if let Some(mut segments) = self.review_segments.take() {
+                    if use_choices {
+                        if let Err(error) = concat_speech::gemini::apply_correction_choices(
+                            &mut segments,
+                            &self.review_suggestions,
+                            &self.review_choices,
+                        ) {
+                            self.review_segments = Some(segments);
+                            self.message = error;
+                            return;
+                        }
+                    }
+                    self.review_suggestions.clear();
+                    self.review_choices.clear();
+                    self.update(CaptionsMsg::Finished(Ok(segments)), studio);
+                }
+            }
             CaptionsMsg::VoiceToggled(on) => {
                 self.from_voice = on;
                 self.message.clear();
-                let sources = sources(studio);
+                let sources = self.all_sources(studio);
                 if on
                     && !self
                         .clip
@@ -164,10 +238,52 @@ impl CaptionsPane {
                     self.chosen_with = studio.sole_selection();
                 }
             }
+            CaptionsMsg::SourceChanged(-2) => {
+                crate::host::pick_files_then(
+                    "Chọn file Video / Audio để tạo phụ đề".to_owned(),
+                    Some((
+                        "Video & Audio".to_owned(),
+                        &[
+                            "mp4", "mov", "mkv", "webm", "avi", "m4v", "mp3", "wav", "m4a", "flac",
+                            "ogg", "aac",
+                        ],
+                    )),
+                    |studio, _, _, paths| {
+                        if let Some(path) = paths.into_iter().next() {
+                            studio.handle(Msg::Captions(CaptionsMsg::FilePicked(path)));
+                        }
+                    },
+                );
+            }
+            CaptionsMsg::FilePicked(path) => {
+                match concat_host::media::probe(&path.to_string_lossy()) {
+                    Ok(summary) => {
+                        let duration = summary.duration.unwrap_or(0.0);
+                        if summary.audio.is_none() || duration <= 0.0 {
+                            self.message =
+                                "File đã chọn không có luồng âm thanh hợp lệ.".to_owned();
+                            return;
+                        }
+                        let name = path
+                            .file_name()
+                            .map(|n| n.to_string_lossy().into_owned())
+                            .unwrap_or_else(|| summary.path.clone());
+                        let label = source_label(&name, 0.0);
+                        self.standalone_file = Some((path, label, duration));
+                        self.clip = Some("__standalone__".to_owned());
+                        self.chosen_with = studio.sole_selection();
+                        self.from_voice = true;
+                        self.message.clear();
+                    }
+                    Err(error) => {
+                        self.message = crate::host::probe_error(&error);
+                    }
+                }
+            }
             CaptionsMsg::SourceChanged(index) => {
                 if let Some(source) = usize::try_from(index)
                     .ok()
-                    .and_then(|index| sources(studio).into_iter().nth(index))
+                    .and_then(|index| self.all_sources(studio).into_iter().nth(index))
                 {
                     self.clip = Some(source.id);
                     self.chosen_with = studio.sole_selection();
@@ -181,11 +297,18 @@ impl CaptionsPane {
                 self.message.clear();
             }
             CaptionsMsg::GeminiLanguageChanged(index) => self.gemini_language = index.clamp(0, 1),
+            CaptionsMsg::GeminiProofreadToggled(on) => {
+                self.gemini_proofread = on;
+                self.message.clear();
+            }
             CaptionsMsg::PlacementChanged(index) => {
                 self.placement = (index.max(0) as usize).min(2);
             }
             CaptionsMsg::SizeChanged(index) => self.size = (index.max(0) as usize).min(2),
             CaptionsMsg::Begin => {
+                if self.running || self.review_segments.is_some() {
+                    return;
+                }
                 if self.from_voice {
                     self.run_sound(studio);
                 } else {
@@ -227,29 +350,49 @@ impl CaptionsPane {
                             video.height,
                             look.1,
                         );
-                        let commands: Vec<Command> =
-                            concat_speech::caption_layout::readable(segments, columns)
-                                .into_iter()
-                                .filter_map(|segment| {
-                                    let text = segment.text.trim().to_owned();
-                                    (!text.is_empty()).then(|| {
-                                        caption_clip(
-                                            text,
-                                            subject.start + segment.start / subject.speed,
-                                            (segment.end - segment.start) / subject.speed,
-                                            look,
-                                            base.as_ref(),
-                                        )
-                                    })
+                        let readable = concat_speech::caption_layout::readable(segments, columns);
+                        self.standalone_cues = readable
+                            .iter()
+                            .filter_map(|segment| {
+                                let text = segment.text.trim().to_owned();
+                                (!text.is_empty()).then(|| srt::Cue {
+                                    start: subject.start + segment.start / subject.speed,
+                                    end: subject.start + segment.end / subject.speed,
+                                    text,
                                 })
-                                .collect();
+                            })
+                            .collect();
+                        let commands: Vec<Command> = readable
+                            .into_iter()
+                            .filter_map(|segment| {
+                                let text = segment.text.trim().to_owned();
+                                (!text.is_empty()).then(|| {
+                                    caption_clip(
+                                        text,
+                                        subject.start + segment.start / subject.speed,
+                                        (segment.end - segment.start) / subject.speed,
+                                        look,
+                                        base.as_ref(),
+                                    )
+                                })
+                            })
+                            .collect();
                         let count = commands.len();
-                        self.open = false;
-                        if count == 0 {
-                            studio.notify(&t("captions.nothingSaidClip"), true);
+                        if studio.session.is_none() {
+                            if count == 0 {
+                                studio.notify(&t("captions.nothingSaidClip"), true);
+                            } else {
+                                studio.notify(&tf("captions.addedCaptions", &[&count]), false);
+                                self.ask_export_srt(studio);
+                            }
                         } else {
-                            studio.apply(Command::Batch { commands });
-                            studio.notify(&tf("captions.addedCaptions", &[&count]), false);
+                            self.open = false;
+                            if count == 0 {
+                                studio.notify(&t("captions.nothingSaidClip"), true);
+                            } else {
+                                studio.apply(Command::Batch { commands });
+                                studio.notify(&tf("captions.addedCaptions", &[&count]), false);
+                            }
                         }
                     }
                     // Asked for: the sheet is already on its way down.
@@ -266,6 +409,12 @@ impl CaptionsPane {
             }
             // Asked with the studio unborrowed, on a turn of its own; see
             // `host::after_dialog`.
+            CaptionsMsg::ImportTranslated(cues) => {
+                let commands = srt_commands(cues, self.look(), studio.prefs.title_style.as_ref());
+                if !commands.is_empty() {
+                    studio.apply(Command::Batch { commands });
+                }
+            }
             CaptionsMsg::ImportSrt => crate::host::pick_files_then(
                 t("captions.importSrt"),
                 Some((t("captions.subRipSubtitles"), &["srt"])),
@@ -341,18 +490,31 @@ impl CaptionsPane {
     /// beside the project under a name nothing there has, and handed to
     /// the phone to put where its file manager shows it.
     fn ask_export_srt(&mut self, studio: &mut Studio) {
-        if export_lane(studio).is_none() {
+        if export_lane(studio).is_none() && self.standalone_cues.is_empty() {
             self.message = t("captions.noCaptionsToExport");
             return;
         }
-        let name = format!("{}.srt", file_stem(studio));
-        // No project, no project folder: Documents, as anywhere else a
-        // file is written with nothing better to offer.
-        let folder = studio
-            .session
-            .as_ref()
-            .map(|session| PathBuf::from(session.path()))
-            .unwrap_or_else(|| PathBuf::from(crate::studio::home_folder("Documents")));
+        let (folder, name) = if export_lane(studio).is_none()
+            && let Some((ref src_path, _, _)) = self.standalone_file
+        {
+            let folder = src_path
+                .parent()
+                .map(PathBuf::from)
+                .unwrap_or_else(|| PathBuf::from(crate::studio::home_folder("Documents")));
+            let stem = src_path
+                .file_stem()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_else(|| "captions".to_owned());
+            (folder, format!("{stem}.srt"))
+        } else {
+            let name = format!("{}.srt", file_stem(studio));
+            let folder = studio
+                .session
+                .as_ref()
+                .map(|session| PathBuf::from(session.path()))
+                .unwrap_or_else(|| PathBuf::from(crate::studio::home_folder("Documents")));
+            (folder, name)
+        };
         if cfg!(any(target_os = "android", target_os = "ios")) {
             let path = unique_path(&folder, &name);
             self.export_srt(studio, &path);
@@ -387,11 +549,17 @@ impl CaptionsPane {
     /// where - on a phone, once the phone has put the file where it shows
     /// it.
     fn export_srt(&mut self, studio: &mut Studio, path: &Path) {
-        let Some(lane) = export_lane(studio) else {
+        let (cues, busiest) = if let Some(lane) = export_lane(studio) {
+            (
+                srt::title_cues(studio.timeline(), Some(&lane.track_id)),
+                lane.busiest && srt::title_lanes(studio.timeline()) > 1,
+            )
+        } else if !self.standalone_cues.is_empty() {
+            (self.standalone_cues.clone(), false)
+        } else {
             self.message = t("captions.noCaptionsToExport");
             return;
         };
-        let cues = srt::title_cues(studio.timeline(), Some(&lane.track_id));
         if let Err(error) = std::fs::write(path, srt::write(&cues)) {
             log::warn!("captions: could not write {}: {error}", path.display());
             self.message = tf("captions.couldNotWriteSubtitles", &[&error]);
@@ -402,12 +570,12 @@ impl CaptionsPane {
             cues.len(),
             path.display()
         );
-        self.open = false;
+        if studio.session.is_some() {
+            self.open = false;
+        } else {
+            let _ = crate::platform::reveal(&path.to_string_lossy());
+        }
         let count = cues.len();
-        // Which lane was written goes without saying when it was the
-        // selected title's, or the only lane with titles; otherwise the
-        // notice says it was the busiest, and how to pick another.
-        let busiest = lane.busiest && srt::title_lanes(studio.timeline()) > 1;
         let say = move |studio: &mut Studio, place: &str| {
             // Each key spelled out where it is used: scripts/locales.py
             // finds the strings the source asks for by reading it.
@@ -443,6 +611,18 @@ impl CaptionsPane {
         }
     }
 
+    fn all_sources(&self, studio: &Studio) -> Vec<Source> {
+        let mut list = Vec::new();
+        if let Some((_, ref label, _)) = self.standalone_file {
+            list.push(Source {
+                id: "__standalone__".to_owned(),
+                label: label.clone(),
+            });
+        }
+        list.extend(sources(studio));
+        list
+    }
+
     /// The sheet opened afresh. `clip` is the clip it was opened on, if
     /// any: the switch starts on when that clip has sound, or when a clip's
     /// menu asked for its voice (`voice`), in which case a clip without
@@ -450,9 +630,12 @@ impl CaptionsPane {
     fn open_on(&mut self, studio: &Studio, clip: Option<String>, voice: bool) {
         let installed = installed(&studio.settings.transcribers);
         let model = installed.iter().position(|model| model.active).unwrap_or(0);
-        let sources = sources(studio);
+        let standalone_file = self.standalone_file.take();
+        let standalone_cues = std::mem::take(&mut self.standalone_cues);
+        self.standalone_file = standalone_file;
+        let sources = self.all_sources(studio);
         let sounding = clip.filter(|id| sources.iter().any(|source| &source.id == id));
-        let from_voice = voice || sounding.is_some();
+        let from_voice = voice || sounding.is_some() || studio.session.is_none();
         let clip = sounding.or_else(|| {
             from_voice
                 .then(|| sources.first().map(|source| source.id.clone()))
@@ -469,6 +652,10 @@ impl CaptionsPane {
             timings: std::mem::take(&mut self.timings),
             provider: self.provider,
             gemini_language: self.gemini_language,
+            gemini_proofread: self.gemini_proofread,
+            glossary: self.glossary.clone(),
+            standalone_file: self.standalone_file.take(),
+            standalone_cues,
             ..CaptionsPane::default()
         };
     }
@@ -505,38 +692,78 @@ impl CaptionsPane {
         }
         let look = self.look();
         let mut at = f64::from(studio.playhead);
+        let mut cues = Vec::new();
         let base = studio.prefs.title_style.clone();
         let commands: Vec<Command> = lines
             .into_iter()
             .map(|(text, seconds)| {
+                cues.push(srt::Cue {
+                    start: at,
+                    end: at + seconds,
+                    text: text.clone(),
+                });
                 let command = caption_clip(text, at, seconds, look, base.as_ref());
                 at += seconds;
                 command
             })
             .collect();
         let count = commands.len();
-        self.open = false;
-        studio.apply(Command::Batch { commands });
-        studio.notify(&tf("captions.addedCaptions", &[&count]), false);
+        self.standalone_cues = cues;
+        if studio.session.is_none() {
+            studio.notify(&tf("captions.addedCaptions", &[&count]), false);
+            self.ask_export_srt(studio);
+        } else {
+            self.open = false;
+            studio.apply(Command::Batch { commands });
+            studio.notify(&tf("captions.addedCaptions", &[&count]), false);
+        }
     }
 
     /// The sheet's clip through the transcriber on a worker, reporting into
     /// the sheet as it goes.
     fn run_sound(&mut self, studio: &mut Studio) {
-        // The clip the panel shows, and no other: see `subject_clip`.
-        let Some(clip) = self
-            .subject_clip(studio, &sources(studio))
-            .and_then(|id| studio.clip(&id))
-            .cloned()
-        else {
-            self.message = t("captions.clipNoLongerTimeline");
-            return;
-        };
-        let Some(media) = studio.project().media_by_id(&clip.media_id).cloned() else {
-            self.message = t("captions.clipHasNoFile");
-            return;
-        };
+        let all = self.all_sources(studio);
+        let chosen_id = self.subject_clip(studio, &all);
+        let (media_path, audio_stream, source_start, window, clip_start, clip_speed) =
+            if chosen_id.as_deref() == Some("__standalone__") {
+                let Some((ref path, _, duration)) = self.standalone_file else {
+                    self.message = t("captions.clipNoLongerTimeline");
+                    return;
+                };
+                (
+                    path.to_string_lossy().into_owned(),
+                    None,
+                    0.0,
+                    duration,
+                    0.0,
+                    1.0,
+                )
+            } else {
+                let Some(clip) = chosen_id.and_then(|id| studio.clip(&id)).cloned() else {
+                    self.message = t("captions.clipNoLongerTimeline");
+                    return;
+                };
+                let Some(media) = studio.project().media_by_id(&clip.media_id).cloned() else {
+                    self.message = t("captions.clipHasNoFile");
+                    return;
+                };
+                (
+                    media.path.clone(),
+                    clip.audio_stream,
+                    clip.source_start,
+                    clip.duration * clip.speed,
+                    clip.start,
+                    clip.speed,
+                )
+            };
         if self.provider == 1 && studio.prefs.gemini_api_key.expose().trim().is_empty() {
+            self.message = t("captions.geminiKeyRequired");
+            return;
+        }
+        if self.provider == 0
+            && self.gemini_proofread
+            && studio.prefs.gemini_api_key.expose().trim().is_empty()
+        {
             self.message = t("captions.geminiKeyRequired");
             return;
         }
@@ -552,10 +779,10 @@ impl CaptionsPane {
             return;
         };
         let request = concat_speech::transcribe::TranscribeRequest {
-            path: media.path.clone(),
-            audio_stream: clip.audio_stream,
-            source_start: clip.source_start,
-            window: clip.duration * clip.speed,
+            path: media_path,
+            audio_stream,
+            source_start,
+            window,
             model_id: model.clone(),
         };
         let dirs = studio.host.dirs.clone();
@@ -565,6 +792,10 @@ impl CaptionsPane {
         let vietnamese = self.gemini_language == 0;
         self.gemini_cancel = Arc::default();
         let gemini_cancel = Arc::clone(&self.gemini_cancel);
+        let gemini_proofread = self.provider == 0 && self.gemini_proofread;
+        let glossary = self.glossary.clone();
+        let review_timeline = studio.timeline().id.clone();
+        self.review_timeline = review_timeline.clone();
         // The run as the bar lays it out: the sound read in at a few
         // hundred times its length, the model loaded unless it still is,
         // and whisper a window at a time - at the pace the last run on
@@ -590,8 +821,8 @@ impl CaptionsPane {
             (Stage::Working, windows * per_window),
         ]);
         self.subject = Some(Subject {
-            start: clip.start,
-            speed: clip.speed,
+            start: clip_start,
+            speed: clip_speed,
             look: self.look(),
             model,
             windows,
@@ -606,7 +837,9 @@ impl CaptionsPane {
                         studio.handle(Msg::Captions(CaptionsMsg::Progress(stage)));
                     });
                 };
-                if gemini {
+                let mut warning = None;
+                let mut suggestions = Vec::new();
+                let result = if gemini {
                     concat_speech::gemini::transcribe(
                         &request,
                         &api_key,
@@ -615,17 +848,66 @@ impl CaptionsPane {
                         progress,
                     )
                 } else {
-                    transcriber.transcribe(&dirs, &request, progress)
+                    let result = transcriber.transcribe_with_language(
+                        &dirs,
+                        &request,
+                        Some(if vietnamese { "vi" } else { "auto" }),
+                        progress,
+                    );
+                    if let Ok(ref segments) = result {
+                        if gemini_proofread {
+                            match concat_speech::gemini::suggest_corrections(
+                                segments,
+                                &api_key,
+                                &glossary,
+                                &gemini_cancel,
+                            ) {
+                                Ok(proposals) => suggestions = proposals,
+                                Err(error) => {
+                                    warning = Some(format!(
+                                        "AI chưa đề xuất sửa từ; đã giữ bản nhận dạng Local. Lỗi: {error}"
+                                    ))
+                                }
+                            }
+                        }
+                    }
+                    result
+                };
+                (result, warning, suggestions, review_timeline)
+            },
+            |studio, _, _, (result, warning, suggestions, timeline)| {
+                let succeeded = result.is_ok()
+                    && !studio
+                        .captions
+                        .gemini_cancel
+                        .load(std::sync::atomic::Ordering::Relaxed);
+                if succeeded && !suggestions.is_empty() {
+                    if timeline != studio.timeline().id {
+                        studio.handle(Msg::Captions(CaptionsMsg::Finished(Err(
+                            "Timeline đã thay đổi. Hãy nhận dạng lại trước khi áp dụng.".into(),
+                        ))));
+                    } else if let Ok(segments) = result {
+                        studio.handle(Msg::Captions(CaptionsMsg::ReviewReady(
+                            segments,
+                            suggestions,
+                        )));
+                    }
+                } else {
+                    studio.handle(Msg::Captions(CaptionsMsg::Finished(result)));
+                }
+                if succeeded {
+                    if let Some(warning) = warning {
+                        studio.notify(&warning, true);
+                    }
                 }
             },
-            |studio, _, _, result| studio.handle(Msg::Captions(CaptionsMsg::Finished(result))),
         );
     }
 
     /// The sheet as Slint shows it.
     pub fn data(&self, studio: &Studio) -> CaptionsSheetData {
         let sources = if self.open {
-            sources(studio)
+            self.all_sources(studio)
         } else {
             Vec::new()
         };
@@ -646,6 +928,34 @@ impl CaptionsPane {
             model: self.model as i32,
             provider: self.provider,
             gemini_language: self.gemini_language,
+            gemini_proofread: self.gemini_proofread,
+            glossary: self.glossary.clone().into(),
+            reviewing: self.review_segments.is_some(),
+            reviews: slint::ModelRc::from(std::rc::Rc::new(slint::VecModel::from(
+                self.review_suggestions
+                    .iter()
+                    .enumerate()
+                    .map(|(i, suggestion)| {
+                        let original = self
+                            .review_segments
+                            .as_ref()
+                            .and_then(|segments| segments.get(suggestion.id))
+                            .map(|segment| segment.text.clone())
+                            .unwrap_or_default();
+                        let mut options: Vec<slint::SharedString> =
+                            vec![format!("Giữ nguyên: {original}").into()];
+                        options.extend(suggestion.alternatives.iter().map(|s| s.as_str().into()));
+                        crate::ui::CaptionReviewRow {
+                            original: format!("Câu {}: {original}", suggestion.id + 1).into(),
+                            reason: suggestion.reason.as_str().into(),
+                            options: slint::ModelRc::from(std::rc::Rc::new(slint::VecModel::from(
+                                options,
+                            ))),
+                            choice: self.review_choices.get(i).copied().unwrap_or(0) as i32,
+                        }
+                    })
+                    .collect::<Vec<_>>(),
+            ))),
             placement: self.placement as i32,
             size: self.size as i32,
             running: self.running,

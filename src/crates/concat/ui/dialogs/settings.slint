@@ -71,7 +71,9 @@ export struct SettingsData {
     tab: int,
     language: int,
     gemini-api-key: string,
+    gemini-key-count: int,
     eleven-api-key: string,
+    eleven-key-count: int,
     /// what the log records: 0 errors only, 1 warnings, 2 normal, 3
     /// debug, 4 everything
     log-level: int,
@@ -909,16 +911,16 @@ export component SettingsDialog inherits Modal {
                 }
 
                 DialogSection {
-                    title: "Gemini API key";
+                    title: "Gemini API keys (\{root.data.gemini-key-count})";
                     hint: I18n.t("settings.geminiKeyHint");
                     open: true;
-                    Field { value: root.data.gemini-api-key; secret: true; technical: true; edited(text) => { root.gemini-api-key-edited(text); } }
+                    Field { value: root.data.gemini-api-key; placeholder: "key1; key2; key3"; secret: true; technical: true; edited(text) => { root.gemini-api-key-edited(text); } }
                 }
                 DialogSection {
-                    title: "ElevenLabs API key";
+                    title: "ElevenLabs API keys (\{root.data.eleven-key-count})";
                     hint: I18n.t("settings.elevenKeyHint");
                     open: true;
-                    Field { value: root.data.eleven-api-key; secret: true; technical: true; edited(text) => { root.eleven-api-key-edited(text); } }
+                    Field { value: root.data.eleven-api-key; placeholder: "key1; key2; key3"; secret: true; technical: true; edited(text) => { root.eleven-api-key-edited(text); } }
                 }
 
                 // What the log records. Normal is what a bug report needs

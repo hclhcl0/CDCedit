@@ -1215,6 +1215,11 @@ export component PhoneEditor inherits Rectangle {
                 label: Editor.importing ? I18n.t("mediaPane.importing") : I18n.t("phone.importMedia");
                 clicked => { Editor.import-media(); }
             }
+            SheetButton {
+                glyph: Glyph.folder;
+                label: I18n.t("links.import");
+                clicked => {root.hide();Editor.import-link();}
+            }
             SheetNote {
                 text: Editor.media.length == 0 ? I18n.t("phone.noMediaYet")
                     : root.media-at-end ? I18n.t("phone.pickToAddAtEnd")

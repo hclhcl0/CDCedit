@@ -4,19 +4,24 @@ import { Theme } from "../theme/theme.slint";
 import { Button, Field, DialogRow, DialogSection } from "../primitives/modal.slint";
 import { Select } from "../primitives/select.slint";
 import { NumberField } from "../primitives/number-field.slint";
-import { Switch } from "../inspector/controls.slint";
+import { Rail, Switch } from "../inspector/controls.slint";
 
 export struct DubbingRowData { text: string, start: float, end: float, generated: bool }
 export struct DubbingData {
+    expressions: bool,
     mode: int, provider: int, cloud-voice: string, cloud-model: string,
+    voice-choice: int, voice-names: [string], voice-gender: int, show-paid: bool, catalog-loading: bool, accent: int, delivery-preset: int,
+    temperature: float,
     model-choice: int, extended-settings: bool, delivery: string,
     stability: float, similarity: float, style: float, speed: float, speaker-boost: bool,
     source: int, sources: [string], whisper: int, whispers: [string], rows: [DubbingRowData],
+    pending-audio: string,
     has-preview: bool, can-apply: bool, mute-original: bool,
 }
 export component DubbingPanel inherits VerticalLayout {
     in property <DubbingData> data;
     callback action(action: int, index: int, text: string, value: float);
+    pure callback insert-tag(text: string, tag: string, at: int) -> string;
     DialogSection {
         first: true;
         title: I18n.t("dubbing.workspace");
@@ -44,15 +49,58 @@ export component DubbingPanel inherits VerticalLayout {
         if root.data.provider != 0: DialogRow {
             label: I18n.t("common.model");
             Select {
-                options: root.data.provider == 1 ? ["Gemini 3.8 Flash TTS", "Gemini 3.8 Flash-Lite TTS", I18n.t("dubbing.customModel")] : ["Eleven v3", "Eleven v4", "Eleven v4 Turbo", "Flash v2.5", "Multilingual v2", I18n.t("dubbing.customModel")];
+                options: root.data.provider == 1 ? ["Gemini 3.8 Flash TTS", "Gemini 3.8 Flash-Lite TTS", "Gemini 2.5 Flash Preview TTS", "Gemini 2.5 Pro Preview TTS", I18n.t("dubbing.customModel")] : ["Eleven v3", "Eleven v4", "Eleven v4 Turbo", "Flash v2.5", "Multilingual v2", I18n.t("dubbing.customModel")];
                 current: root.data.model-choice;
                 changed(index) => { root.action(24,index,"",0); }
             }
         }
-        if root.data.provider != 0 && root.data.model-choice == (root.data.provider == 1 ? 2 : 5): DialogRow {
+        if root.data.provider != 0 && root.data.model-choice == (root.data.provider == 1 ? 4 : 5): DialogRow {
             label: I18n.t("dubbing.modelId");
             Field { value: root.data.cloud-model; technical: true; edited(text) => { root.action(4,0,text,0); } }
         }
+        if root.data.provider == 1: DialogRow {
+            label: "Temperature";
+            HorizontalLayout {
+                spacing: 10px;
+                Rail { value: root.data.temperature; minimum: 0; maximum: 2; step: 0.05; default-value: 1; changed(value) => { root.action(32,0,"",value); } }
+                NumberField { value: root.data.temperature; minimum: 0; maximum: 2; step: 0.05; precision: 2; changed(value) => { root.action(32,0,"",value); } }
+            }
+        }
+        if root.data.provider == 1: Text {
+            text: I18n.t("dubbing.temperatureHint"); color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap;
+        }
+        if root.data.provider == 1 && (root.data.model-choice == 2 || root.data.model-choice == 3): Text {
+            text: root.data.model-choice == 2 ? I18n.t("dubbing.flashFreeTier") : I18n.t("dubbing.proPaidTier"); color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap;
+        }
+        if root.data.provider != 0: DialogRow {
+            label: I18n.t("dubbing.gender");
+            Select { options: [I18n.t("dubbing.allGenders"), I18n.t("dubbing.male"), I18n.t("dubbing.female")]; current: root.data.voice-gender; changed(index) => { root.action(26,index,"",0); } }
+        }
+        if root.data.provider == 2: DialogRow {
+            label: I18n.t("dubbing.showPaid");
+            Switch { checked: root.data.show-paid; toggled(on) => { root.action(27,on ? 1 : 0,"",0); } }
+        }
+        if root.data.provider == 2: Button {
+            label: root.data.catalog-loading ? I18n.t("dubbing.loadingVoices") : I18n.t("dubbing.loadVoices");
+            enabled: !root.data.catalog-loading;
+            clicked => { root.action(29,0,"",0); }
+        }
+        if root.data.provider != 0: DialogRow {
+            label: I18n.t("dubbing.chooseVoice");
+            Select { options: root.data.voice-names; current: root.data.voice-choice; changed(index) => { if index > 0 { root.action(28,index - 1,"",0); } } }
+        }
+        if root.data.provider == 2: Text {
+            text: I18n.t("dubbing.freeVoiceHint"); color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap;
+        }
+        if root.data.provider != 0: DialogRow {
+            label: I18n.t("dubbing.accent");
+            Select { options: [I18n.t("dubbing.defaultAccent"), I18n.t("dubbing.north"), I18n.t("dubbing.central"), I18n.t("dubbing.south")]; current: root.data.accent; changed(index) => { root.action(30,index,"",0); } }
+        }
+        if root.data.provider == 1 || (root.data.provider == 2 && root.data.extended-settings): DialogRow {
+            label: I18n.t("dubbing.deliveryPreset");
+            Select { options: [I18n.t("dubbing.customStyle"), I18n.t("dubbing.conversation"), I18n.t("dubbing.story"), I18n.t("dubbing.news"), I18n.t("dubbing.advertising"), I18n.t("dubbing.gentle"), I18n.t("dubbing.cheerful")]; current: root.data.delivery-preset; changed(index) => { root.action(31,index,"",0); } }
+        }
+        if root.data.provider == 1: Text { text: I18n.t("dubbing.accentHint"); color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap; }
         if root.data.provider != 0: DialogRow {
             label: I18n.t("dubbing.voiceId");
             Field { value: root.data.cloud-voice; technical: true; edited(text) => { root.action(3,0,text,0); } }
@@ -104,7 +152,11 @@ export component DubbingPanel inherits VerticalLayout {
         }
         if root.data.mode != 0: DialogRow {
             label: I18n.t("dubbing.source");
-            Select { options: root.data.sources; current: root.data.source; placeholder: I18n.t("dubbing.chooseSource"); changed(index) => { root.action(5,index,"",0); } }
+            HorizontalLayout {
+                spacing: 8px;
+                Select { horizontal-stretch: 1; options: root.data.sources; current: root.data.source; placeholder: I18n.t("dubbing.chooseSource"); changed(index) => { root.action(5,index,"",0); } }
+                Button { label: "Chọn file…"; ghost: true; clicked => { root.action(33,0,"",0); } }
+            }
         }
         if root.data.mode != 0: DialogRow {
             label: "Whisper";
@@ -131,9 +183,13 @@ export component DubbingPanel inherits VerticalLayout {
         }
         if root.data.rows.length > 0: HorizontalLayout {
             spacing: 8px;
-            Button { label: I18n.t("dubbing.listenAll"); clicked => { root.action(10,-1,"",0); } }
+            Button { label: I18n.t("dubbing.listenAll"); enabled: root.data.pending-audio == ""; clicked => { root.action(10,-1,"",0); } }
             Button { label: I18n.t("dubbing.stop"); ghost: true; clicked => { root.action(16,0,"",0); } }
+            Button { label: "Lưu .WAV…"; enabled: root.data.has-preview; clicked => { root.action(35,0,"",0); } }
             Button { label: I18n.t("dubbing.apply"); primary: true; enabled: root.data.can-apply; clicked => { root.action(11,0,"",0); } }
+        }
+        if root.data.pending-audio != "": Text {
+            text: root.data.pending-audio; color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap;
         }
         if root.data.rows.length > 0: Text {
             text: I18n.t("dubbing.reviewNotice"); color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap;
@@ -141,15 +197,26 @@ export component DubbingPanel inherits VerticalLayout {
     }
     if root.data.mode != 0 && root.data.rows.length > 0: Flickable {
         height: 280px;
-        content-height: root.data.rows.length * 136px;
+        content-height: root.data.rows.length * (root.data.expressions ? 174px : 136px);
         content-width: self.width;
         for row[index] in root.data.rows: Rectangle {
-            x: 14px; y: index * 136px; width: parent.width - 28px; height: 128px;
+            x: 14px; y: index * (root.data.expressions ? 174px : 136px); width: parent.width - 28px; height: root.data.expressions ? 166px : 128px;
             background: Theme.well; border-radius: Theme.r;
             VerticalLayout {
                 padding: 8px; spacing: 6px;
                 Text { text: "\{index + 1} · " + (row.generated ? I18n.t("dubbing.generated") : I18n.t("dubbing.needsGeneration")); color: row.generated ? Theme.accent : Theme.fg-muted; font-size: Theme.fs-sm; }
-                Field { value: row.text; edited(text) => { root.action(12,index,text,0); } }
+                cue-field := Field {
+                    value: row.text;
+                    edited(text) => { root.action(12,index,text,0); }
+                    splice-token(text, token, at) => { return root.insert-tag(text, token, at); }
+                }
+                if root.data.expressions: Select {
+                    options: ["+ Biểu cảm", "Cười", "Khóc", "Cười khúc khích", "Thở dài", "Ho", "Hít thở", "Ngạc nhiên", "Nghỉ ngắn", "Nghỉ dài"];
+                    current: 0;
+                    changed(choice) => {
+                        if (choice > 0) { cue-field.insert-token(["", "<laugh>", "<cry>", "<chuckle>", "<sigh>", "<cough>", "<breath>", "<gasp>", "<short pause>", "<long pause>"][choice]); }
+                    }
+                }
                 HorizontalLayout {
                     spacing: 8px;
                     Text { text: I18n.t("dubbing.start"); color: Theme.fg-muted; vertical-alignment: center; }

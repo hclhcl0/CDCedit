@@ -854,6 +854,9 @@ pub struct Studio {
 
     // ── the bin ──
     pub media: crate::panes::media_bin::MediaBin,
+    pub link_import: crate::panes::link_import::LinkImport,
+    pub gemini_studio: crate::panes::gemini_studio::GeminiStudio,
+    pub translation: crate::panes::translation::Translation,
     /// Decoded art by media id, and the ids a worker is decoding for.
     pub peaks: HashMap<String, Arc<Pyramid>>,
     /// Filmstrips by media id: the picture, how many frames are in it, one
@@ -2367,7 +2370,7 @@ impl Studio {
         }
         // The words first, so everything published from here on is in
         // the remembered language.
-        i18n::select(prefs.locale.as_deref().unwrap_or(i18n::ENGLISH), &host.dirs);
+        i18n::select(prefs.locale.as_deref().unwrap_or("vi"), &host.dirs);
         let languages = i18n::languages(&host.dirs);
         let recents = projects::recents(&host.dirs.config);
         let text_presets = presets::all(&host.dirs);
@@ -2380,6 +2383,9 @@ impl Studio {
             dirty: false,
             autosave: slint::Timer::default(),
             media: crate::panes::media_bin::MediaBin::default(),
+            link_import: crate::panes::link_import::LinkImport::default(),
+            gemini_studio: crate::panes::gemini_studio::GeminiStudio::default(),
+            translation: crate::panes::translation::Translation::default(),
             peaks: HashMap::new(),
             strips: HashMap::new(),
             windows: HashMap::new(),
@@ -8796,6 +8802,9 @@ impl Studio {
                 if swept > 0 {
                     log::info!("{swept} stale proxies swept from {}", project_dir.display());
                 }
+                self.link_import = crate::panes::link_import::LinkImport::default();
+                self.gemini_studio = crate::panes::gemini_studio::GeminiStudio::default();
+                self.translation = crate::panes::translation::Translation::default();
                 self.session = Some(session);
                 // The relink dialog belongs to the project that opened it;
                 // this project's own check follows below.
@@ -9033,6 +9042,9 @@ impl Studio {
         if let Some(session) = self.session.as_ref() {
             self.host.open_projects.release(session.path());
         }
+        self.link_import = crate::panes::link_import::LinkImport::default();
+        self.gemini_studio = crate::panes::gemini_studio::GeminiStudio::default();
+        self.translation = crate::panes::translation::Translation::default();
         self.session = None;
         // Whatever a worker still brings back for this project is dropped
         // at delivery; the sheets that were waiting on one stop waiting.
@@ -9124,6 +9136,21 @@ impl Studio {
             self.note_activity(activity);
         }
         match msg {
+            crate::panes::Msg::Translation(msg) => {
+                let mut pane = std::mem::take(&mut self.translation);
+                pane.update(msg, self);
+                self.translation = pane;
+            }
+            crate::panes::Msg::Gemini(msg) => {
+                let mut pane = std::mem::take(&mut self.gemini_studio);
+                pane.update(msg, self);
+                self.gemini_studio = pane;
+            }
+            crate::panes::Msg::Links(msg) => {
+                let mut pane = std::mem::take(&mut self.link_import);
+                pane.update(msg, self);
+                self.link_import = pane;
+            }
             crate::panes::Msg::Export(msg) => {
                 let mut pane = std::mem::take(&mut self.export);
                 pane.update(msg, self);
@@ -11753,6 +11780,9 @@ impl Studio {
                 .map(|model| SharedString::from(model.name.as_str()))
                 .collect(),
         );
+        app.set_link_import(self.link_import.data(self));
+        app.set_gemini_studio(self.gemini_studio.data(self));
+        app.set_translation(self.translation.data(self));
         app.set_captions(self.captions.data(self));
         let voices = installed(&self.settings.voices);
         sync(

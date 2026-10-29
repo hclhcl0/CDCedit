@@ -50,7 +50,10 @@ import {
     MissingMediaItem,
 } from "dialogs/relink.slint";
 import { ConfirmData, ConfirmDialog } from "dialogs/confirm.slint";
-import { CaptionsDialog, CaptionsSheetData } from "dialogs/captions.slint";
+import { TranslationDialog, TranslationData, TranslationRowData } from "dialogs/translation.slint";
+import { GeminiStudioDialog, GeminiStudioData, GeminiTurnData, GeminiVoiceData } from "dialogs/gemini-studio.slint";
+import { LinkImportData, LinkImportItem, LinkImportDialog } from "dialogs/link-import.slint";
+import { CaptionsDialog, CaptionsSheetData, CaptionReviewRow } from "dialogs/captions.slint";
 import { SpeechDialog, SpeechSheetData, DubbingData, DubbingRowData } from "dialogs/speech.slint";
 import { NewVoiceData, NewVoiceDialog } from "dialogs/new-voice.slint";
 import { AvatarData } from "primitives/avatar.slint";
@@ -172,7 +175,13 @@ export {
     SystemFactData,
     ToastData,
     ProjectSheetData,
+    TranslationData,
+    TranslationRowData,
+    GeminiStudioData,
+    GeminiTurnData,
+    GeminiVoiceData,
     CaptionsSheetData,
+    CaptionReviewRow,
     SpeechSheetData,
     DubbingData,
     DubbingRowData,
@@ -428,6 +437,13 @@ export component App inherits Window {
     /// The two speech sheets: captions from a clip's sound, and a title's
     /// words - or any words - read aloud. Their option lists come from what
     /// is installed, so they are handed over as models.
+    in property <LinkImportData> link-import;
+    in property <GeminiStudioData> gemini-studio;
+    in property <TranslationData> translation;
+    callback translation-action(action:int,index:int,text:string,value:float);
+    callback gemini-studio-action(action:int,index:int,text:string,value:float);
+    pure callback gemini-studio-insert-tag(text:string,tag:string,at:int)->string;
+    callback link-import-action(action:int,index:int,text:string);
     in property <CaptionsSheetData> captions;
     in property <[string]> caption-models;
     callback captions-closed();
@@ -438,6 +454,10 @@ export component App inherits Window {
     callback captions-provider-changed(index: int);
     callback captions-configure-api();
     callback captions-gemini-language-changed(index: int);
+    callback captions-gemini-proofread-toggled(on: bool);
+    callback captions-glossary-edited(text: string);
+    callback captions-review-choice(index: int, choice: int);
+    callback captions-review-apply(use-choices: bool);
     callback captions-placement-changed(index: int);
     callback captions-size-changed(index: int);
     callback captions-begin();
@@ -647,6 +667,9 @@ export component App inherits Window {
             // quit the app, a running export with it.
             if (event.text == Key.Escape || event.text == Key.Back) {
                 if (root.confirm.open) { root.confirm-dismissed(); return accept; }
+                if (root.translation.open) {root.translation-action(1,0,"",0);return accept;}
+                if (root.gemini-studio.open) {root.gemini-studio-action(1,0,"",0);return accept;}
+                if (root.link-import.open) {root.link-import-action(1,0,"");return accept;}
                 if (root.relink.open) { root.relink-dismiss(); return accept; }
                 if (root.new-voice.open) {
                     if (!root.new-voice.saving) { root.new-voice-closed(); }
@@ -843,7 +866,7 @@ export component App inherits Window {
 
         CaptionsDialog {
             fill: root.sheets-fill;
-            floating: !root.sheets-fill;
+            floating: !root.sheets-fill && !root.on-start;
             z: root.front-tool == "captions" ? 1 : 0;
             raised => { root.front-tool = "captions"; }
             inset-top: root.safe-area-insets.top;
@@ -865,6 +888,10 @@ export component App inherits Window {
             provider-changed(index) => { root.captions-provider-changed(index); }
             configure-api => { root.captions-configure-api(); }
             gemini-language-changed(index) => { root.captions-gemini-language-changed(index); }
+            gemini-proofread-toggled(on) => { root.captions-gemini-proofread-toggled(on); }
+            glossary-edited(text) => { root.captions-glossary-edited(text); }
+            review-choice(index, choice) => { root.captions-review-choice(index, choice); }
+            review-apply(use-choices) => { root.captions-review-apply(use-choices); }
             placement-changed(index) => { root.captions-placement-changed(index); }
             size-changed(index) => { root.captions-size-changed(index); }
             begin => { root.captions-begin(); }
@@ -876,7 +903,7 @@ export component App inherits Window {
 
         SpeechDialog {
             fill: root.sheets-fill;
-            floating: !root.sheets-fill;
+            floating: !root.sheets-fill && !root.on-start;
             // Its own home, a step in from the captions card's, so the two
             // do not open exactly on top of each other.
             home-right: 44px;
@@ -1122,6 +1149,35 @@ export component App inherits Window {
     callback confirm-accepted();
     callback confirm-dismissed();
 
+    LinkImportDialog {
+        x:0;y:0;width:root.width;height:root.height;
+        fill:root.phone;
+        inset-top:root.safe-area-insets.top;
+        inset-bottom:root.safe-area-insets.bottom;
+        inset-left:root.safe-area-insets.left;
+        inset-right:root.safe-area-insets.right;
+        data:root.link-import;
+        action(action,index,text)=>{root.link-import-action(action,index,text);}
+    }
+
+    GeminiStudioDialog {
+        x:0;y:0;width:root.width;height:root.height;
+        fill:root.phone;
+        inset-top:root.safe-area-insets.top;inset-bottom:root.safe-area-insets.bottom;
+        inset-left:root.safe-area-insets.left;inset-right:root.safe-area-insets.right;
+        data:root.gemini-studio;
+        action(action,index,text,value)=>{root.gemini-studio-action(action,index,text,value);}
+        insert-tag(text,tag,at)=>{return root.gemini-studio-insert-tag(text,tag,at);}
+    }
+
+    TranslationDialog {
+        x:0;y:0;width:root.width;height:root.height;fill:root.phone;
+        inset-top:root.safe-area-insets.top;inset-bottom:root.safe-area-insets.bottom;
+        inset-left:root.safe-area-insets.left;inset-right:root.safe-area-insets.right;
+        data:root.translation;
+        action(action,index,text,value)=>{root.translation-action(action,index,text,value);}
+    }
+
     ConfirmDialog {
         inset-top: root.safe-area-insets.top;
         inset-bottom: root.safe-area-insets.bottom;
@@ -1165,6 +1221,8 @@ export component App inherits Window {
         // The arrows walk the strip: File, Edit, View and round again.
         neighbour(by) => { root.open-menu-from-keys(Math.mod(root.open-menu + by, 3)); }
     }
+
+
 
     // Last of all, and over everything including the sheets: an export that
     // failed behind a dialog is exactly the case a notice is for. It takes no

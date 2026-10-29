@@ -16,7 +16,9 @@
 
 pub mod captions;
 pub mod export;
+pub mod gemini_studio;
 pub mod glide;
+pub mod link_import;
 pub mod media_bin;
 pub mod monitor;
 pub mod pace;
@@ -27,11 +29,16 @@ pub mod sounds;
 pub mod speech;
 pub mod start;
 pub mod timeline;
+pub mod translation;
 pub mod voiceover;
 
 /// One thing that happened, to one pane.
 #[derive(Debug)]
 pub enum Msg {
+    Translation(translation::TranslationMsg),
+    Gemini(gemini_studio::GeminiMsg),
+    /// Link downloader sheet.
+    Links(link_import::LinkMsg),
     /// To the export sheet.
     Export(export::ExportMsg),
     /// To the settings sheet.
@@ -77,6 +84,7 @@ pub fn activity(msg: &Msg) -> Option<Activity> {
     use timeline::TimelineMsg;
 
     match msg {
+        Msg::Links(_) | Msg::Gemini(_) | Msg::Translation(_) => return None,
         Msg::Monitor(MonitorMsg::Frame(..) | MonitorMsg::Request)
         | Msg::Timeline(
             TimelineMsg::Hovered(_)
@@ -103,6 +111,12 @@ pub fn activity(msg: &Msg) -> Option<Activity> {
         }
         Msg::Export(ExportMsg::Finished(Err(error))) => {
             return Some(Activity::once(Info, format!("export: failed, {error}")));
+        }
+        Msg::Captions(CaptionsMsg::ImportTranslated(cues)) => {
+            return Some(Activity::once(
+                Info,
+                format!("translation: applied {} cues", cues.len()),
+            ));
         }
         Msg::Captions(CaptionsMsg::Begin) => {
             return Some(Activity::once(Info, "captions: started".to_owned()));
