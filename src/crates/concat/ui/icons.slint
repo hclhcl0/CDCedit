@@ -171,6 +171,12 @@ export enum Glyph {
     move,
     wand,
     sliders,
+    voice-changer,
+    audio-studio,
+    subtitles,
+    translate,
+    cloud-download,
+    cutout-person,
 }
 
 component Stroked inherits Path {
@@ -964,5 +970,35 @@ export component Icon inherits Rectangle {
     if root.glyph == Glyph.angle: Stroked {
         size: root.size; tint: root.tint; weight: root.weight;
         commands: "M 4 20 L 20 20 M 4 20 L 17 7 M 14 20 A 10 10 0 0 0 11 12.9";
+    }
+
+    if root.glyph == Glyph.voice-changer: Stroked {
+        size: root.size; tint: root.tint; weight: root.weight;
+        commands: "M8 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z M14 10v2a6 6 0 0 1-12 0v-2 M8 18v4 M18 5v14 M22 8v8";
+    }
+
+    if root.glyph == Glyph.audio-studio: Stroked {
+        size: root.size; tint: root.tint; weight: root.weight;
+        commands: "M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3";
+    }
+
+    if root.glyph == Glyph.subtitles: Stroked {
+        size: root.size; tint: root.tint; weight: root.weight;
+        commands: "M5 5h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z M7 15h4 M15 15h2 M7 11h2 M13 11h4";
+    }
+
+    if root.glyph == Glyph.translate: Stroked {
+        size: root.size; tint: root.tint; weight: root.weight;
+        commands: "M5 8l6 6 M4 14l6-6 2-3 M2 5h12 M7 2h1 M22 22l-5-10-5 10 M14 18h6";
+    }
+
+    if root.glyph == Glyph.cloud-download: Stroked {
+        size: root.size; tint: root.tint; weight: root.weight;
+        commands: "M12 13v8l-4-4 M12 21l4-4 M4.393 15.269A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.436 8.284";
+    }
+
+    if root.glyph == Glyph.cutout-person: Stroked {
+        size: root.size; tint: root.tint; weight: root.weight;
+        commands: "M3 7V5a2 2 0 0 1 2-2h2 M17 3h2a2 2 0 0 1 2 2v2 M21 17v2a2 2 0 0 1-2 2h-2 M7 21H5a2 2 0 0 1-2-2v-2 M9 10a3 3 0 1 0 6 0a3 3 0 1 0-6 0 M7 18a5 5 0 0 1 10 0";
     }
 }

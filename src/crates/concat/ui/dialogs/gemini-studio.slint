@@ -133,9 +133,9 @@ export component GeminiStudioDialog inherits Modal {
                     }
                     if root.data.mode==3:VerticalLayout {
                         spacing:8px;
-                        Button{label:"Chọn mẫu giọng (10–30 giây)";block:true;clicked=>{root.action(54,0,"",0);}}
+                        DialogRow{label:"Mẫu giọng (10–30s)";HorizontalLayout{spacing:8px;Field{horizontal-stretch:1;value:root.data.reference;placeholder:"Chưa chọn mẫu giọng…";}Button{label:"Duyệt…";glyph:Glyph.folder;clicked=>{root.action(54,0,"",0);}}}}
                         Text{text:root.data.reference;color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
-                        Button{label:"Chọn bản ghi đồng ý của người nói";block:true;clicked=>{root.action(55,0,"",0);}}
+                        DialogRow{label:"Bản ghi đồng ý";HorizontalLayout{spacing:8px;Field{horizontal-stretch:1;value:root.data.consent;placeholder:"Chưa chọn bản ghi đồng ý…";}Button{label:"Duyệt…";glyph:Glyph.folder;clicked=>{root.action(55,0,"",0);}}}}
                         Text{text:root.data.consent;color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
                         Text{text:"Hai bản ghi phải là giọng thật của cùng người trưởng thành. Bản đồng ý cần đọc câu Google yêu cầu, ví dụ tiếng Anh:";color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
                         Text{text:"I am the owner of this voice and I consent to Google using this voice to create a synthetic voice model.";color:Theme.fg;font-size:Theme.fs;wrap:word-wrap;}

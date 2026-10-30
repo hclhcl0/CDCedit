@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { I18n } from "../i18n.slint";
 import { Theme } from "../theme/theme.slint";
+import { Glyph } from "../icons.slint";
 import { Button, Field, DialogRow, DialogSection } from "../primitives/modal.slint";
 import { Select } from "../primitives/select.slint";
 import { NumberField } from "../primitives/number-field.slint";
@@ -17,185 +18,397 @@ export struct DubbingData {
     source: int, sources: [string], whisper: int, whispers: [string], rows: [DubbingRowData],
     pending-audio: string,
     has-preview: bool, can-apply: bool, mute-original: bool,
+    recording: bool,
+    vc-method: int,
+    vc-preset: int,
+    vc-pitch: float,
+    vc-speed: float,
+    vc-denoise: bool,
 }
+
 export component DubbingPanel inherits VerticalLayout {
     in property <DubbingData> data;
     callback action(action: int, index: int, text: string, value: float);
     pure callback insert-tag(text: string, tag: string, at: int) -> string;
+
+    property <bool> show-tts-controls: root.data.mode != 3 || root.data.vc-method != 0;
+
     DialogSection {
         first: true;
-        title: I18n.t("dubbing.workspace");
+        title: "Chức năng Âm thanh & Giọng nói AI";
+
         DialogRow {
             label: I18n.t("dubbing.mode");
             Select {
-                options: [I18n.t("speech.textToSpeech"), I18n.t("dubbing.textTrack"), I18n.t("dubbing.videoVoice")];
+                options: [
+                    I18n.t("speech.textToSpeech"),
+                    I18n.t("dubbing.textTrack"),
+                    I18n.t("dubbing.videoVoice"),
+                    "Thu âm & Thay đổi giọng nói (3 Phương án)"
+                ];
                 current: root.data.mode;
-                changed(index) => { root.action(0,index,"",0); }
+                changed(index) => { root.action(0, index, "", 0); }
             }
         }
-        DialogRow {
-            label: I18n.t("captions.provider");
+
+        HorizontalLayout {
+            spacing: 8px;
+            Button {
+                horizontal-stretch: 1;
+                label: "Studio Hội thoại 2 nhân vật & Thiết kế giọng (Gemini 3.8)…";
+                glyph: Glyph.audio-studio;
+                ghost: true;
+                clicked => { root.action(46, 0, "", 0); }
+            }
+        }
+
+        if root.data.mode == 3: DialogRow {
+            label: "Phương án";
             Select {
-                options: ["Local", "Gemini TTS", "ElevenLabs"];
-                current: root.data.provider;
-                changed(index) => { root.action(1,index,"",0); }
+                options: [
+                    "1 · Offline DSP & Lọc âm Phòng thu (Nhanh, Không cần mạng)",
+                    "2 · AI Speech-to-Speech (Giữ ngữ điệu & cảm xúc gốc)",
+                    "3 · Nhận diện lời nói (Whisper) → Sửa chữ → Đọc lại TTS"
+                ];
+                current: root.data.vc-method;
+                changed(index) => { root.action(42, index, "", 0); }
             }
         }
-        if root.data.provider != 0: Button {
-            label: I18n.t("settings.configureApi");
-            ghost: true;
-            clicked => { root.action(2,0,"",0); }
-        }
-        if root.data.provider != 0: DialogRow {
-            label: I18n.t("common.model");
-            Select {
-                options: root.data.provider == 1 ? ["Gemini 3.8 Flash TTS", "Gemini 3.8 Flash-Lite TTS", "Gemini 2.5 Flash Preview TTS", "Gemini 2.5 Pro Preview TTS", I18n.t("dubbing.customModel")] : ["Eleven v3", "Eleven v4", "Eleven v4 Turbo", "Flash v2.5", "Multilingual v2", I18n.t("dubbing.customModel")];
-                current: root.data.model-choice;
-                changed(index) => { root.action(24,index,"",0); }
-            }
-        }
-        if root.data.provider != 0 && root.data.model-choice == (root.data.provider == 1 ? 4 : 5): DialogRow {
-            label: I18n.t("dubbing.modelId");
-            Field { value: root.data.cloud-model; technical: true; edited(text) => { root.action(4,0,text,0); } }
-        }
-        if root.data.provider == 1: DialogRow {
-            label: "Temperature";
-            HorizontalLayout {
-                spacing: 10px;
-                Rail { value: root.data.temperature; minimum: 0; maximum: 2; step: 0.05; default-value: 1; changed(value) => { root.action(32,0,"",value); } }
-                NumberField { value: root.data.temperature; minimum: 0; maximum: 2; step: 0.05; precision: 2; changed(value) => { root.action(32,0,"",value); } }
-            }
-        }
-        if root.data.provider == 1: Text {
-            text: I18n.t("dubbing.temperatureHint"); color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap;
-        }
-        if root.data.provider == 1 && (root.data.model-choice == 2 || root.data.model-choice == 3): Text {
-            text: root.data.model-choice == 2 ? I18n.t("dubbing.flashFreeTier") : I18n.t("dubbing.proPaidTier"); color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap;
-        }
-        if root.data.provider != 0: DialogRow {
-            label: I18n.t("dubbing.gender");
-            Select { options: [I18n.t("dubbing.allGenders"), I18n.t("dubbing.male"), I18n.t("dubbing.female")]; current: root.data.voice-gender; changed(index) => { root.action(26,index,"",0); } }
-        }
-        if root.data.provider == 2: DialogRow {
-            label: I18n.t("dubbing.showPaid");
-            Switch { checked: root.data.show-paid; toggled(on) => { root.action(27,on ? 1 : 0,"",0); } }
-        }
-        if root.data.provider == 2: Button {
-            label: root.data.catalog-loading ? I18n.t("dubbing.loadingVoices") : I18n.t("dubbing.loadVoices");
-            enabled: !root.data.catalog-loading;
-            clicked => { root.action(29,0,"",0); }
-        }
-        if root.data.provider != 0: DialogRow {
-            label: I18n.t("dubbing.chooseVoice");
-            Select { options: root.data.voice-names; current: root.data.voice-choice; changed(index) => { if index > 0 { root.action(28,index - 1,"",0); } } }
-        }
-        if root.data.provider == 2: Text {
-            text: I18n.t("dubbing.freeVoiceHint"); color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap;
-        }
-        if root.data.provider != 0: DialogRow {
-            label: I18n.t("dubbing.accent");
-            Select { options: [I18n.t("dubbing.defaultAccent"), I18n.t("dubbing.north"), I18n.t("dubbing.central"), I18n.t("dubbing.south")]; current: root.data.accent; changed(index) => { root.action(30,index,"",0); } }
-        }
-        if root.data.provider == 1 || (root.data.provider == 2 && root.data.extended-settings): DialogRow {
-            label: I18n.t("dubbing.deliveryPreset");
-            Select { options: [I18n.t("dubbing.customStyle"), I18n.t("dubbing.conversation"), I18n.t("dubbing.story"), I18n.t("dubbing.news"), I18n.t("dubbing.advertising"), I18n.t("dubbing.gentle"), I18n.t("dubbing.cheerful")]; current: root.data.delivery-preset; changed(index) => { root.action(31,index,"",0); } }
-        }
-        if root.data.provider == 1: Text { text: I18n.t("dubbing.accentHint"); color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap; }
-        if root.data.provider != 0: DialogRow {
-            label: I18n.t("dubbing.voiceId");
-            Field { value: root.data.cloud-voice; technical: true; edited(text) => { root.action(3,0,text,0); } }
-        }
-        if root.data.provider == 1: DialogRow {
-            label: I18n.t("dubbing.delivery");
-            Field { value: root.data.delivery; placeholder: I18n.t("dubbing.deliveryExample"); edited(text) => { root.action(18,0,text,0); } }
-        }
-        if root.data.provider == 2: DialogRow {
-            label: I18n.t("dubbing.stability");
-            if root.data.cloud-model == "eleven_v3": Select {
-                options: [I18n.t("dubbing.creative"), I18n.t("dubbing.natural"), I18n.t("dubbing.robust")];
-                current: Math.round(root.data.stability * 2);
-                changed(index) => { root.action(19,0,"",index * 0.5); }
-            }
-            if root.data.cloud-model != "eleven_v3": NumberField { value: root.data.stability; minimum: 0; maximum: 1; precision: 2; step: 0.05; changed(value) => { root.action(19,0,"",value); } }
-        }
-        if root.data.provider == 2: DialogRow {
-            label: I18n.t("dubbing.similarity");
-            NumberField { value: root.data.similarity; minimum: 0; maximum: 1; precision: 2; step: 0.05; changed(value) => { root.action(20,0,"",value); } }
-        }
-        if root.data.provider == 2 && root.data.extended-settings: DialogRow {
-            label: I18n.t("dubbing.style");
-            NumberField { value: root.data.style; minimum: 0; maximum: 1; precision: 2; step: 0.05; changed(value) => { root.action(21,0,"",value); } }
-        }
-        if root.data.provider == 2 && root.data.extended-settings: DialogRow {
-            label: I18n.t("common.speed");
-            NumberField { value: root.data.speed; minimum: 0.7; maximum: 1.2; precision: 2; step: 0.05; unit: "×"; changed(value) => { root.action(22,0,"",value); } }
-        }
-        if root.data.provider == 2 && root.data.extended-settings: DialogRow {
-            label: I18n.t("dubbing.speakerBoost");
-            Switch { checked: root.data.speaker-boost; toggled(on) => { root.action(23,on ? 1 : 0,"",0); } }
-        }
-        if root.data.provider != 0: Button {
-            label: I18n.t("dubbing.resetSettings"); ghost: true;
-            clicked => { root.action(25,0,"",0); }
-        }
-        if root.data.provider == 2 && !root.data.extended-settings: Text {
-            text: I18n.t("dubbing.basicSettingsHint");
-            color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap;
-        }
-        if root.data.provider != 0: Text {
-            text: I18n.t("dubbing.cloudNotice");
-            color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap;
-        }
-        if root.data.provider == 0: Text {
-            text: I18n.t("dubbing.localNotice");
-            color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap;
-        }
+
         if root.data.mode != 0: DialogRow {
             label: I18n.t("dubbing.source");
             HorizontalLayout {
                 spacing: 8px;
-                Select { horizontal-stretch: 1; options: root.data.sources; current: root.data.source; placeholder: I18n.t("dubbing.chooseSource"); changed(index) => { root.action(5,index,"",0); } }
-                Button { label: "Chọn file…"; ghost: true; clicked => { root.action(33,0,"",0); } }
+                Select {
+                    horizontal-stretch: 1;
+                    options: root.data.sources;
+                    current: root.data.source;
+                    placeholder: I18n.t("dubbing.chooseSource");
+                    changed(index) => { root.action(5, index, "", 0); }
+                }
+                Button {
+                    label: "Duyệt…";
+                    glyph: Glyph.folder;
+                    ghost: true;
+                    clicked => { root.action(33, 0, "", 0); }
+                }
             }
         }
-        if root.data.mode != 0: DialogRow {
+
+        if root.data.mode == 2 || root.data.mode == 3: HorizontalLayout {
+            spacing: 8px;
+            Button {
+                horizontal-stretch: 1;
+                primary: root.data.recording;
+                glyph: root.data.recording ? Glyph.stop : Glyph.mic;
+                label: root.data.recording ? "Dừng thu âm Micro" : "Thu âm trực tiếp từ Micro";
+                clicked => { root.action(40, 0, "", 0); }
+            }
+            Button {
+                glyph: Glyph.volume;
+                label: "Nghe giọng gốc";
+                ghost: true;
+                enabled: root.data.sources.length > 0 && !root.data.recording;
+                clicked => { root.action(41, 0, "", 0); }
+            }
+        }
+
+        if root.data.recording: Text {
+            text: "🔴 Đang thu âm từ Micro… Hãy nói vào micro rồi bấm \"Dừng thu âm Micro\" khi hoàn tất.";
+            color: Theme.accent;
+            font-size: Theme.fs-sm;
+            wrap: word-wrap;
+        }
+
+        // ── Phương án 1: Offline DSP Voice Changer & Studio Clean ──
+        if root.data.mode == 3 && root.data.vc-method == 0: VerticalLayout {
+            spacing: 8px;
+
+            DialogRow {
+                label: "Kiểu giọng DSP";
+                Select {
+                    options: [
+                        "Phòng thu (Khử ồn + Làm ấm giọng)",
+                        "Nam trầm ấm (Deep Male)",
+                        "Nữ cao / Giọng sáng (Bright Female)",
+                        "Ẩn danh / Phóng sự (Anonymous)",
+                        "Trẻ em / Sóc chuột (Chipmunk)",
+                        "Khổng lồ / Quái vật (Giant)",
+                        "Robot / Cơ khí (Robot)",
+                        "Bộ đàm / Điện thoại (Radio / Phone)",
+                        "Vang vọng / Hội trường (Hall Echo)",
+                        "Tùy chỉnh Cao độ & Tốc độ"
+                    ];
+                    current: root.data.vc-preset;
+                    changed(index) => { root.action(43, index, "", 0); }
+                }
+            }
+
+            DialogRow {
+                label: "Cao độ (Pitch)";
+                HorizontalLayout {
+                    spacing: 10px;
+                    Rail {
+                        value: root.data.vc-pitch;
+                        minimum: -12;
+                        maximum: 12;
+                        step: 0.5;
+                        default-value: 0;
+                        changed(value) => { root.action(44, 0, "", value); }
+                    }
+                    NumberField {
+                        value: root.data.vc-pitch;
+                        minimum: -12;
+                        maximum: 12;
+                        step: 0.5;
+                        precision: 1;
+                        unit: " st";
+                        changed(value) => { root.action(44, 0, "", value); }
+                    }
+                }
+            }
+
+            DialogRow {
+                label: "Tốc độ nói";
+                HorizontalLayout {
+                    spacing: 10px;
+                    Rail {
+                        value: root.data.vc-speed;
+                        minimum: 0.5;
+                        maximum: 2.0;
+                        step: 0.05;
+                        default-value: 1.0;
+                        changed(value) => { root.action(45, 0, "", value); }
+                    }
+                    NumberField {
+                        value: root.data.vc-speed;
+                        minimum: 0.5;
+                        maximum: 2.0;
+                        step: 0.05;
+                        precision: 2;
+                        unit: "×";
+                        changed(value) => { root.action(45, 0, "", value); }
+                    }
+                }
+            }
+
+            DialogRow {
+                label: "Khử ồn nền";
+                Switch {
+                    checked: root.data.vc-denoise;
+                    toggled(on) => { root.action(47, on ? 1 : 0, "", 0); }
+                }
+            }
+
+            Text {
+                text: "Xử lý âm thanh trực tiếp trên máy (Offline DSP) bằng bộ lọc tần số, dịch cao độ (Pitch Shift) và khử tạp âm phòng thu.";
+                color: Theme.fg-muted;
+                font-size: Theme.fs-sm;
+                wrap: word-wrap;
+            }
+
+            Button {
+                label: "Biến đổi giọng nói ngay (Offline DSP)";
+                glyph: Glyph.voice-changer;
+                primary: true;
+                block: true;
+                enabled: root.data.sources.length > 0 && !root.data.recording;
+                clicked => { root.action(48, 0, "", 0); }
+            }
+        }
+
+        // ── TTS / Cloud S2S Provider & Voice Controls ──
+        if root.show-tts-controls: DialogRow {
+            label: I18n.t("captions.provider");
+            Select {
+                options: ["Local", "Gemini TTS", "ElevenLabs"];
+                current: root.data.provider;
+                changed(index) => { root.action(1, index, "", 0); }
+            }
+        }
+        if root.show-tts-controls && root.data.provider != 0: Button {
+            label: I18n.t("settings.configureApi");
+            ghost: true;
+            clicked => { root.action(2, 0, "", 0); }
+        }
+        if root.show-tts-controls && root.data.provider != 0: DialogRow {
+            label: I18n.t("common.model");
+            Select {
+                options: root.data.provider == 1
+                    ? ["Gemini 3.8 Flash TTS", "Gemini 3.8 Flash-Lite TTS", "Gemini 2.5 Flash Preview TTS", "Gemini 2.5 Pro Preview TTS", I18n.t("dubbing.customModel")]
+                    : ["Eleven v3", "Eleven v4", "Eleven v4 Turbo", "Flash v2.5", "Multilingual v2", I18n.t("dubbing.customModel")];
+                current: root.data.model-choice;
+                changed(index) => { root.action(24, index, "", 0); }
+            }
+        }
+        if root.show-tts-controls && root.data.provider != 0 && root.data.model-choice == (root.data.provider == 1 ? 4 : 5): DialogRow {
+            label: I18n.t("dubbing.modelId");
+            Field { value: root.data.cloud-model; technical: true; edited(text) => { root.action(4, 0, text, 0); } }
+        }
+        if root.show-tts-controls && root.data.provider == 1: DialogRow {
+            label: "Temperature";
+            HorizontalLayout {
+                spacing: 10px;
+                Rail { value: root.data.temperature; minimum: 0; maximum: 2; step: 0.05; default-value: 1; changed(value) => { root.action(32, 0, "", value); } }
+                NumberField { value: root.data.temperature; minimum: 0; maximum: 2; step: 0.05; precision: 2; changed(value) => { root.action(32, 0, "", value); } }
+            }
+        }
+        if root.show-tts-controls && root.data.provider == 1: Text {
+            text: I18n.t("dubbing.temperatureHint"); color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap;
+        }
+        if root.show-tts-controls && root.data.provider == 1 && (root.data.model-choice == 2 || root.data.model-choice == 3): Text {
+            text: root.data.model-choice == 2 ? I18n.t("dubbing.flashFreeTier") : I18n.t("dubbing.proPaidTier"); color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap;
+        }
+        if root.show-tts-controls && root.data.provider != 0: DialogRow {
+            label: I18n.t("dubbing.gender");
+            Select { options: [I18n.t("dubbing.allGenders"), I18n.t("dubbing.male"), I18n.t("dubbing.female")]; current: root.data.voice-gender; changed(index) => { root.action(26, index, "", 0); } }
+        }
+        if root.show-tts-controls && root.data.provider == 2: DialogRow {
+            label: I18n.t("dubbing.showPaid");
+            Switch { checked: root.data.show-paid; toggled(on) => { root.action(27, on ? 1 : 0, "", 0); } }
+        }
+        if root.show-tts-controls && root.data.provider == 2: Button {
+            label: root.data.catalog-loading ? I18n.t("dubbing.loadingVoices") : I18n.t("dubbing.loadVoices");
+            enabled: !root.data.catalog-loading;
+            clicked => { root.action(29, 0, "", 0); }
+        }
+        if root.show-tts-controls && root.data.provider != 0: DialogRow {
+            label: I18n.t("dubbing.chooseVoice");
+            Select { options: root.data.voice-names; current: root.data.voice-choice; changed(index) => { if index > 0 { root.action(28, index - 1, "", 0); } } }
+        }
+        if root.show-tts-controls && root.data.provider == 2: Text {
+            text: I18n.t("dubbing.freeVoiceHint"); color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap;
+        }
+        if root.show-tts-controls && root.data.provider != 0: DialogRow {
+            label: I18n.t("dubbing.accent");
+            Select { options: [I18n.t("dubbing.defaultAccent"), I18n.t("dubbing.north"), I18n.t("dubbing.central"), I18n.t("dubbing.south")]; current: root.data.accent; changed(index) => { root.action(30, index, "", 0); } }
+        }
+        if root.show-tts-controls && (root.data.provider == 1 || (root.data.provider == 2 && root.data.extended-settings)): DialogRow {
+            label: I18n.t("dubbing.deliveryPreset");
+            Select { options: [I18n.t("dubbing.customStyle"), I18n.t("dubbing.conversation"), I18n.t("dubbing.story"), I18n.t("dubbing.news"), I18n.t("dubbing.advertising"), I18n.t("dubbing.gentle"), I18n.t("dubbing.cheerful")]; current: root.data.delivery-preset; changed(index) => { root.action(31, index, "", 0); } }
+        }
+        if root.show-tts-controls && root.data.provider == 1: Text { text: I18n.t("dubbing.accentHint"); color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap; }
+        if root.show-tts-controls && root.data.provider != 0: DialogRow {
+            label: I18n.t("dubbing.voiceId");
+            Field { value: root.data.cloud-voice; technical: true; edited(text) => { root.action(3, 0, text, 0); } }
+        }
+        if root.show-tts-controls && root.data.provider == 1: DialogRow {
+            label: I18n.t("dubbing.delivery");
+            Field { value: root.data.delivery; placeholder: I18n.t("dubbing.deliveryExample"); edited(text) => { root.action(18, 0, text, 0); } }
+        }
+        if root.show-tts-controls && root.data.provider == 2: DialogRow {
+            label: I18n.t("dubbing.stability");
+            if root.data.cloud-model == "eleven_v3": Select {
+                options: [I18n.t("dubbing.creative"), I18n.t("dubbing.natural"), I18n.t("dubbing.robust")];
+                current: Math.round(root.data.stability * 2);
+                changed(index) => { root.action(19, 0, "", index * 0.5); }
+            }
+            if root.data.cloud-model != "eleven_v3": NumberField { value: root.data.stability; minimum: 0; maximum: 1; precision: 2; step: 0.05; changed(value) => { root.action(19, 0, "", value); } }
+        }
+        if root.show-tts-controls && root.data.provider == 2: DialogRow {
+            label: I18n.t("dubbing.similarity");
+            NumberField { value: root.data.similarity; minimum: 0; maximum: 1; precision: 2; step: 0.05; changed(value) => { root.action(20, 0, "", value); } }
+        }
+        if root.show-tts-controls && root.data.provider == 2 && root.data.extended-settings: DialogRow {
+            label: I18n.t("dubbing.style");
+            NumberField { value: root.data.style; minimum: 0; maximum: 1; precision: 2; step: 0.05; changed(value) => { root.action(21, 0, "", value); } }
+        }
+        if root.show-tts-controls && root.data.provider == 2 && root.data.extended-settings: DialogRow {
+            label: I18n.t("common.speed");
+            NumberField { value: root.data.speed; minimum: 0.7; maximum: 1.2; precision: 2; step: 0.05; unit: "×"; changed(value) => { root.action(22, 0, "", value); } }
+        }
+        if root.show-tts-controls && root.data.provider == 2 && root.data.extended-settings: DialogRow {
+            label: I18n.t("dubbing.speakerBoost");
+            Switch { checked: root.data.speaker-boost; toggled(on) => { root.action(23, on ? 1 : 0, "", 0); } }
+        }
+        if root.show-tts-controls && root.data.provider != 0: Button {
+            label: I18n.t("dubbing.resetSettings"); ghost: true;
+            clicked => { root.action(25, 0, "", 0); }
+        }
+        if root.show-tts-controls && root.data.provider == 2 && !root.data.extended-settings: Text {
+            text: I18n.t("dubbing.basicSettingsHint");
+            color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap;
+        }
+        if root.show-tts-controls && root.data.provider != 0: Text {
+            text: I18n.t("dubbing.cloudNotice");
+            color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap;
+        }
+        if root.show-tts-controls && root.data.provider == 0: Text {
+            text: I18n.t("dubbing.localNotice");
+            color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap;
+        }
+
+        // ── Phương án 2: AI Speech-to-Speech (S2S) ──
+        if root.data.mode == 3 && root.data.vc-method == 1: VerticalLayout {
+            spacing: 8px;
+            DialogRow {
+                label: "Khử ồn nền";
+                Switch {
+                    checked: root.data.vc-denoise;
+                    toggled(on) => { root.action(47, on ? 1 : 0, "", 0); }
+                }
+            }
+            Text {
+                text: root.data.provider == 2
+                    ? "ElevenLabs Speech-to-Speech (eleven_multilingual_sts_v2): Giữ nguyên nhịp điệu, cảm xúc của giọng thu gốc và biến đổi sang giọng nhân vật đã chọn."
+                    : root.data.provider == 1
+                    ? "Gemini Audio S2S: Phân tích lời nói & sắc thái biểu cảm từ bản thu gốc rồi diễn đạt lại bằng giọng Gemini đã chọn."
+                    : "Hãy chọn nhà cung cấp ElevenLabs hoặc Gemini TTS ở trên để dùng AI Speech-to-Speech.";
+                color: Theme.fg-muted;
+                font-size: Theme.fs-sm;
+                wrap: word-wrap;
+            }
+            Button {
+                label: "Chuyển đổi giọng nói AI (Speech-to-Speech)";
+                glyph: Glyph.voice-changer;
+                primary: true;
+                block: true;
+                enabled: root.data.sources.length > 0 && !root.data.recording && root.data.provider != 0;
+                clicked => { root.action(48, 0, "", 0); }
+            }
+        }
+
+        // ── Whisper & Multi-row Dubbing / Phương án 3 (ASR -> TTS) ──
+        if root.data.mode == 1 || root.data.mode == 2 || (root.data.mode == 3 && root.data.vc-method == 2): DialogRow {
             label: "Whisper";
-            Select { options: root.data.whispers; current: root.data.whisper; placeholder: I18n.t("common.noneInstalled"); changed(index) => { root.action(15,index,"",0); } }
+            Select { options: root.data.whispers; current: root.data.whisper; placeholder: I18n.t("common.noneInstalled"); changed(index) => { root.action(15, index, "", 0); } }
         }
         if root.data.mode == 1: Button {
             label: I18n.t("dubbing.loadTrack"); enabled: root.data.sources.length > 0;
-            clicked => { root.action(6,0,"",0); }
+            clicked => { root.action(6, 0, "", 0); }
         }
-        if root.data.mode == 2: Button {
-            label: I18n.t("dubbing.recognize"); enabled: root.data.sources.length > 0 && root.data.whispers.length > 0;
-            clicked => { root.action(7,0,"",0); }
+        if root.data.mode == 2 || (root.data.mode == 3 && root.data.vc-method == 2): Button {
+            label: I18n.t("dubbing.recognize"); enabled: root.data.sources.length > 0 && root.data.whispers.length > 0 && !root.data.recording;
+            clicked => { root.action(7, 0, "", 0); }
         }
-        if root.data.mode != 0 && root.data.rows.length > 0: Button {
+        if root.data.mode != 0 && root.data.rows.length > 0 && (root.data.mode != 3 || root.data.vc-method == 2): Button {
             label: I18n.t("dubbing.generateUnified");
-            clicked => { root.action(8,0,"",0); }
+            primary: true;
+            clicked => { root.action(8, 0, "", 0); }
         }
-        if root.data.mode == 2: DialogRow {
+        if root.data.mode == 2 || root.data.mode == 3: DialogRow {
             label: I18n.t("dubbing.muteOriginal");
-            Switch { checked: root.data.mute-original; toggled(on) => { root.action(17,on ? 1 : 0,"",0); } }
+            Switch { checked: root.data.mute-original; toggled(on) => { root.action(17, on ? 1 : 0, "", 0); } }
         }
         if root.data.mode == 2: Text {
             text: I18n.t("dubbing.muteNotice"); color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap;
         }
-        if root.data.rows.length > 0: HorizontalLayout {
+        if root.data.rows.length > 0 || root.data.has-preview: HorizontalLayout {
             spacing: 8px;
-            Button { label: I18n.t("dubbing.listenAll"); enabled: root.data.pending-audio == ""; clicked => { root.action(10,-1,"",0); } }
-            Button { label: I18n.t("dubbing.stop"); ghost: true; clicked => { root.action(16,0,"",0); } }
-            Button { label: "Lưu .WAV…"; enabled: root.data.has-preview; clicked => { root.action(35,0,"",0); } }
-            Button { label: I18n.t("dubbing.apply"); primary: true; enabled: root.data.can-apply; clicked => { root.action(11,0,"",0); } }
+            Button { label: I18n.t("dubbing.listenAll"); enabled: root.data.pending-audio == ""; clicked => { root.action(10, -1, "", 0); } }
+            Button { label: I18n.t("dubbing.stop"); ghost: true; clicked => { root.action(16, 0, "", 0); } }
+            Button { label: "Lưu .WAV…"; enabled: root.data.has-preview; clicked => { root.action(35, 0, "", 0); } }
+            Button { label: I18n.t("dubbing.apply"); primary: true; enabled: root.data.can-apply; clicked => { root.action(11, 0, "", 0); } }
         }
         if root.data.pending-audio != "": Text {
             text: root.data.pending-audio; color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap;
         }
-        if root.data.rows.length > 0: Text {
+        if root.data.rows.length > 0 || root.data.has-preview: Text {
             text: I18n.t("dubbing.reviewNotice"); color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap;
         }
     }
-    if root.data.mode != 0 && root.data.rows.length > 0: Flickable {
+
+    if root.data.mode != 0 && root.data.rows.length > 0 && (root.data.mode != 3 || root.data.vc-method == 2): Flickable {
         height: 280px;
         content-height: root.data.rows.length * (root.data.expressions ? 174px : 136px);
         content-width: self.width;
@@ -207,7 +420,7 @@ export component DubbingPanel inherits VerticalLayout {
                 Text { text: "\{index + 1} · " + (row.generated ? I18n.t("dubbing.generated") : I18n.t("dubbing.needsGeneration")); color: row.generated ? Theme.accent : Theme.fg-muted; font-size: Theme.fs-sm; }
                 cue-field := Field {
                     value: row.text;
-                    edited(text) => { root.action(12,index,text,0); }
+                    edited(text) => { root.action(12, index, text, 0); }
                     splice-token(text, token, at) => { return root.insert-tag(text, token, at); }
                 }
                 if root.data.expressions: Select {
@@ -220,11 +433,11 @@ export component DubbingPanel inherits VerticalLayout {
                 HorizontalLayout {
                     spacing: 8px;
                     Text { text: I18n.t("dubbing.start"); color: Theme.fg-muted; vertical-alignment: center; }
-                    NumberField { value: row.start; minimum: 0; precision: 2; step: 0.1; unit: "s"; changed(value) => { root.action(13,index,"",value); } }
+                    NumberField { value: row.start; minimum: 0; precision: 2; step: 0.1; unit: "s"; changed(value) => { root.action(13, index, "", value); } }
                     Text { text: I18n.t("dubbing.end"); color: Theme.fg-muted; vertical-alignment: center; }
-                    NumberField { value: row.end; minimum: 0; precision: 2; step: 0.1; unit: "s"; changed(value) => { root.action(14,index,"",value); } }
-                    Button { label: I18n.t("dubbing.regenerate"); clicked => { root.action(9,index,"",0); } }
-                    Button { label: I18n.t("dubbing.listen"); enabled: row.generated; clicked => { root.action(10,index,"",0); } }
+                    NumberField { value: row.end; minimum: 0; precision: 2; step: 0.1; unit: "s"; changed(value) => { root.action(14, index, "", value); } }
+                    Button { label: I18n.t("dubbing.regenerate"); clicked => { root.action(9, index, "", 0); } }
+                    Button { label: I18n.t("dubbing.listen"); enabled: row.generated; clicked => { root.action(10, index, "", 0); } }
                 }
             }
         }

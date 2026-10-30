@@ -37,6 +37,13 @@ pub struct Dubbing {
     pub source_clip: Option<String>,
     pub standalone_srt: Option<(PathBuf, String)>,
     pub standalone_media: Option<(PathBuf, String, f64)>,
+    pub mic: Option<concat_host::record::Microphone>,
+    pub recording: bool,
+    pub vc_method: i32,
+    pub vc_preset: i32,
+    pub vc_pitch: f32,
+    pub vc_speed: f32,
+    pub vc_denoise: bool,
 }
 #[derive(Clone, Debug)]
 pub struct DubResult {
@@ -106,6 +113,10 @@ impl Dubbing {
         self.gemini_voice = saved.gemini_voice.clone();
         self.eleven_voice = saved.eleven_voice.clone();
         self.options = saved.options.clone();
+        if self.vc_speed <= 0.0 {
+            self.vc_speed = 1.0;
+            self.vc_denoise = true;
+        }
         self.preferences_loaded = true;
     }
     fn save_preferences(&self, studio: &mut Studio) {
@@ -213,14 +224,18 @@ impl SpeechPane {
         let previous_voice = self.dub.voice().to_owned();
         if matches!(
             action,
-            0 | 1 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 12 | 13 | 14 | 18..=25
+            0 | 1 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 12 | 13 | 14 | 18..=25 | 40 | 42 | 43 | 44 | 45 | 47 | 48
         ) {
             studio.close_source();
         }
         match action {
             0 => {
-                self.dub.mode = index.clamp(0, 2);
-                self.dub.mute_original = self.dub.mode == 2;
+                self.dub.mode = index.clamp(0, 3);
+                self.dub.mute_original = self.dub.mode >= 2;
+                if self.dub.vc_speed <= 0.0 {
+                    self.dub.vc_speed = 1.0;
+                    self.dub.vc_denoise = true;
+                }
                 self.dub.source = 0;
                 self.dub_clear();
             }
@@ -377,7 +392,7 @@ impl SpeechPane {
                             }
                         },
                     );
-                } else if self.dub.mode == 2 {
+                } else if self.dub.mode == 2 || self.dub.mode == 3 {
                     crate::host::pick_files_then(
                         "Chọn file Video / Audio".to_owned(),
                         Some((
@@ -453,6 +468,162 @@ impl SpeechPane {
                     }
                 }
             }
+            40 => {
+                if self.dub.recording {
+                    self.dub.recording = false;
+                    let Some(mic) = self.dub.mic.take() else {
+                        return;
+                    };
+                    match mic.end() {
+                        Ok(take) => {
+                            let duration = take.seconds.max(0.1);
+                            let dst = take.path;
+                            let name = dst
+                                .file_stem()
+                                .map(|s| s.to_string_lossy().into_owned())
+                                .unwrap_or_else(|| "ban-thu-micro".to_owned());
+                            let label = format!("{name} · {duration:.1}s");
+                            self.dub.standalone_media = Some((dst.clone(), label, duration));
+                            self.dub.source = 0;
+                            self.dub_clear();
+                            if studio.session.is_some()
+                                && let Ok(summary) = media::probe(&dst.to_string_lossy())
+                            {
+                                let mut item = summary.to_new_media();
+                                item.name = format!("Bản thu Micro ({duration:.1}s)");
+                                item.origin = Some(MediaOrigin::Speech);
+                                let _ = studio.apply(Command::AddMedia { item });
+                            }
+                            studio.notify(
+                                &format!("Đã thu âm xong ({duration:.1}s). Sẵn sàng biến đổi giọng nói!"),
+                                false,
+                            );
+                        }
+                        Err(e) => {
+                            self.message = format!("Không thể hoàn tất bản thu âm Micro: {e}");
+                        }
+                    }
+                } else {
+                    let audio_dir = studio.standalone_project_dir().join("audio");
+                    let _ = std::fs::create_dir_all(&audio_dir);
+                    let stamp = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|d| d.as_secs())
+                        .unwrap_or(0);
+                    let dst = audio_dir.join(format!("ban-thu-micro-{stamp}.wav"));
+                    match concat_host::record::Microphone::open(None) {
+                        Ok(mic) => match mic.begin(dst) {
+                            Ok(()) => {
+                                self.dub.mic = Some(mic);
+                                self.dub.recording = true;
+                                self.message.clear();
+                                studio.notify(
+                                    "Đang thu âm từ Micro… Hãy nói vào Micro rồi bấm Dừng thu âm.",
+                                    false,
+                                );
+                            }
+                            Err(e) => {
+                                self.message = format!("Không thể bắt đầu thu âm Micro: {e}");
+                            }
+                        },
+                        Err(e) => {
+                            self.message = format!("Không thể mở Micro: {e}");
+                        }
+                    }
+                }
+            }
+            41 => {
+                let Some((id, label)) = self.dub_sources(studio).get(self.dub.source).cloned() else {
+                    self.message = t("dubbing.chooseSource");
+                    return;
+                };
+                if id == "__standalone_media__" {
+                    if let Some((ref path, _, _)) = self.dub.standalone_media {
+                        let card = format!("dub-orig:{}", path.display());
+                        studio.preview_file(&card, &label, path);
+                    }
+                } else if let Some(clip) = studio.clip(&id).cloned()
+                    && let Some(media) = studio.project().media_by_id(&clip.media_id)
+                {
+                    let path = PathBuf::from(&media.path);
+                    let card = format!("dub-orig:{}", path.display());
+                    studio.preview_file(&card, &clip.name, &path);
+                }
+            }
+            42 => {
+                self.dub.vc_method = index.clamp(0, 2);
+                if self.dub.vc_method == 1 && self.dub.provider == 0 {
+                    if !studio.prefs.eleven_api_key.expose().trim().is_empty() {
+                        self.dub.provider = 2;
+                    } else {
+                        self.dub.provider = 1;
+                    }
+                }
+                self.dub.invalidate();
+            }
+            43 => {
+                self.dub.vc_preset = index.clamp(0, 9);
+                let (pitch, denoise) = cloud_tts::dsp_preset_defaults(self.dub.vc_preset);
+                self.dub.vc_pitch = pitch;
+                self.dub.vc_denoise = denoise;
+                if self.dub.vc_speed <= 0.0 {
+                    self.dub.vc_speed = 1.0;
+                }
+                self.dub.invalidate();
+            }
+            44 if value.is_finite() => {
+                self.dub.vc_pitch = value.clamp(-12.0, 12.0);
+                self.dub.invalidate();
+            }
+            45 if value.is_finite() => {
+                self.dub.vc_speed = value.clamp(0.5, 2.0);
+                self.dub.invalidate();
+            }
+            46 => {
+                self.dub.mic = None;
+                self.dub.recording = false;
+                self.open = false;
+                studio.handle(Msg::Gemini(crate::panes::gemini_studio::GeminiMsg::Action(
+                    0,
+                    0,
+                    String::new(),
+                    0.0,
+                )));
+            }
+            47 => {
+                self.dub.vc_denoise = index != 0;
+                self.dub.invalidate();
+            }
+            48 => self.dub_transform_voice(studio),
+            49 => {
+                crate::host::pick_files_then(
+                    "Chọn tệp âm thanh giọng mẫu".to_owned(),
+                    Some((
+                        "Audio & Video".to_owned(),
+                        &[
+                            "wav", "mp3", "m4a", "flac", "ogg", "aac", "mp4", "mov", "mkv", "webm",
+                        ],
+                    )),
+                    |studio, _, _, paths| {
+                        if let Some(path) = paths.into_iter().next() {
+                            if studio.session.is_some()
+                                && let Ok(summary) = media::probe(&path.to_string_lossy())
+                                && summary.audio.is_some()
+                            {
+                                let item = summary.to_new_media();
+                                let _ = studio.apply(Command::AddMedia { item });
+                                let count = studio.speech.samples(&studio).len();
+                                if count > 0 {
+                                    studio.speech.sample = count - 1;
+                                    studio.speech.use_sample = true;
+                                }
+                            } else {
+                                studio.handle(Msg::Speech(SpeechMsg::ImportVoice(path)));
+                            }
+                        }
+                    },
+                );
+            }
 
             _ => {}
         }
@@ -485,7 +656,7 @@ impl SpeechPane {
                 .map(|s| s.to_string_lossy().into_owned())
                 .unwrap_or_else(|| "thuyet-minh".to_owned());
             (folder, format!("{stem}-thuyet-minh.wav"))
-        } else if self.dub.mode == 2
+        } else if (self.dub.mode == 2 || self.dub.mode == 3)
             && let Some((ref p, _, _)) = self.dub.standalone_media
         {
             let folder = p
@@ -1143,7 +1314,7 @@ impl SpeechPane {
             media_id,
             start: self.dub.rows[0].start,
         }];
-        if self.dub.mode == 2 && self.dub.mute_original {
+        if (self.dub.mode == 2 || self.dub.mode == 3) && self.dub.mute_original {
             if let Some(id) = &self.dub.source_clip {
                 commands.push(Command::UpdateClip {
                     clip_id: id.clone(),
@@ -1268,6 +1439,157 @@ impl SpeechPane {
             has_preview: self.dub.preview.is_some(),
             can_apply: self.dub.reviewed && self.dub.preview.is_some(),
             mute_original: self.dub.mute_original,
+            recording: self.dub.recording,
+            vc_method: self.dub.vc_method,
+            vc_preset: self.dub.vc_preset,
+            vc_pitch: self.dub.vc_pitch,
+            vc_speed: if self.dub.vc_speed <= 0.0 {
+                1.0
+            } else {
+                self.dub.vc_speed
+            },
+            vc_denoise: if self.dub.vc_speed <= 0.0 {
+                true
+            } else {
+                self.dub.vc_denoise
+            },
         }
+    }
+    fn dub_transform_voice(&mut self, studio: &mut Studio) {
+        if self.running {
+            return;
+        }
+        let Some((id, label)) = self.dub_sources(studio).get(self.dub.source).cloned() else {
+            self.message = t("dubbing.chooseSource");
+            return;
+        };
+        let (source_path, audio_stream, source_start, window, source_duration, clip_start) =
+            if id == "__standalone_media__" {
+                let Some((ref path, _, duration)) = self.dub.standalone_media else {
+                    self.message = t("dubbing.chooseSource");
+                    return;
+                };
+                (path.clone(), None, 0.0, None, duration, 0.0)
+            } else {
+                let Some(clip) = studio.clip(&id).cloned() else {
+                    return;
+                };
+                let Some(media) = studio.project().media_by_id(&clip.media_id) else {
+                    return;
+                };
+                (
+                    PathBuf::from(&media.path),
+                    clip.audio_stream.map(|s| s as usize),
+                    clip.source_start,
+                    Some((clip.duration * clip.speed).max(0.1)),
+                    clip.duration.max(0.1),
+                    clip.start,
+                )
+            };
+        let vc_method = self.dub.vc_method;
+        if vc_method == 1 {
+            if self.dub.provider == 0 {
+                self.message =
+                    "Phương án 2 (AI Speech-to-Speech) cần chọn ElevenLabs hoặc Gemini 3.8 ở mục Nguồn giọng đọc."
+                        .to_owned();
+                return;
+            }
+            if self.dub.key(studio).trim().is_empty() {
+                self.message = t("dubbing.keyRequired");
+                return;
+            }
+            if self.dub.provider == 2
+                && !self.dub.show_paid
+                && !self
+                    .dub
+                    .catalog
+                    .iter()
+                    .any(|v| v.id == self.dub.voice() && v.free)
+            {
+                self.message = t("dubbing.selectFreeVoice");
+                return;
+            }
+        }
+        let preset = self.dub.vc_preset;
+        let pitch = self.dub.vc_pitch;
+        let speed = if self.dub.vc_speed <= 0.0 {
+            1.0
+        } else {
+            self.dub.vc_speed
+        };
+        let denoise = if self.dub.vc_speed <= 0.0 {
+            true
+        } else {
+            self.dub.vc_denoise
+        };
+        let provider = self.dub.provider;
+        let key = self.dub.key(studio).to_owned();
+        let model = self.dub.model().to_owned();
+        let voice = self.dub.voice().to_owned();
+        let options = self.dub.options.clone();
+        let project = studio
+            .standalone_project_dir()
+            .to_string_lossy()
+            .into_owned();
+        self.dub.signature = self.dub_signature(studio);
+        self.dub.source_clip = (id != "__standalone_media__").then_some(id);
+        self.dub.invalidate();
+        let (generation, cancel) = self.dub_start(studio);
+        spawn_in_project(
+            move || {
+                let out_path = if vc_method == 0 {
+                    cloud_tts::transform_voice_dsp(
+                        &source_path,
+                        audio_stream,
+                        source_start,
+                        window,
+                        preset,
+                        pitch,
+                        speed,
+                        denoise,
+                        &project,
+                        &cancel,
+                    )?
+                } else {
+                    cloud_tts::synthesize_speech_to_speech(
+                        provider,
+                        &key,
+                        &model,
+                        &voice,
+                        &source_path,
+                        audio_stream,
+                        source_start,
+                        window,
+                        denoise,
+                        &project,
+                        &cancel,
+                        &options,
+                    )?
+                };
+                let summary = media::probe(&out_path.to_string_lossy())?;
+                let duration = summary.duration.unwrap_or(source_duration).max(0.1);
+                let rows = vec![Cue {
+                    text: label,
+                    start: clip_start,
+                    end: clip_start + duration,
+                    audio: Some(out_path.clone()),
+                    audio_start: 0.0,
+                    audio_end: duration,
+                }];
+                Ok(DubResult {
+                    rows,
+                    preview: Some(out_path),
+                    listen: true,
+                    review_all: true,
+                    notice: None,
+                })
+            },
+            move |studio, _, _, result| {
+                studio.handle(Msg::Speech(SpeechMsg::DubFinished(
+                    generation,
+                    Box::new(result),
+                )))
+            },
+        );
     }
 }

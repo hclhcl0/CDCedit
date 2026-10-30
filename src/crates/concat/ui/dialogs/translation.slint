@@ -46,7 +46,7 @@ export component TranslationDialog inherits Modal {
                 spacing:10px;
                 DialogSection {
                     first:true;title:"1. Nạp phụ đề hoặc nhận dạng tiếng gốc";
-                    Button{label:"Chọn file SRT / video / audio…";block:true;clicked=>{root.action(3,0,"",0);}}
+                    DialogRow {label:"Nguồn";HorizontalLayout{spacing:8px;Field{horizontal-stretch:1;value:root.data.source-name;placeholder:"Chưa chọn file SRT / video / audio…";}Button{label:"Duyệt…";glyph:Glyph.folder;clicked=>{root.action(3,0,"",0);}}}}
                     Text{text:root.data.source-name;color:Theme.fg;font-size:Theme.fs;wrap:word-wrap;}
                     DialogRow {label:"Ngôn ngữ nguồn";Select{options:["Tự nhận diện","Tiếng Anh","Tiếng Trung","Tiếng Nhật","Tiếng Hàn","Tiếng Pháp","Tiếng Đức","Tiếng Tây Ban Nha","Tiếng Nga","Tiếng Thái","Tiếng Indonesia","Tiếng Việt"];current:root.data.language;changed(i)=>{root.action(4,i,"",0);}}}
                     if root.data.media:VerticalLayout {

@@ -93,9 +93,9 @@ pub fn shown<'a>(
 }
 
 /// The official site, which the guides and the developer docs are pages of.
-const SITE: &str = "https://concat.standalones.org";
+const SITE: &str = "https://github.com/hclhcl0/CDCedit";
 /// The repository: the code, the issues, the releases.
-pub const REPOSITORY: &str = "https://github.com/jub0t/Concat";
+pub const REPOSITORY: &str = "https://github.com/hclhcl0/CDCedit";
 
 /// Where each of the launch screen's links goes, by the name the screen
 /// sends. One table, so a moved page is one line here. Every address is a
@@ -104,15 +104,15 @@ pub const REPOSITORY: &str = "https://github.com/jub0t/Concat";
 /// "shortcuts" is not here: it opens Settings, not a page.
 pub fn link(name: &str) -> Option<String> {
     Some(match name {
-        "guides" => format!("{SITE}/guides/"),
-        "first-edit" => format!("{SITE}/guides/first-edit/"),
-        "report" => format!("{SITE}/guides/report-a-problem/"),
+        "guides" => format!("{SITE}#readme"),
+        "first-edit" => format!("{SITE}#readme"),
+        "report" => format!("{REPOSITORY}/issues"),
         "github" => REPOSITORY.to_owned(),
         // The invite the README carries.
-        "discord" => "https://discord.gg/DVuPfpXfqP".to_owned(),
+        "discord" => format!("{REPOSITORY}/issues"),
         // The notes for the release this build is, under the tag the
         // release workflow pushes.
-        "release-notes" => format!("{REPOSITORY}/releases/tag/v{}", env!("CARGO_PKG_VERSION")),
+        "release-notes" => format!("{REPOSITORY}/releases"),
         _ => return None,
     })
 }
@@ -358,11 +358,6 @@ impl StartPane {
                         use crate::panes::captions::CaptionsMsg;
                         studio.handle(crate::panes::Msg::Captions(CaptionsMsg::Open));
                         studio.captions.from_voice = true;
-                        if studio.captions.standalone_file.is_none() {
-                            studio.handle(crate::panes::Msg::Captions(CaptionsMsg::SourceChanged(
-                                -2,
-                            )));
-                        }
                         return;
                     }
                     "tool-translation" => {
@@ -399,7 +394,14 @@ impl StartPane {
                         ));
                         return;
                     }
-                    "tool-tts" => {
+                    "tool-voice-changer" => {
+                        use crate::panes::speech::SpeechMsg;
+                        studio.speech.dub.mode = 3;
+                        studio.speech.dub.mute_original = true;
+                        studio.handle(crate::panes::Msg::Speech(SpeechMsg::Open));
+                        return;
+                    }
+                    "tool-audio-studio" | "tool-tts" => {
                         use crate::panes::speech::SpeechMsg;
                         studio.speech.dub.mode = 0;
                         studio.handle(crate::panes::Msg::Speech(SpeechMsg::Open));
@@ -412,16 +414,6 @@ impl StartPane {
                             studio.speech.dub.mute_original = true;
                         }
                         studio.handle(crate::panes::Msg::Speech(SpeechMsg::Open));
-                        if studio.speech.dub.standalone_media.is_none()
-                            && studio.speech.dub.standalone_srt.is_none()
-                        {
-                            studio.handle(crate::panes::Msg::Speech(SpeechMsg::DubbingAction(
-                                33,
-                                0,
-                                String::new(),
-                                0.0,
-                            )));
-                        }
                         return;
                     }
                     "tool-links" => {
@@ -1022,7 +1014,7 @@ mod tests {
         }
         assert_eq!(
             link("release-notes").unwrap(),
-            format!("{REPOSITORY}/releases/tag/v{}", env!("CARGO_PKG_VERSION"))
+            format!("{REPOSITORY}/releases")
         );
         assert_eq!(link("nowhere"), None);
     }

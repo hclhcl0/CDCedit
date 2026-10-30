@@ -135,7 +135,8 @@ pub fn synthesize(
                 rate: 24000,
                 channels: 1,
                 format: concat_media::SampleFormat::F32,
-                ..Default::default()
+            ..Default::default()
+
             },
         )
         .map_err(|e| e.to_string())?;
@@ -432,6 +433,365 @@ pub fn write_wav(path: &Path, samples: &[f32], rate: u32) -> Result<(), String> 
         .flat_map(|s| ((s.clamp(-1.0, 1.0) * 32767.0) as i16).to_le_bytes())
         .collect();
     std::fs::write(path, pcm_wav(&pcm, rate)?).map_err(|e| e.to_string())
+}
+
+/// Returns `(default_pitch_semitones, default_denoise)` for a DSP voice changer preset.
+pub fn dsp_preset_defaults(preset: i32) -> (f32, bool) {
+    match preset {
+        0 => (0.0, true),   // Phòng thu (Khử ồn + Làm ấm)
+        1 => (-3.5, true),  // Nam trầm ấm (Deep Male)
+        2 => (4.0, true),   // Nữ cao / Giọng sáng (Bright Female)
+        3 => (-5.5, true),  // Ẩn danh / Phóng sự (Anonymous)
+        4 => (7.0, false),  // Trẻ em / Sóc chuột (Chipmunk)
+        5 => (-7.0, false), // Khổng lồ / Quái vật (Giant)
+        6 => (0.0, false),  // Robot / Cơ khí (Robot)
+        7 => (0.0, false),  // Bộ đàm / Điện thoại (Radio / Phone)
+        8 => (0.0, false),  // Vang vọng / Hội trường (Hall Echo)
+        _ => (0.0, false),  // Tùy chỉnh Cao độ & Tốc độ
+    }
+}
+
+/// Offline DSP Voice Changer & Studio Clean via FFmpeg avfilter.
+pub fn transform_voice_dsp(
+    source_path: &Path,
+    audio_stream: Option<usize>,
+    source_start: f64,
+    window: Option<f64>,
+    preset: i32,
+    pitch_semitones: f32,
+    speed: f32,
+    denoise: bool,
+    project: &str,
+    cancel: &AtomicBool,
+) -> Result<PathBuf, String> {
+    check_cancel(cancel)?;
+    let mut chain_parts: Vec<String> = Vec::new();
+    if source_start > 0.001 || window.is_some() {
+        if let Some(dur) = window {
+            chain_parts.push(format!(
+                "atrim=start={:.3}:duration={:.3},asetpts=PTS-STARTPTS",
+                source_start.max(0.0),
+                dur.max(0.05)
+            ));
+        } else {
+            chain_parts.push(format!(
+                "atrim=start={:.3},asetpts=PTS-STARTPTS",
+                source_start.max(0.0)
+            ));
+        }
+    }
+    if denoise || preset == 0 {
+        chain_parts.push("highpass=f=75,afftdn=nf=-25".to_owned());
+    }
+    let pitch = pitch_semitones.clamp(-12.0, 12.0);
+    let spd = speed.clamp(0.5, 2.0);
+    if pitch.abs() > 0.01 || (spd - 1.0).abs() > 0.01 {
+        let ratio = 2.0_f64.powf(f64::from(pitch) / 12.0);
+        let mut tempo = f64::from(spd) / ratio;
+        let mut atempos = Vec::new();
+        while tempo < 0.5 {
+            atempos.push("atempo=0.5".to_owned());
+            tempo /= 0.5;
+        }
+        while tempo > 2.0 {
+            atempos.push("atempo=2.0".to_owned());
+            tempo /= 2.0;
+        }
+        atempos.push(format!("atempo={:.6}", tempo.clamp(0.5, 2.0)));
+        chain_parts.push(format!(
+            "aresample=48000,asetrate={:.4},aresample=48000,{}",
+            48000.0 * ratio,
+            atempos.join(",")
+        ));
+    }
+    let tone = match preset {
+        0 => {
+            "equalizer=f=150:t=q:w=1.0:g=2.5,equalizer=f=3200:t=q:w=1.2:g=2.0,acompressor=threshold=-18dB:ratio=2.5:attack=10:release=100,alimiter=limit=0.95"
+        }
+        1 => {
+            "highpass=f=55,equalizer=f=140:t=q:w=1.0:g=3.0,equalizer=f=2600:t=q:w=0.9:g=-1.2,alimiter=limit=0.94"
+        }
+        2 => "highpass=f=110,equalizer=f=2800:t=q:w=1.1:g=2.0,alimiter=limit=0.94",
+        3 => "highpass=f=90,lowpass=f=4200,equalizer=f=120:t=q:w=1.0:g=3.5,alimiter=limit=0.94",
+        4 => "highpass=f=120,alimiter=limit=0.94",
+        5 => {
+            "highpass=f=50,equalizer=f=130:t=q:w=1.0:g=4.0,aecho=0.8:0.85:60|110:0.4|0.25,alimiter=limit=0.94"
+        }
+        6 => {
+            "aphaser=type=t:speed=1.2:decay=0.6,flanger=delay=2:depth=4:speed=0.8,equalizer=f=1800:t=q:w=1.2:g=3,alimiter=limit=0.94"
+        }
+        7 => {
+            "highpass=f=350,lowpass=f=3200,acrusher=bits=11:mode=log:mix=0.45,equalizer=f=1600:t=q:w=1.4:g=4.0,alimiter=limit=0.92"
+        }
+        8 => "aecho=0.8:0.85:60|110|180|270:0.45|0.35|0.25|0.18,alimiter=limit=0.94",
+        _ => "alimiter=limit=0.95",
+    };
+    chain_parts.push(tone.to_owned());
+    let mut decoder = concat_media::AudioDecoder::open(
+        source_path,
+        &concat_media::AudioOptions {
+            stream: audio_stream,
+            filters: vec![chain_parts.join(",")],
+            rate: 24000,
+            channels: 1,
+            format: concat_media::SampleFormat::F32,
+            ..Default::default()
+        },
+    )
+    .map_err(|e| format!("Không thể đọc âm thanh nguồn: {e}"))?;
+    let samples = decoder
+        .collect_f32()
+        .map_err(|e| format!("Lỗi xử lý DSP âm thanh: {e}"))?;
+    if samples.is_empty() {
+        return Err("Bản thu hoặc file nguồn không có dữ liệu âm thanh.".into());
+    }
+    check_cancel(cancel)?;
+    let out = output(project, "voice-dsp")?;
+    write_wav(&out, &samples, 24000)?;
+    Ok(out)
+}
+
+/// Cloud AI Speech-to-Speech (Voice Conversion keeping original cadence/emotion).
+pub fn synthesize_speech_to_speech(
+    provider: i32,
+    keys: &str,
+    model: &str,
+    voice: &str,
+    source_path: &Path,
+    audio_stream: Option<usize>,
+    source_start: f64,
+    window: Option<f64>,
+    denoise: bool,
+    project: &str,
+    cancel: &AtomicBool,
+    options: &VoiceOptions,
+) -> Result<PathBuf, String> {
+    check_cancel(cancel)?;
+    if keys.trim().is_empty() {
+        return Err(
+            "Vui lòng nhập API Key (Gemini hoặc ElevenLabs) trong Cài đặt để đổi giọng AI S2S."
+                .into(),
+        );
+    }
+    if voice.is_empty()
+        || !voice
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+    {
+        return Err("Voice ID không hợp lệ.".into());
+    }
+    let mut pre_filters = Vec::new();
+    if source_start > 0.001 || window.is_some() {
+        if let Some(dur) = window {
+            pre_filters.push(format!(
+                "atrim=start={:.3}:duration={:.3},asetpts=PTS-STARTPTS",
+                source_start.max(0.0),
+                dur.max(0.05)
+            ));
+        } else {
+            pre_filters.push(format!(
+                "atrim=start={:.3},asetpts=PTS-STARTPTS",
+                source_start.max(0.0)
+            ));
+        }
+    }
+    if denoise && provider == 1 {
+        pre_filters.push("highpass=f=75,afftdn=nf=-25".to_owned());
+    }
+    let filters = if pre_filters.is_empty() {
+        Vec::new()
+    } else {
+        vec![pre_filters.join(",")]
+    };
+    let mut decoder = concat_media::AudioDecoder::open(
+        source_path,
+        &concat_media::AudioOptions {
+            stream: audio_stream,
+            filters,
+            rate: 24000,
+            channels: 1,
+            format: concat_media::SampleFormat::F32,
+            ..Default::default()
+        },
+    )
+    .map_err(|e| format!("Không thể đọc file âm thanh nguồn: {e}"))?;
+    let samples = decoder.collect_f32().map_err(|e| e.to_string())?;
+    if samples.is_empty() {
+        return Err("File nguồn không có dữ liệu âm thanh.".into());
+    }
+    if samples.len() > 24000 * 300 {
+        return Err(
+            "Đổi giọng AI Speech-to-Speech hỗ trợ tối đa 5 phút mỗi lượt. Hãy cắt ngắn đoạn thu trước."
+                .into(),
+        );
+    }
+    let pcm: Vec<u8> = samples
+        .iter()
+        .flat_map(|s| ((s.clamp(-1.0, 1.0) * 32767.0) as i16).to_le_bytes())
+        .collect();
+    let source_wav = pcm_wav(&pcm, 24000)?;
+    check_cancel(cancel)?;
+
+    if provider == 2 {
+        let sts_model = if model.contains("sts") {
+            model
+        } else {
+            "eleven_multilingual_sts_v2"
+        };
+        let settings_json = serde_json::to_string(&json!({
+            "stability": options.stability.clamp(0.0, 1.0),
+            "similarity_boost": options.similarity.clamp(0.0, 1.0),
+            "style": options.style.clamp(0.0, 1.0),
+            "use_speaker_boost": options.speaker_boost,
+        }))
+        .map_err(|e| e.to_string())?;
+        let boundary = "----CDCeditElevenLabsSTSBoundary98421";
+        let mut body = Vec::with_capacity(source_wav.len() + 1024);
+        let mut add_field = |name: &str, val: &str| {
+            body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
+            body.extend_from_slice(
+                format!("Content-Disposition: form-data; name=\"{name}\"\r\n\r\n{val}\r\n")
+                    .as_bytes(),
+            );
+        };
+        add_field("model_id", sts_model);
+        add_field(
+            "remove_background_noise",
+            if denoise { "true" } else { "false" },
+        );
+        add_field("voice_settings", &settings_json);
+        body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
+        body.extend_from_slice(
+            b"Content-Disposition: form-data; name=\"audio\"; filename=\"source.wav\"\r\n",
+        );
+        body.extend_from_slice(b"Content-Type: audio/wav\r\n\r\n");
+        body.extend_from_slice(&source_wav);
+        body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
+
+        let url =
+            format!("https://api.elevenlabs.io/v1/speech-to-speech/{voice}?output_format=pcm_24000");
+        let content_type = format!("multipart/form-data; boundary={boundary}");
+        crate::api_keys::with_keys(
+            crate::api_keys::Provider::ElevenLabs,
+            keys,
+            cancel,
+            |key| {
+                check_cancel(cancel)?;
+                let agent = ureq::AgentBuilder::new()
+                    .timeout_connect(Duration::from_secs(15))
+                    .timeout_read(Duration::from_secs(180))
+                    .timeout_write(Duration::from_secs(60))
+                    .build();
+                let response = agent
+                    .post(&url)
+                    .set("xi-api-key", key.trim())
+                    .set("Content-Type", &content_type)
+                    .send_bytes(&body)
+                    .map_err(|e| crate::api_keys::http_error("ElevenLabs Speech-to-Speech", e))?;
+                let mut out_bytes = Vec::new();
+                response
+                    .into_reader()
+                    .take(100_000_001)
+                    .read_to_end(&mut out_bytes)
+                    .map_err(|_| "Không đọc được dữ liệu âm thanh từ ElevenLabs S2S")?;
+                check_cancel(cancel)?;
+                let wav = pcm_wav(&out_bytes, 24_000)?;
+                let file = output(project, "voice-sts-eleven")?;
+                std::fs::write(&file, wav).map_err(|e| e.to_string())?;
+                Ok(file)
+            },
+        )
+    } else if provider == 1 {
+        let encoded_wav = STANDARD.encode(&source_wav);
+        let (transcript, detected_style) = crate::api_keys::with_keys(
+            crate::api_keys::Provider::Gemini,
+            keys,
+            cancel,
+            |key| {
+                check_cancel(cancel)?;
+                let url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+                let req_body = serde_json::to_vec(&json!({
+                    "contents": [{
+                        "role": "user",
+                        "parts": [
+                            {
+                                "inlineData": {
+                                    "mimeType": "audio/wav",
+                                    "data": encoded_wav,
+                                }
+                            },
+                            {
+                                "text": "Listen carefully to this audio recording. Return a JSON object with two fields: \"transcript\" (the exact verbatim words spoken in the original language, preserving natural pauses or expressions) and \"style\" (a concise English description of the speaker's emotional tone, pacing, energy, and inflection so a voice actor can replicate the exact delivery)."
+                            }
+                        ]
+                    }],
+                    "generationConfig": {
+                        "temperature": 0.2,
+                        "responseMimeType": "application/json"
+                    }
+                }))
+                .map_err(|e| e.to_string())?;
+                let agent = ureq::AgentBuilder::new()
+                    .timeout_connect(Duration::from_secs(15))
+                    .timeout_read(Duration::from_secs(120))
+                    .timeout_write(Duration::from_secs(60))
+                    .build();
+                let resp = agent
+                    .post(url)
+                    .set("x-goog-api-key", key.trim())
+                    .set("Content-Type", "application/json")
+                    .send_bytes(&req_body)
+                    .map_err(|e| crate::api_keys::http_error("Gemini Audio S2S", e))?;
+                let mut resp_bytes = Vec::new();
+                resp.into_reader()
+                    .take(10_000_000)
+                    .read_to_end(&mut resp_bytes)
+                    .map_err(|_| "Không đọc được phản hồi từ Gemini")?;
+                let parsed: Value = serde_json::from_slice(&resp_bytes)
+                    .map_err(|_| "Phản hồi Gemini không hợp lệ")?;
+                let text_out = parsed["candidates"][0]["content"]["parts"][0]["text"]
+                    .as_str()
+                    .ok_or("Gemini không nhận diện được giọng nói trong bản thu.")?;
+                let info: Value = serde_json::from_str(text_out).unwrap_or_else(|_| {
+                    json!({
+                        "transcript": text_out,
+                        "style": ""
+                    })
+                });
+                let tr = info["transcript"]
+                    .as_str()
+                    .unwrap_or(text_out)
+                    .trim()
+                    .to_owned();
+                let st = info["style"].as_str().unwrap_or("").trim().to_owned();
+                if tr.is_empty() {
+                    return Err("Không phát hiện lời nói trong bản thu âm.".into());
+                }
+                Ok((tr, st))
+            },
+        )?;
+        let mut s2s_options = options.clone();
+        if !detected_style.is_empty() {
+            s2s_options.delivery = if s2s_options.delivery.trim().is_empty() {
+                detected_style
+            } else {
+                format!("{}. {}", s2s_options.delivery.trim(), detected_style)
+            };
+        }
+        synthesize(
+            1,
+            keys,
+            model,
+            voice,
+            &transcript,
+            project,
+            cancel,
+            &s2s_options,
+        )
+    } else {
+        Err("Hãy chọn Gemini hoặc ElevenLabs cho chế độ AI Speech-to-Speech.".into())
+    }
+
 }
 #[cfg(test)]
 mod tests {

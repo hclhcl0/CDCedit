@@ -1307,17 +1307,23 @@ component LearnCard inherits Pressable {
         VerticalLayout {
             alignment: center;
             Rectangle {
-                width: 34px;
-                height: 34px;
+                width: 38px;
+                height: 38px;
                 border-radius: Theme.r;
-                background: root.lit ? Theme.launch-field-active : Theme.launch-field;
+                background: (!root.item.external && root.item.name != "shortcuts")
+                    ? (root.lit ? Theme.accent : Theme.accent-soft)
+                    : (root.lit ? Theme.launch-field-active : Theme.launch-field);
+                border-width: (!root.item.external && root.item.name != "shortcuts") ? 1px : 0px;
+                border-color: Theme.accent;
 
                 Icon {
                     x: (parent.width - self.width) / 2;
                     y: (parent.height - self.height) / 2;
                     glyph: root.item.glyph;
-                    size: 17px;
-                    tint: Theme.fg;
+                    size: 18px;
+                    tint: (!root.item.external && root.item.name != "shortcuts")
+                        ? (root.lit ? Theme.on-accent : Theme.accent)
+                        : Theme.fg;
                 }
             }
         }
@@ -1555,65 +1561,44 @@ global Learn {
         name: "report", glyph: Glyph.bug, external: true,
         title: I18n.t("start.reportProblem"), note: I18n.t("start.reportProblemNote"),
     };
-    out property <[LearnItem]> desk: [docs, guide, keys, report];
-    out property <[LearnItem]> phone: [docs, guide, report];
+    out property <LearnItem> github: {
+        name: "github", glyph: Glyph.github, external: true,
+        title: "GitHub CDCedit (hclhcl0)", note: "Tài liệu, mã nguồn & bản phát hành mới nhất",
+    };
+    out property <[LearnItem]> desk: [docs, guide, keys, report, github];
+    out property <[LearnItem]> phone: [docs, guide, report, github];
 }
 
 global AiTools {
+    out property <LearnItem> voice-changer: {
+        name: "tool-voice-changer", glyph: Glyph.voice-changer, external: false,
+        title: "Thu Âm & Thay Đổi Giọng Nói", note: "Ghi âm micro / duyệt file: Đổi giọng DSP, AI Speech-to-Speech & Đọc lại TTS",
+    };
+    out property <LearnItem> audio-studio: {
+        name: "tool-audio-studio", glyph: Glyph.audio-studio, external: false,
+        title: "Phòng Thu Âm Thanh & Giọng Nói AI", note: "Gộp: Đọc văn bản TTS, Thuyết minh SRT/Video & Studio Hội thoại Gemini",
+    };
     out property <LearnItem> captions: {
-        name: "tool-captions", glyph: Glyph.text-mark, external: false,
+        name: "tool-captions", glyph: Glyph.subtitles, external: false,
         title: "Tạo Phụ Đề AI (.SRT)", note: "Nhận diện giọng nói Whisper / Gemini & xuất file .srt",
     };
-    out property <LearnItem> tts: {
-        name: "tool-tts", glyph: Glyph.volume, external: false,
-        title: "Đọc Văn Bản AI (.WAV)", note: "Chuyển văn bản thành giọng đọc Tiếng Việt & lưu file .wav",
-    };
-    out property <LearnItem> dubbing: {
-        name: "tool-dubbing", glyph: Glyph.mic, external: false,
-        title: "Đổi Giọng & Thuyết Minh AI", note: "Thuyết minh từ video hoặc file .srt khớp thời gian",
+    out property <LearnItem> translation: {
+        name: "tool-translation", glyph: Glyph.translate, external: false,
+        title: "Dịch Phụ Đề & Lồng Tiếng Việt", note: "Dịch SRT/video đa ngữ, đối chiếu song ngữ & lồng tiếng theo mốc",
     };
     out property <LearnItem> links: {
-        name: "tool-links", glyph: Glyph.import, external: false,
+        name: "tool-links", glyph: Glyph.cloud-download, external: false,
         title: "Tải Video & Nhạc Từ Link", note: "Tải video / tách nhạc từ YouTube, TikTok, Drive…",
     };
     out property <LearnItem> cutout: {
-        name: "tool-cutout", glyph: Glyph.wand, external: false,
+        name: "tool-cutout", glyph: Glyph.cutout-person, external: false,
         title: "Tách Nền Ảnh AI (.PNG)", note: "Tự động xóa phông người / vật thể & xuất ảnh PNG trong suốt",
     };
     out property <LearnItem> enhance: {
         name: "tool-enhance", glyph: Glyph.sparkle, external: false,
         title: "Làm Nét Ảnh & Video AI (2x)", note: "Khôi phục độ nét & phóng đại 2× bằng Real-ESRGAN",
     };
-    out property <LearnItem> translation: {
-        name:"tool-translation",glyph:Glyph.text-mark,external:false,
-        title:"Dịch Phụ Đề & Lồng Tiếng Việt",note:"Dịch SRT/video, đối chiếu song ngữ, lồng tiếng theo mốc",
-    };
-    out property <LearnItem> gemini-dialogue: {
-        name:"tool-gemini-dialogue",glyph:Glyph.mic,external:false,
-        title:"Gemini · Hội thoại 2 nhân vật",note:"Chọn giọng A/B, phong cách từng lượt & xuất WAV",
-    };
-    out property <LearnItem> gemini-performance: {
-        name:"tool-gemini-performance",glyph:Glyph.volume,external:false,
-        title:"Gemini · Giọng đọc diễn cảm",note:"Cảm xúc, cách đọc, tiếng cười/khóc và khoảng nghỉ",
-    };
-    out property <LearnItem> gemini-design: {
-        name:"tool-gemini-design",glyph:Glyph.wand,external:false,
-        title:"Gemini · Thiết kế giọng",note:"Tạo nhân vật giọng nói mới từ mô tả bằng văn bản",
-    };
-    out property <LearnItem> gemini-replication: {
-        name:"tool-gemini-replication",glyph:Glyph.mic,external:false,
-        title:"Gemini · Tái tạo giọng",note:"Tạo giọng từ mẫu và bản ghi đồng ý của người nói",
-    };
-    out property <LearnItem> gemini-library: {
-        name:"tool-gemini-library",glyph:Glyph.volume,external:false,
-        title:"Gemini · Thư viện giọng",note:"Lọc ngôn ngữ, giới tính, vùng giọng, cao độ & nghe thử",
-    };
-    out property <LearnItem> gemini-reactions: {
-        name:"tool-gemini-reactions",glyph:Glyph.sparkle,external:false,
-        title:"Gemini · Phản ứng & xen lời",note:"Tạo hội thoại có tiếng đáp, phản ứng và chồng lời",
-    };
-    out property <[LearnItem]> all: [captions, tts, dubbing, links, cutout, enhance,
-        translation, gemini-dialogue, gemini-performance, gemini-design, gemini-replication, gemini-library, gemini-reactions];
+    out property <[LearnItem]> all: [voice-changer, audio-studio, captions, translation, links, cutout, enhance];
 }
 
 // The learn cards as a grid of rows, for the wide page under the projects

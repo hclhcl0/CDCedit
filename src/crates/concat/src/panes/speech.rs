@@ -451,7 +451,11 @@ impl SpeechPane {
                 }
             }
             SpeechMsg::ClearStyle => self.style = None,
-            SpeechMsg::Close => self.open = false,
+            SpeechMsg::Close => {
+                self.dub.mic = None;
+                self.dub.recording = false;
+                self.open = false;
+            }
             SpeechMsg::TextEdited(text) => self.text = text,
             // The row past the named voices is "Clone from a sample…":
             // the sample switch, turned on from where a voice is chosen.
@@ -519,6 +523,8 @@ impl SpeechPane {
                 self.dub
                     .cancel
                     .store(true, std::sync::atomic::Ordering::Relaxed);
+                self.dub.mic = None;
+                self.dub.recording = false;
                 studio.close_source();
                 self.open = false;
             }

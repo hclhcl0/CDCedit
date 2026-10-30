@@ -280,8 +280,8 @@ export component SpeechDialog inherits Modal {
     callback clear-style();
 
     open: root.data.open;
-    title: I18n.t("speech.textToSpeech");
-    glyph: Glyph.volume;
+    title: root.data.dubbing.mode == 3 ? "Thu Âm & Thay Đổi Giọng Nói" : I18n.t("speech.textToSpeech");
+    glyph: root.data.dubbing.mode == 3 ? Glyph.voice-changer : Glyph.volume;
     surface-width: 680px;
     dismissable: !root.data.running;
 
@@ -452,7 +452,7 @@ export component SpeechDialog inherits Modal {
             }
         }
 
-        if !root.running && root.data.dubbing.provider == 0: DialogSection {
+        if !root.running && root.data.dubbing.provider == 0 && (root.data.dubbing.mode != 3 || root.data.dubbing.vc-method == 2): DialogSection {
             title: I18n.t("speech.voice");
 
             // The model first: it decides which voices there are and which
@@ -604,7 +604,26 @@ export component SpeechDialog inherits Modal {
         // recordings are offered by their waveforms, since a voice is heard
         // and not read, and the start slider says where in the recording
         // the model listens from.
-        if !root.running && root.data.dubbing.provider == 0 && root.data.samples-offered: DialogSection {
+        if !root.running && root.data.dubbing.provider == 0 && root.data.samples-offered && (root.data.dubbing.mode != 3 || root.data.dubbing.vc-method == 2): DialogSection {
+            DialogRow {
+                label: "Tệp mẫu";
+                HorizontalLayout {
+                    spacing: 8px;
+                    Button {
+                        glyph: Glyph.folder;
+                        label: "Duyệt…";
+                        clicked => { root.dubbing-action(49, 0, "", 0); }
+                    }
+                    Text {
+                        horizontal-stretch: 1;
+                        text: root.samples.length > 0 ? "Chọn từ danh sách bên dưới hoặc duyệt thêm tệp âm thanh từ máy" : I18n.t("speech.importClipVoiceFirst");
+                        color: Theme.fg-muted;
+                        font-size: Theme.fs-sm;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
+                }
+            }
             title: I18n.t("speech.useSampleVoice");
             switchable: true;
             on: root.data.use-sample;
@@ -778,7 +797,7 @@ export component SpeechDialog inherits Modal {
                 block: true;
                 primary: true;
                 large: true;
-                glyph: Glyph.volume;
+                glyph: root.data.dubbing.mode == 3 ? Glyph.voice-changer : Glyph.volume;
                 label: I18n.t("dubbing.generatePreview");
                 enabled: root.data.ready && root.data.text != "" && (root.data.dubbing.provider != 0 || (root.has-reference && root.has-voice));
                 clicked => { root.begin(); }
