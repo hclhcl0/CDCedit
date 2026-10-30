@@ -324,6 +324,12 @@ if ! grep -E 'mCurrentFocus' "$out/focus.txt" | grep -q "$package"; then
 fi
 echo "-- the app's lines --"
 head -n 40 "$out/concat.txt" || true
+
+# Capture the New Project ("Dự án mới") screen as well for visual verification in CI.
+adb shell input tap 540 500 2>/dev/null || true
+sleep 2
+adb exec-out screencap -p > "$out/screen-new-project.png" 2>/dev/null || rm -f "$out/screen-new-project.png"
+
 echo
 echo "the app is up after ${wait_secs}s with nothing fatal in the log; see $out/"
 say "ok"

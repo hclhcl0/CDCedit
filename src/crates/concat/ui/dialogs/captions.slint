@@ -139,7 +139,18 @@ export component CaptionsDialog inherits Modal {
             Button { label: "Áp dụng các lựa chọn"; primary: true; block: true; clicked => { root.review-apply(true); } }
             Button { label: "Giữ nguyên toàn bộ"; block: true; clicked => { root.review-apply(false); } }
         }
-        if !root.data.reviewing: VerticalLayout {
+        if !root.data.reviewing: Flickable {
+            property <length> max-body-h: Math.max(180px, root.height - root.inset-top - root.inset-bottom - (root.fill ? 50px : 66px));
+            height: Math.min(captions-form.preferred-height, self.max-body-h);
+            content-width: self.width;
+            content-height: captions-form.preferred-height;
+            interactive: captions-form.preferred-height > self.height;
+
+            captions-form := VerticalLayout {
+                x: 0;
+                y: 0;
+                width: parent.width;
+                height: self.preferred-height;
             if !root.data.running && !root.from-voice: DialogSection {
                 first: true;
                 title: I18n.t("common.script");
@@ -480,6 +491,7 @@ export component CaptionsDialog inherits Modal {
                         clicked => { root.export-srt(); }
                     }
                 }
+            }
             }
         }
     }

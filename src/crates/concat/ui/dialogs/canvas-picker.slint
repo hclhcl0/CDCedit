@@ -34,8 +34,8 @@ export component CanvasPicker inherits VerticalLayout {
             alignment: center;
 
             Rectangle {
-                width: 24px;
-                height: 24px;
+                width: 30px;
+                height: 30px;
                 border-radius: Theme.r-sm;
                 clip: true;
                 border-width: root.value == preset ? 2px : 1px;
@@ -52,10 +52,10 @@ export component CanvasPicker inherits VerticalLayout {
                     clip: true;
 
                     for cell in 16: Rectangle {
-                        x: Math.floor(cell / 4) * 6px;
-                        y: Math.mod(cell, 4) * 6px;
-                        width: 6px;
-                        height: 6px;
+                        x: Math.floor(cell / 4) * 7px;
+                        y: Math.mod(cell, 4) * 7px;
+                        width: 7px;
+                        height: 7px;
                         background: Math.mod(Math.floor(cell / 4) + Math.mod(cell, 4), 2) == 0 ? #c8c8c8 : #7a7a7a;
                     }
                 }

@@ -1345,6 +1345,8 @@ component LearnCard inherits Pressable {
                 text: root.item.note;
                 color: Theme.fg-dim;
                 font-size: Theme.fs-sm;
+                wrap: word-wrap;
+                max-height: 34px;
                 overflow: elide;
             }
         }
@@ -2018,6 +2020,41 @@ component NarrowHome inherits Rectangle {
                 clicked => { root.compose(); }
             }
 
+            if root.recents-total > 0: VerticalLayout {
+                padding-top: 24px;
+
+                SectionHead {
+                    height: 28px;
+                    text: I18n.t("start.recentProjects");
+                    count: "\{root.recents-total}";
+                }
+
+                if root.searchable: VerticalLayout {
+                    padding-top: 12px;
+                    SearchField {
+                        text: root.query;
+                        placeholder: I18n.t("start.searchProjects");
+                        edited(text) => { root.search-edited(text); }
+                    }
+                }
+
+                Rectangle { height: 10px; }
+
+                if root.recents.length == 0: Text {
+                    text: I18n.t1("start.noMatches", root.query);
+                    color: Theme.fg-muted;
+                    font-size: Theme.fs-lg;
+                    wrap: word-wrap;
+                }
+
+                for project in root.recents: ProjectRow {
+                    project: project;
+                    enabled: !root.busy;
+                    opened => { root.open-recent(project.path); }
+                    forgotten => { root.forget-recent(project.path); }
+                }
+            }
+
             Rectangle { height: 24px; }
 
             SectionHead {
@@ -2045,7 +2082,7 @@ component NarrowHome inherits Rectangle {
                         }
 
                         LearnCard {
-                            height: 56px;
+                            height: 66px;
                             flat: true;
                             item: item;
                             clicked => { root.link(item.name); }
@@ -2054,44 +2091,22 @@ component NarrowHome inherits Rectangle {
                 }
             }
 
-            Rectangle { height: 32px; }
+            if root.recents-total == 0: VerticalLayout {
+                padding-top: 28px;
 
-            SectionHead {
-                height: 28px;
-                text: I18n.t("start.recentProjects");
-                count: root.recents-total > 0 ? "\{root.recents-total}" : "";
-            }
+                SectionHead {
+                    height: 28px;
+                    text: I18n.t("start.recentProjects");
+                }
 
-            if root.searchable: VerticalLayout {
-                padding-top: 12px;
-                SearchField {
-                    text: root.query;
-                    placeholder: I18n.t("start.searchProjects");
-                    edited(text) => { root.search-edited(text); }
+                Rectangle { height: 10px; }
+
+                EmptyProjects {
+                    first-edit => { root.link("first-edit"); }
                 }
             }
 
-            Rectangle { height: 10px; }
-
-            if root.recents-total == 0: EmptyProjects {
-                first-edit => { root.link("first-edit"); }
-            }
-
-            if root.recents-total > 0 && root.recents.length == 0: Text {
-                text: I18n.t1("start.noMatches", root.query);
-                color: Theme.fg-muted;
-                font-size: Theme.fs-lg;
-                wrap: word-wrap;
-            }
-
-            for project in root.recents: ProjectRow {
-                project: project;
-                enabled: !root.busy;
-                opened => { root.open-recent(project.path); }
-                forgotten => { root.forget-recent(project.path); }
-            }
-
-            Rectangle { height: 32px; }
+            Rectangle { height: 28px; }
 
             SectionHead {
                 height: 28px;
@@ -2119,7 +2134,7 @@ component NarrowHome inherits Rectangle {
                         }
 
                         LearnCard {
-                            height: 56px;
+                            height: 64px;
                             flat: true;
                             item: item;
                             clicked => { root.link(item.name); }
@@ -2259,6 +2274,7 @@ export component NewProjectDialog inherits Modal {
     property <bool> narrow: root.width < 680px;
     /// A project needs somewhere to go. Everything else has a default.
     property <bool> can-create: !root.data.busy && root.data.location != "";
+    property <length> max-body-h: Math.max(180px, root.height - root.inset-top - root.inset-bottom - (root.fill ? 50px : 66px));
 
     open: root.data.composing;
     title: I18n.t("start.newProject");
@@ -2271,21 +2287,30 @@ export component NewProjectDialog inherits Modal {
     // label, and no wider than the window less a margin, on a phone.
     surface-width: Math.min(640px, root.width - 32px);
 
-    // The caret goes to the name each time the sheet comes up, with the
-    // name selected, so the default is replaced by typing over it. From
-    // here rather than the field's own `init`: the sheet is built once,
-    // hidden, when the window is, and shown many times after.
+    // The caret goes to the name each time the sheet comes up on a desk, with
+    // the name selected, so the default is replaced by typing over it. On a
+    // phone, do not immediately summon the virtual keyboard over the form.
     changed open => {
-        if (root.open) {
+        if (root.open && !root.phone) {
             name-field.take-focus();
         }
     }
 
-    VerticalLayout {
-        padding-left: root.narrow ? 18px : 26px;
-        padding-right: root.narrow ? 18px : 26px;
-        padding-top: 16px;
-        padding-bottom: 22px;
+    Flickable {
+        height: Math.min(form.preferred-height, root.max-body-h);
+        content-width: self.width;
+        content-height: form.preferred-height;
+        interactive: form.preferred-height > self.height;
+
+        form := VerticalLayout {
+            x: 0;
+            y: 0;
+            width: parent.width;
+            height: self.preferred-height;
+            padding-left: root.narrow ? 18px : 26px;
+            padding-right: root.narrow ? 18px : 26px;
+            padding-top: 16px;
+            padding-bottom: 22px;
 
         // What the form is for, before the form: the one line a person
         // should read before choosing.
@@ -2294,6 +2319,48 @@ export component NewProjectDialog inherits Modal {
             color: Theme.fg-muted;
             font-size: Theme.fs;
             wrap: word-wrap;
+        }
+
+        // Compact live frame preview on narrow/phone screens so the user sees
+        // the exact aspect ratio shape, resolution, and frame rate at a glance.
+        if root.narrow: Rectangle {
+            height: 44px;
+            border-radius: Theme.r;
+            background: Theme.launch-field;
+            border-width: 1px;
+            border-color: Theme.line;
+
+            HorizontalLayout {
+                padding-left: 12px;
+                padding-right: 12px;
+                spacing: 10px;
+
+                VerticalLayout {
+                    alignment: center;
+                    FrameShape {
+                        room: 26px;
+                        ratio: root.data.frame-aspect;
+                    }
+                }
+
+                Text {
+                    horizontal-stretch: 1;
+                    text: root.data.size-readout;
+                    color: Theme.fg;
+                    font-family: Theme.font-technical;
+                    font-size: Theme.fs;
+                    font-weight: Theme.weight-title;
+                    vertical-alignment: center;
+                }
+
+                Text {
+                    text: root.data.rate-readout;
+                    color: Theme.fg-muted;
+                    font-family: Theme.font-technical;
+                    font-size: Theme.fs-sm;
+                    vertical-alignment: center;
+                }
+            }
         }
 
         // Files dropped on the launch screen: the sheet is up because of
@@ -2436,7 +2503,7 @@ export component NewProjectDialog inherits Modal {
                         changed(index) => { root.size-changed(index); }
                     }
 
-                    VerticalLayout {
+                    if !root.narrow: VerticalLayout {
                         alignment: center;
                         horizontal-stretch: 0;
                         Text {
@@ -2674,6 +2741,7 @@ export component NewProjectDialog inherits Modal {
                 horizontal-alignment: center;
                 wrap: word-wrap;
             }
+        }
         }
     }
 }

@@ -57,7 +57,19 @@ export component ProjectDialog inherits Modal {
     glyph: Glyph.settings;
     surface-width: 440px;
 
-    VerticalLayout {
+    property <length> max-body-h: Math.max(180px, root.height - root.inset-top - root.inset-bottom - (root.fill ? 50px : 66px));
+
+    Flickable {
+        height: Math.min(form.preferred-height, root.max-body-h);
+        content-width: self.width;
+        content-height: form.preferred-height;
+        interactive: form.preferred-height > self.height;
+
+        form := VerticalLayout {
+            x: 0;
+            y: 0;
+            width: parent.width;
+            height: self.preferred-height;
         DialogSection {
             first: true;
             title: I18n.t("common.name");
@@ -221,6 +233,7 @@ export component ProjectDialog inherits Modal {
                 enabled: root.data.name != "";
                 clicked => { root.apply(); }
             }
+        }
         }
     }
 }

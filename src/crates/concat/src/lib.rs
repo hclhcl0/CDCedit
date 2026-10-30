@@ -2253,6 +2253,25 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
         };
         state.handle(Msg::Speech(msg));
     }));
+    editor.on_voice_changer(on_window!(|state| {
+        if state.speech.open && state.speech.dub.mode == 3 {
+            state.handle(Msg::Speech(SpeechMsg::Close));
+        } else {
+            state.speech.dub.mode = 3;
+            state.speech.dub.mute_original = true;
+            state.handle(Msg::Speech(SpeechMsg::Open));
+        }
+    }));
+    editor.on_translate(on_window!(|state| {
+        state.handle(Msg::Translation(
+            crate::panes::translation::TranslationMsg::Action(0, 0, String::new(), 0.0),
+        ));
+    }));
+    editor.on_gemini_studio(on_window!(|state| {
+        state.handle(Msg::Gemini(
+            crate::panes::gemini_studio::GeminiMsg::Action(0, 0, String::new(), 0.0),
+        ));
+    }));
 
     app.on_captions_closed(on_window!(|state| {
         state.handle(Msg::Captions(CaptionsMsg::Close));

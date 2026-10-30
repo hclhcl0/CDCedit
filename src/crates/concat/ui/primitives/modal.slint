@@ -656,24 +656,37 @@ export component DialogSection inherits VerticalLayout {
     }
 }
 
-// One line of a sheet's form: a fixed label column so every control in the
-// group starts at the same x, whatever its label says.
-export component DialogRow inherits HorizontalLayout {
+// One line of a sheet's form: a fixed label column on desktop so every
+// control in the group starts at the same x, and stacked above the control on
+// narrow phone screens so Vietnamese labels and controls each get the full width.
+export component DialogRow inherits Rectangle {
     in property <string> label;
 
-    min-height: 28px;
-    spacing: 10px;
+    property <bool> stacked: root.label != "" && root.width > 0px && root.width < 400px;
+    property <length> label-h: root.stacked ? 20px : 0px;
+    property <length> label-w: root.label == "" || root.stacked ? 0px : 98px;
+
+    min-height: root.label-h + Math.max(28px, row.preferred-height);
+    preferred-height: self.min-height;
+    preferred-width: root.label-w + row.preferred-width;
 
     if root.label != "": Text {
-        width: 78px;
+        x: 0px;
+        y: root.stacked ? 0px : (parent.height - self.preferred-height) / 2;
+        width: root.stacked ? parent.width : 88px;
         text: root.label;
         color: Theme.fg-muted;
         font-size: Theme.fs;
         vertical-alignment: center;
+        wrap: word-wrap;
         overflow: elide;
     }
 
-    HorizontalLayout {
+    row := HorizontalLayout {
+        x: root.label-w;
+        y: root.label-h;
+        width: Math.max(0px, parent.width - root.label-w);
+        height: Math.max(28px, parent.height - root.label-h);
         spacing: 6px;
         @children
     }

@@ -32,6 +32,7 @@ export component DubbingPanel inherits VerticalLayout {
     pure callback insert-tag(text: string, tag: string, at: int) -> string;
 
     property <bool> show-tts-controls: root.data.mode != 3 || root.data.vc-method != 0;
+    property <bool> narrow: root.width > 0px && root.width < 440px;
 
     DialogSection {
         first: true;
@@ -95,7 +96,7 @@ export component DubbingPanel inherits VerticalLayout {
             }
         }
 
-        if root.data.mode == 2 || root.data.mode == 3: HorizontalLayout {
+        if (root.data.mode == 2 || root.data.mode == 3) && !root.narrow: HorizontalLayout {
             spacing: 8px;
             Button {
                 horizontal-stretch: 1;
@@ -105,6 +106,25 @@ export component DubbingPanel inherits VerticalLayout {
                 clicked => { root.action(40, 0, "", 0); }
             }
             Button {
+                glyph: Glyph.volume;
+                label: "Nghe giọng gốc";
+                ghost: true;
+                enabled: root.data.sources.length > 0 && !root.data.recording;
+                clicked => { root.action(41, 0, "", 0); }
+            }
+        }
+
+        if (root.data.mode == 2 || root.data.mode == 3) && root.narrow: VerticalLayout {
+            spacing: 6px;
+            Button {
+                block: true;
+                primary: root.data.recording;
+                glyph: root.data.recording ? Glyph.stop : Glyph.mic;
+                label: root.data.recording ? "Dừng thu âm Micro" : "Thu âm trực tiếp từ Micro";
+                clicked => { root.action(40, 0, "", 0); }
+            }
+            Button {
+                block: true;
                 glyph: Glyph.volume;
                 label: "Nghe giọng gốc";
                 ghost: true;
@@ -123,6 +143,48 @@ export component DubbingPanel inherits VerticalLayout {
         // ── Phương án 1: Offline DSP Voice Changer & Studio Clean ──
         if root.data.mode == 3 && root.data.vc-method == 0: VerticalLayout {
             spacing: 8px;
+
+            if root.narrow: Rectangle {
+                height: 5 * 36px - 6px;
+                property <[string]> short-presets: [
+                    "🎙 Phòng thu",
+                    "🧔 Nam trầm",
+                    "👩 Nữ cao",
+                    "🕵 Ẩn danh",
+                    "🐿 Sóc chuột",
+                    "👹 Khổng lồ",
+                    "🤖 Robot",
+                    "📻 Bộ đàm",
+                    "🏛 Vang vọng",
+                    "🎚 Tùy chỉnh"
+                ];
+
+                for name[idx] in self.short-presets: Rectangle {
+                    x: Math.mod(idx, 2) * ((parent.width - 6px) / 2 + 6px);
+                    y: Math.floor(idx / 2) * 36px;
+                    width: (parent.width - 6px) / 2;
+                    height: 30px;
+                    border-radius: Theme.r-sm;
+                    background: root.data.vc-preset == idx ? Theme.accent-soft : Theme.field;
+                    border-width: 1px;
+                    border-color: root.data.vc-preset == idx ? Theme.accent : Theme.line;
+
+                    Text {
+                        text: name;
+                        color: root.data.vc-preset == idx ? Theme.accent : Theme.fg;
+                        font-size: Theme.fs-sm;
+                        font-weight: root.data.vc-preset == idx ? Theme.weight-title : 400;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
+
+                    TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { root.action(43, idx, "", 0); }
+                    }
+                }
+            }
 
             DialogRow {
                 label: "Kiểu giọng DSP";
@@ -393,12 +455,25 @@ export component DubbingPanel inherits VerticalLayout {
         if root.data.mode == 2: Text {
             text: I18n.t("dubbing.muteNotice"); color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap;
         }
-        if root.data.rows.length > 0 || root.data.has-preview: HorizontalLayout {
+        if (root.data.rows.length > 0 || root.data.has-preview) && !root.narrow: HorizontalLayout {
             spacing: 8px;
             Button { label: I18n.t("dubbing.listenAll"); enabled: root.data.pending-audio == ""; clicked => { root.action(10, -1, "", 0); } }
             Button { label: I18n.t("dubbing.stop"); ghost: true; clicked => { root.action(16, 0, "", 0); } }
             Button { label: "Lưu .WAV…"; enabled: root.data.has-preview; clicked => { root.action(35, 0, "", 0); } }
             Button { label: I18n.t("dubbing.apply"); primary: true; enabled: root.data.can-apply; clicked => { root.action(11, 0, "", 0); } }
+        }
+        if (root.data.rows.length > 0 || root.data.has-preview) && root.narrow: VerticalLayout {
+            spacing: 6px;
+            HorizontalLayout {
+                spacing: 8px;
+                Button { horizontal-stretch: 1; block: true; label: I18n.t("dubbing.listenAll"); enabled: root.data.pending-audio == ""; clicked => { root.action(10, -1, "", 0); } }
+                Button { horizontal-stretch: 1; block: true; label: I18n.t("dubbing.stop"); ghost: true; clicked => { root.action(16, 0, "", 0); } }
+            }
+            HorizontalLayout {
+                spacing: 8px;
+                Button { horizontal-stretch: 1; block: true; label: "Lưu .WAV…"; enabled: root.data.has-preview; clicked => { root.action(35, 0, "", 0); } }
+                Button { horizontal-stretch: 1; block: true; label: I18n.t("dubbing.apply"); primary: true; enabled: root.data.can-apply; clicked => { root.action(11, 0, "", 0); } }
+            }
         }
         if root.data.pending-audio != "": Text {
             text: root.data.pending-audio; color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap;

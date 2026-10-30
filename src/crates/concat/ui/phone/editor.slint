@@ -646,7 +646,7 @@ export component PhoneEditor inherits Rectangle {
         height: root.transport-h;
 
         HorizontalLayout {
-            padding-left: 16px;
+            padding-left: 10px;
             padding-right: 4px;
             spacing: 0px;
 
@@ -662,7 +662,7 @@ export component PhoneEditor inherits Rectangle {
                         + ":" + Fmt.pad2(Math.mod(root.frames, root.rate));
                     color: Theme.fg;
                     font-family: Theme.font-technical;
-                    font-size: Theme.fs-lg;
+                    font-size: Theme.fs;
                 }
                 Text {
                     text: Fmt.short-duration(Editor.preview-duration);
@@ -982,9 +982,24 @@ export component PhoneEditor inherits Rectangle {
                 clicked => { Editor.captions(); }
             }
             ToolItem {
+                glyph: Glyph.translate;
+                label: "Dịch AI";
+                clicked => { Editor.translate(); }
+            }
+            ToolItem {
                 glyph: Glyph.volume;
                 label: I18n.t("phone.speak");
                 clicked => { Editor.speak(); }
+            }
+            ToolItem {
+                glyph: Glyph.voice-changer;
+                label: "Đổi giọng";
+                clicked => { Editor.voice-changer(); }
+            }
+            ToolItem {
+                glyph: Glyph.audio-studio;
+                label: "Hội thoại AI";
+                clicked => { Editor.gemini-studio(); }
             }
             // The voiceover panel, which stands at the foot of the screen
             // over this bar; the same press puts it away, or stops a take.
@@ -1167,6 +1182,16 @@ export component PhoneEditor inherits Rectangle {
                 glyph: Glyph.waveform;
                 label: I18n.t("phone.captions");
                 clicked => { Editor.captions(); }
+            }
+            if Editor.sound-selected: ToolItem {
+                glyph: Glyph.voice-changer;
+                label: "Đổi giọng";
+                clicked => { Editor.voice-changer(); }
+            }
+            if Editor.sound-selected: ToolItem {
+                glyph: Glyph.translate;
+                label: "Dịch AI";
+                clicked => { Editor.translate(); }
             }
             if Editor.title-selected: ToolItem {
                 glyph: Glyph.volume;
