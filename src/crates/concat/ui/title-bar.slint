@@ -148,6 +148,7 @@ export component TitleBar inherits Rectangle {
     /// A view was picked from the add-panel list.
     callback add-pane(kind: PaneKind);
     callback export-clicked();
+    callback open-in-capcut();
 
     height: 32px;
     // The window's ground, not a panel's: the strip is the frame the panes
@@ -272,6 +273,42 @@ export component TitleBar inherits Rectangle {
             HeaderIconButton {
                 glyph: Glyph.settings;
                 clicked => { root.open-settings(); }
+            }
+        }
+
+        if !root.minimal: VerticalLayout {
+            alignment: center;
+            padding-left: 4px;
+
+            capcut-button := Rectangle {
+                width: capcut-label.width + capcut-icon.width + 24px;
+                height: 24px;
+                border-radius: Theme.r-sm;
+                background: capcut-touch.has-hover ? #00c4b4 : #00a896;
+
+                animate background { duration: 100ms; easing: cubic-bezier(0.4, 0, 0.2, 1); }
+
+                capcut-icon := Icon {
+                    x: 8px;
+                    y: (parent.height - self.height) / 2;
+                    glyph: Glyph.sparkle;
+                    size: 13px;
+                    tint: Colors.white;
+                }
+
+                capcut-label := Text {
+                    x: capcut-icon.x + capcut-icon.width + 5px;
+                    y: (parent.height - self.height) / 2;
+                    text: "Mở trong CapCut";
+                    color: Colors.white;
+                    font-size: Theme.fs;
+                    font-weight: Theme.weight-title;
+                }
+
+                capcut-touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.open-in-capcut(); }
+                }
             }
         }
 

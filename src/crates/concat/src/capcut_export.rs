@@ -164,7 +164,51 @@ pub fn capcut_root_meta_file() -> Option<PathBuf> {
 }
 
 /// Main exporter: converts current Studio timeline into a CapCut Draft.
-pub fn export_studio_to_capcut(studio: &mut Studio) {
+/// Locate the CapCut PC executable on this system if installed.
+pub fn find_capcut_exe() -> Option<PathBuf> {
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(local) = std::env::var("LOCALAPPDATA") {
+            let direct = PathBuf::from(&local).join("CapCut").join("Apps").join("CapCut.exe");
+            if direct.is_file() {
+                return Some(direct);
+            }
+            let apps_dir = PathBuf::from(&local).join("CapCut").join("Apps");
+            if let Ok(entries) = std::fs::read_dir(&apps_dir) {
+                let mut exes: Vec<PathBuf> = Vec::new();
+                for entry in entries.flatten() {
+                    let sub_exe = entry.path().join("CapCut.exe");
+                    if sub_exe.is_file() {
+                        exes.push(sub_exe);
+                    }
+                }
+                exes.sort();
+                if let Some(latest) = exes.into_iter().next_back() {
+                    return Some(latest);
+                }
+            }
+        }
+        for prog in ["ProgramFiles", "ProgramFiles(x86)"] {
+            if let Ok(pf) = std::env::var(prog) {
+                let direct = PathBuf::from(&pf).join("CapCut").join("CapCut.exe");
+                if direct.is_file() {
+                    return Some(direct);
+                }
+            }
+        }
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let mac_app = PathBuf::from("/Applications/CapCut.app");
+        if mac_app.is_dir() {
+            return Some(mac_app);
+        }
+    }
+    None
+}
+
+/// Main exporter: converts current Studio timeline into a CapCut Draft.
+pub fn export_studio_to_capcut(studio: &mut Studio, launch: bool) {
     if studio.timeline().clips.is_empty() {
         studio.notify(
             "Timeline đang trống! Hãy thêm clip vào timeline trước khi xuất sang CapCut.",
@@ -183,8 +227,34 @@ pub fn export_studio_to_capcut(studio: &mut Studio) {
 
     match perform_export(studio) {
         Ok((draft_dir, in_capcut_app)) => {
-            let _ = crate::platform::reveal(&draft_dir.to_string_lossy());
-            if in_capcut_app {
+            let mut launched = false;
+            if launch {
+                if let Some(exe) = find_capcut_exe() {
+                    #[cfg(target_os = "windows")]
+                    {
+                        if std::process::Command::new(&exe).spawn().is_ok() {
+                            launched = true;
+                        }
+                    }
+                    #[cfg(target_os = "macos")]
+                    {
+                        if std::process::Command::new("open").arg("-a").arg(&exe).spawn().is_ok() {
+                            launched = true;
+                        }
+                    }
+                }
+            }
+
+            if !launched {
+                let _ = crate::platform::reveal(&draft_dir.to_string_lossy());
+            }
+
+            if launched {
+                studio.notify(
+                    "🚀 Đã đồng bộ sang CapCut và tự động mở ứng dụng CapCut PC!",
+                    false,
+                );
+            } else if in_capcut_app {
                 let note = if has_unbaked_effects {
                     "\n(Mẹo: Clip có hiệu ứng hoặc AI cutout có thể click chuột phải chọn 'Render clip kèm hiệu ứng (Bake video cho CapCut)' trước khi xuất để giữ nguyên 100% hiệu ứng)."
                 } else {

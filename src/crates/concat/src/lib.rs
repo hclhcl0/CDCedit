@@ -1975,6 +1975,13 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
     app.on_export_clicked(on_window!(|state| {
         state.handle(Msg::Export(ExportMsg::Open));
     }));
+    app.on_open_in_capcut({
+        move || {
+            Shell::with(|shell, _| {
+                shell.studio.borrow_mut().export_capcut_project_and_launch();
+            });
+        }
+    });
     app.on_open_settings(on_window!(|state| {
         state.handle(Msg::Settings(SettingsMsg::Open));
     }));

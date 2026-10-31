@@ -427,6 +427,7 @@ export component App inherits Window {
 
     callback open-settings();
     callback export-clicked();
+    callback open-in-capcut();
 
     /// The project sheet, opened from the Details panel.
     in property <ProjectSheetData> project-sheet;
@@ -784,6 +785,7 @@ export component App inherits Window {
                 open-settings => { root.open-settings(); }
                 add-pane(kind) => { Editor.dock-add(kind); }
                 export-clicked => { root.export-clicked(); }
+                open-in-capcut => { root.open-in-capcut(); }
             }
 
             if root.on-start: StartScreen {

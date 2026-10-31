@@ -9664,7 +9664,11 @@ impl Studio {
     }
 
     pub fn export_capcut_project(&mut self) {
-        crate::capcut_export::export_studio_to_capcut(self);
+        crate::capcut_export::export_studio_to_capcut(self, false);
+    }
+
+    pub fn export_capcut_project_and_launch(&mut self) {
+        crate::capcut_export::export_studio_to_capcut(self, true);
     }
 
     pub fn import_capcut_project(&mut self) {
