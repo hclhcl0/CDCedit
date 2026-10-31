@@ -266,13 +266,13 @@ export component ConfigPane inherits Rectangle {
         || (root.applied-visual.length > 0 && !root.own-link(root.applied-visual[0].id))
         || (root.applied-visual.length > 1 && !root.own-link(root.applied-visual[1].id));
     property <[string]> tabs: root.selected.batch-volume ? ["Audio"]
-        : root.is-text ? ["Text", "Effects"]
+        : root.is-text ? ["Text"]
         : root.is-layer ? ["Filter"]
         : root.is-sound-layer ? ["Audio"]
         : root.is-shape ? ["Video"]
-        : root.is-image ? ["Video", "Effects"]
+        : root.is-image ? ["Video"]
         : root.is-audio ? ["Audio"]
-        : ["Video", "Audio", "Effects"];
+        : ["Video", "Audio"];
     /// The same tabs in the interface's language. `tabs` stays English,
     /// because the panels are picked by comparing against it.
     ///
@@ -286,13 +286,13 @@ export component ConfigPane inherits Rectangle {
     property <[string]> tabs-shown;
     pure function strip-labels() -> [string] {
         return root.selected.batch-volume ? [I18n.t("common.audio")]
-        : root.is-text ? [I18n.t("common.text"), "Hiệu ứng CapCut"]
+        : root.is-text ? [I18n.t("common.text")]
         : root.is-layer ? [I18n.t("configPane.filter")]
         : root.is-sound-layer ? [I18n.t("common.audio")]
         : root.is-shape ? [I18n.t("configPane.vectorImage")]
-        : root.is-image ? [I18n.t("common.video"), "Hiệu ứng CapCut"]
+        : root.is-image ? [I18n.t("common.video")]
         : root.is-audio ? [I18n.t("common.audio")]
-        : [I18n.t("common.video"), I18n.t("common.audio"), "Hiệu ứng CapCut"];
+        : [I18n.t("common.video"), I18n.t("common.audio")];
     }
     property <string> strip-key: root.tabs.length + ":" + root.tabs[0] + ":"
         + (root.tabs.length > 1 ? root.tabs[1] : "") + ":"
@@ -338,9 +338,8 @@ export component ConfigPane inherits Rectangle {
             ? (root.selected.batch-volume ? ["Sound"]
                 : root.is-sound-layer ? ["Layer", "AudioEffects"]
                 : ["Sound", "AudioEffects"])
-        : root.heading == "Effects" ? ["Effects"]
         : root.heading == "Text" ? ["Text"]
-        : ["Layer", "Adjust", "Effects"];
+        : ["Layer"];
     /// A mark for each section, in the same order: where the clip sits,
     /// what makes it better, its colour's knobs; its level and its sound's
     /// chain; a layer's own strength, then its colour and its chain.
@@ -350,9 +349,8 @@ export component ConfigPane inherits Rectangle {
             ? (root.selected.batch-volume ? [Glyph.volume]
                 : root.is-sound-layer ? [Glyph.filter, Glyph.waveform]
                 : [Glyph.volume, Glyph.waveform])
-        : root.heading == "Effects" ? [Glyph.sparkle]
         : root.heading == "Text" ? [Glyph.text-mark]
-        : [Glyph.filter, Glyph.sliders, Glyph.sparkle];
+        : [Glyph.filter];
     /// The sections as the dropdown shows them; see `tabs-shown`.
     property <[string]> sections-shown: root.heading == "Video"
             ? [I18n.t("configPane.basic")]
@@ -360,9 +358,8 @@ export component ConfigPane inherits Rectangle {
             ? (root.selected.batch-volume ? [I18n.t("configPane.basic")]
                 : root.is-sound-layer ? [I18n.t("common.layer"), I18n.t("configPane.audioEffects")]
                 : [I18n.t("configPane.basic"), I18n.t("configPane.audioEffects")])
-        : root.heading == "Effects" ? ["Hiệu ứng CapCut"]
         : root.heading == "Text" ? [I18n.t("common.text")]
-        : [I18n.t("common.layer"), I18n.t("common.adjust"), "Hiệu ứng CapCut"];
+        : [I18n.t("common.layer")];
 
     // Each tab remembers its own section, so flipping to Audio and back
     // lands on the colour panel you were adjusting. Assigned, never bound,
@@ -842,87 +839,6 @@ export component ConfigPane inherits Rectangle {
                             root.chain-set-param(true, index, key, value);
                         }
                         commit => { root.clip-commit(); }
-                    }
-                }
-
-                // Picture effects delegated to CapCut PC
-                if root.showing == "Effects": VerticalLayout {
-                    padding: 16px;
-                    spacing: 12px;
-                    alignment: start;
-
-                    Rectangle {
-                        border-radius: Theme.r;
-                        background: Theme.raised;
-                        border-width: 1px;
-                        border-color: #00baa8.with-alpha(0.35);
-
-                        VerticalLayout {
-                            padding: 16px;
-                            spacing: 12px;
-
-                            HorizontalLayout {
-                                spacing: 8px;
-                                alignment: start;
-                                Icon {
-                                    y: (parent.height - self.height) / 2;
-                                    glyph: Glyph.sparkle;
-                                    size: 18px;
-                                    tint: #00baa8;
-                                }
-                                Text {
-                                    y: (parent.height - self.height) / 2;
-                                    text: "Hiệu ứng & Bộ lọc CapCut";
-                                    color: Theme.fg;
-                                    font-size: Theme.fs;
-                                    font-weight: Theme.weight-title;
-                                }
-                            }
-
-                            Text {
-                                text: "Kho hiệu ứng video, animation chuyển động, chuyển cảnh và bộ lọc màu chuyên nghiệp được xử lý trực tiếp trên CapCut PC. Nhấn nút bên dưới để mở dự án sang CapCut tiếp tục dựng.";
-                                color: Theme.fg-muted;
-                                font-size: Theme.fs-sm;
-                                wrap: word-wrap;
-                            }
-
-                            Rectangle { height: 4px; }
-
-                            HorizontalLayout {
-                                alignment: center;
-                                Rectangle {
-                                    width: 220px;
-                                    height: 36px;
-                                    border-radius: Theme.r;
-                                    background: capcut-pane-touch.has-hover ? #00baa8 : #008f82;
-
-                                    animate background { duration: 100ms; }
-
-                                    HorizontalLayout {
-                                        alignment: center;
-                                        spacing: 8px;
-                                        Icon {
-                                            y: (parent.height - self.height) / 2;
-                                            glyph: Glyph.sparkle;
-                                            size: 15px;
-                                            tint: Colors.white;
-                                        }
-                                        Text {
-                                            y: (parent.height - self.height) / 2;
-                                            text: "Mở trong CapCut ngay";
-                                            font-size: Theme.fs;
-                                            font-weight: Theme.weight-title;
-                                            color: Colors.white;
-                                        }
-                                    }
-
-                                    capcut-pane-touch := TouchArea {
-                                        mouse-cursor: pointer;
-                                        clicked => { root.open-in-capcut(); }
-                                    }
-                                }
-                            }
-                        }
                     }
                 }
             }

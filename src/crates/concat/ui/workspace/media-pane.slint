@@ -1968,12 +1968,6 @@ export component MediaPane inherits Rectangle {
                             current: root.tab == 1;
                             clicked => { root.tab = 1; }
                         }
-                        LibraryTab {
-                            glyph: Glyph.sparkle;
-                            label: "Hiệu ứng CapCut";
-                            current: root.tab == 4;
-                            clicked => { root.tab = 4; }
-                        }
                         }
                     }
 
@@ -2245,69 +2239,6 @@ export component MediaPane inherits Rectangle {
 
                     // The picture's shelves and the sound's, from the
                     // catalogue's own groups, on one page called Effects.
-                    if root.tab == 4: VerticalLayout {
-                        spacing: 1px;
-                        CategoryHeading {
-                            height: 26px;
-                            title: I18n.t("mediaPane.videoEffects");
-                            open: root.effects-open;
-                            toggled => { root.effects-open = !root.effects-open; }
-                        }
-                        if root.effects-open: VerticalLayout {
-                            spacing: 1px;
-                            // Every shelf at once, first and the default.
-                            CategoryRow {
-                                height: 24px;
-                                label: I18n.t("common.all");
-                                current: !root.audio-shelf && Library.view(1).group == -1;
-                                clicked => { 
-                                    root.audio-shelf = false;
-                                    Library.group-changed(1, -1);
-                                 }
-                            }
-                            for label[index] in root.effect-groups: CategoryRow {
-                                height: 24px;
-                                label: label;
-                                current: !root.audio-shelf && Library.view(1).group == index;
-                                clicked => {
-                                    root.audio-shelf = false;
-                                    Library.group-changed(1, index);
-                                }
-                            }
-                        }
-                        CategoryHeading {
-                            height: 26px;
-                            title: I18n.t("mediaPane.audioEffects");
-                            open: root.audio-open;
-                            toggled => { root.audio-open = !root.audio-open; }
-                        }
-                        if root.audio-open: VerticalLayout {
-                            spacing: 1px;
-                            // Every shelf at once, first and the default.
-                            CategoryRow {
-                                height: 24px;
-                                label: I18n.t("common.all");
-                                current: root.audio-shelf && Library.view(2).group == -1;
-                                clicked => { 
-                                    root.audio-shelf = true;
-                                    Library.group-changed(2, -1);
-                                 }
-                            }
-                            for label[index] in root.audio-groups: CategoryRow {
-                                height: 24px;
-                                label: label;
-                                current: root.audio-shelf && Library.view(2).group == index;
-                                clicked => {
-                                    root.audio-shelf = true;
-                                    Library.group-changed(2, index);
-                                }
-                            }
-                        }
-                    }
-
-                    // Filters are colour looks, the way every video editor's
-                    // users understand the word. What a voice or a room does
-                    // to the sound is on the Effects page.
                     if root.tab == 5: VerticalLayout {
                         spacing: 1px;
                         CategoryHeading {
@@ -2611,74 +2542,6 @@ export component MediaPane inherits Rectangle {
                         // Transitions apply directly on single-click — no audition overlay.
                         auditions: false;
                         applied(id, label) => { root.apply-transition(id); }
-                    }
-                }
-
-                if root.tab == 4: VerticalLayout {
-                    padding: 24px;
-                    alignment: center;
-                    spacing: 16px;
-
-                    HorizontalLayout {
-                        alignment: center;
-                        Icon {
-                            glyph: Glyph.sparkle;
-                            size: 44px;
-                            tint: #00c4b4;
-                        }
-                    }
-
-                    Text {
-                        text: "Kho Hiệu ứng & Chuyển cảnh CapCut PC";
-                        font-size: Theme.fs-xl;
-                        font-weight: Theme.weight-title;
-                        color: Theme.fg;
-                        horizontal-alignment: center;
-                    }
-
-                    Text {
-                        text: "CDCedit Lite tập trung tối ưu tài nguyên cho AI: Phụ đề tiếng Việt (PhoWhisper), Lồng tiếng đối thoại (Gemini Studio), Cắt khoảng lặng thông minh.\n\nToàn bộ kho hiệu ứng thị giác (Effects), chuyển cảnh trending (Transitions), bộ lọc màu (LUTs) và stickers được CapCut tối ưu hóa tuyệt đối.";
-                        font-size: Theme.fs;
-                        color: Theme.fg-muted;
-                        horizontal-alignment: center;
-                        wrap: word-wrap;
-                    }
-
-                    Rectangle { height: 10px; }
-
-                    HorizontalLayout {
-                        alignment: center;
-                        Rectangle {
-                            width: 250px;
-                            height: 38px;
-                            border-radius: Theme.r;
-                            background: capcut-pane-touch.has-hover ? #00baa8 : #008f82;
-
-                            animate background { duration: 100ms; }
-
-                            HorizontalLayout {
-                                alignment: center;
-                                spacing: 8px;
-                                Icon {
-                                    y: (parent.height - self.height) / 2;
-                                    glyph: Glyph.sparkle;
-                                    size: 15px;
-                                    tint: Colors.white;
-                                }
-                                Text {
-                                    y: (parent.height - self.height) / 2;
-                                    text: "Mở trong CapCut ngay";
-                                    font-size: Theme.fs;
-                                    font-weight: Theme.weight-title;
-                                    color: Colors.white;
-                                }
-                            }
-
-                            capcut-pane-touch := TouchArea {
-                                mouse-cursor: pointer;
-                                clicked => { root.open-in-capcut(); }
-                            }
-                        }
                     }
                 }
 
