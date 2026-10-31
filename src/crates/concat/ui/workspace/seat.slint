@@ -108,6 +108,9 @@ export component Seat inherits Rectangle {
             import-media => { Editor.import-media(); }
             open-in-capcut => { Editor.open-in-capcut(); }
             import-link => { Editor.import-link(); }
+            open-captions => { Editor.captions(); }
+            open-gemini-studio => { Editor.gemini-studio(); }
+            open-translate => { Editor.translate(); }
             filter-changed(filter) => { Editor.media-filter-changed(filter); }
             sort-changed(index) => { Editor.media-sort-changed(index); }
             floor-pressed => { Editor.blur(); }

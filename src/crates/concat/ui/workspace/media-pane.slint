@@ -1745,6 +1745,9 @@ export component MediaPane inherits Rectangle {
     callback import-media();
     callback open-in-capcut();
     callback import-link();
+    callback open-captions();
+    callback open-gemini-studio();
+    callback open-translate();
     callback filter-changed(filter: MediaFilter);
     /// The sort dropdown beside the import button picked a new order.
     callback sort-changed(index: int);
@@ -2110,23 +2113,35 @@ export component MediaPane inherits Rectangle {
                         // the app wrote.
                         CategoryHeading {
                             height: 26px;
-                            title: I18n.t("mediaPane.generated");
+                            title: "CÔNG CỤ & TÀI NGUYÊN AI";
                             open: root.generated-open;
                             toggled => { root.generated-open = !root.generated-open; }
                         }
                         if root.generated-open: CategoryRow {
                             height: 24px;
-                            label: I18n.t("common.speech");
+                            label: "⚡ Tạo Phụ đề tự động";
+                            clicked => { root.open-captions(); }
+                        }
+                        if root.generated-open: CategoryRow {
+                            height: 24px;
+                            label: "🎙 Lồng tiếng đa vai Gemini";
+                            clicked => { root.open-gemini-studio(); }
+                        }
+                        if root.generated-open: CategoryRow {
+                            height: 24px;
+                            label: "🌐 Dịch & Thuyết minh video";
+                            clicked => { root.open-translate(); }
+                        }
+                        if root.generated-open: CategoryRow {
+                            height: 24px;
+                            label: "🎙 Giọng đọc AI đã tạo";
                             count: root.count-speech;
                             current: root.filter == MediaFilter.speech;
                             clicked => { root.narrow(MediaFilter.speech); }
                         }
-                        // A clip's sound written out as it played, from
-                        // the clip's own menu: a file of its own, apart
-                        // from the import it was cut from.
                         if root.generated-open: CategoryRow {
                             height: 24px;
-                            label: I18n.t("mediaPane.processed");
+                            label: "🎵 Âm thanh đã xử lý";
                             count: root.count-processed;
                             current: root.filter == MediaFilter.processed;
                             clicked => { root.narrow(MediaFilter.processed); }
@@ -2348,6 +2363,121 @@ export component MediaPane inherits Rectangle {
                         current: 0;
                         changed(index) => { root.sort-changed(index); }
                     }
+                }
+
+                // AI Quick Action Strip right inside Media pane
+                if root.tab == 0: HorizontalLayout {
+                    padding-left: 8px;
+                    padding-right: 8px;
+                    padding-bottom: 6px;
+                    spacing: 6px;
+
+                    Rectangle {
+                        height: 28px;
+                        border-radius: Theme.r;
+                        background: ai-sub-touch.has-hover ? #2e1a47 : #1f1130;
+                        border-width: 1px;
+                        border-color: #8b5cf6.with-alpha(0.5);
+
+                        animate background { duration: 100ms; }
+
+                        HorizontalLayout {
+                            padding-left: 9px;
+                            padding-right: 9px;
+                            spacing: 5px;
+                            alignment: center;
+                            Icon {
+                                y: (parent.height - self.height) / 2;
+                                glyph: Glyph.sparkle;
+                                size: 12px;
+                                tint: #a78bfa;
+                            }
+                            Text {
+                                y: (parent.height - self.height) / 2;
+                                text: "Phụ đề AI";
+                                font-size: Theme.fs-sm;
+                                font-weight: Theme.weight-title;
+                                color: #ddd6fe;
+                            }
+                        }
+
+                        ai-sub-touch := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { root.open-captions(); }
+                        }
+                    }
+
+                    Rectangle {
+                        height: 28px;
+                        border-radius: Theme.r;
+                        background: ai-voice-touch.has-hover ? #0f3938 : #092625;
+                        border-width: 1px;
+                        border-color: #14b8a6.with-alpha(0.5);
+
+                        animate background { duration: 100ms; }
+
+                        HorizontalLayout {
+                            padding-left: 9px;
+                            padding-right: 9px;
+                            spacing: 5px;
+                            alignment: center;
+                            Icon {
+                                y: (parent.height - self.height) / 2;
+                                glyph: Glyph.waveform;
+                                size: 12px;
+                                tint: #2dd4bf;
+                            }
+                            Text {
+                                y: (parent.height - self.height) / 2;
+                                text: "Lồng tiếng AI";
+                                font-size: Theme.fs-sm;
+                                font-weight: Theme.weight-title;
+                                color: #ccfbf1;
+                            }
+                        }
+
+                        ai-voice-touch := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { root.open-gemini-studio(); }
+                        }
+                    }
+
+                    Rectangle {
+                        height: 28px;
+                        border-radius: Theme.r;
+                        background: ai-trans-touch.has-hover ? #172554 : #0f172a;
+                        border-width: 1px;
+                        border-color: #3b82f6.with-alpha(0.5);
+
+                        animate background { duration: 100ms; }
+
+                        HorizontalLayout {
+                            padding-left: 9px;
+                            padding-right: 9px;
+                            spacing: 5px;
+                            alignment: center;
+                            Icon {
+                                y: (parent.height - self.height) / 2;
+                                glyph: Glyph.text-mark;
+                                size: 12px;
+                                tint: #60a5fa;
+                            }
+                            Text {
+                                y: (parent.height - self.height) / 2;
+                                text: "Dịch & Thuyết minh";
+                                font-size: Theme.fs-sm;
+                                font-weight: Theme.weight-title;
+                                color: #dbeafe;
+                            }
+                        }
+
+                        ai-trans-touch := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { root.open-translate(); }
+                        }
+                    }
+
+                    Rectangle { horizontal-stretch: 1; }
                 }
 
                 // Only worth a row when a multiple selection exists — one
