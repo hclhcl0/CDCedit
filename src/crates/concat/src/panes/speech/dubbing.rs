@@ -82,18 +82,28 @@ impl Dubbing {
         }
     }
     pub fn model(&self) -> &str {
-        if self.provider == 1 {
-            if self.gemini_model.is_empty() {
-                "gemini-3.8-flash-tts"
-            } else {
-                &self.gemini_model
-            }
-        } else {
-            if self.eleven_model.is_empty() {
-                "eleven_v3"
+        if self.mode == 3 && self.vc_method == 1 {
+            if self.provider == 1 {
+                if self.gemini_model.is_empty() || self.gemini_model.contains("tts") {
+                    "gemini-3.5-flash-lite"
+                } else {
+                    &self.gemini_model
+                }
+            } else if self.eleven_model.is_empty() || !self.eleven_model.contains("sts") {
+                "eleven_multilingual_sts_v2"
             } else {
                 &self.eleven_model
             }
+        } else if self.provider == 1 {
+            if self.gemini_model.is_empty() {
+                "gemini-3.5-flash-lite"
+            } else {
+                &self.gemini_model
+            }
+        } else if self.eleven_model.is_empty() {
+            "eleven_v3"
+        } else {
+            &self.eleven_model
         }
     }
     pub fn key<'a>(&self, studio: &'a Studio) -> &'a str {
@@ -131,7 +141,7 @@ impl Dubbing {
     }
 }
 impl SpeechPane {
-    fn dub_sources(&self, studio: &Studio) -> Vec<(String, String)> {
+    pub(crate) fn dub_sources(&self, studio: &Studio) -> Vec<(String, String)> {
         if self.dub.mode == 1 {
             let mut list = Vec::new();
             if let Some((_, ref label)) = self.dub.standalone_srt {
@@ -224,7 +234,7 @@ impl SpeechPane {
         let previous_voice = self.dub.voice().to_owned();
         if matches!(
             action,
-            0 | 1 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 12 | 13 | 14 | 18..=25 | 40 | 42 | 43 | 44 | 45 | 47 | 48
+            0 | 1 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 12 | 13 | 14 | 18..=25 | 37 | 40 | 42 | 43 | 44 | 45 | 47 | 48
         ) {
             studio.close_source();
         }
@@ -321,7 +331,13 @@ impl SpeechPane {
             22 if value.is_finite() => self.dub.options.speed = value.clamp(0.7, 1.2),
             23 => self.dub.options.speaker_boost = index != 0,
             24 => {
-                if let Some(model) = cloud_tts::models(self.dub.provider).get(index.max(0) as usize)
+                let is_sts = self.dub.mode == 3 && self.dub.vc_method == 1;
+                let list = if is_sts {
+                    cloud_tts::sts_models(self.dub.provider)
+                } else {
+                    cloud_tts::models(self.dub.provider)
+                };
+                if let Some(model) = list.get(index.max(0) as usize)
                 {
                     if self.dub.provider == 1 {
                         self.dub.gemini_model = (*model).into();
@@ -468,6 +484,7 @@ impl SpeechPane {
                     }
                 }
             }
+            37 => self.dub_resegment_gemini(studio),
             40 => {
                 if self.dub.recording {
                     self.dub.recording = false;
@@ -639,6 +656,63 @@ impl SpeechPane {
             self.dub.save_preferences(studio);
         }
     }
+    fn dub_resegment_gemini(&mut self, studio: &mut Studio) {
+        if self.dub.rows.is_empty() {
+            return;
+        }
+        let api_key = studio.prefs.gemini_api_key.expose().trim().to_string();
+        if api_key.is_empty() {
+            self.message = t("captions.geminiKeyRequired");
+            return;
+        }
+        let segments: Vec<concat_speech::transcribe::Segment> = self
+            .dub
+            .rows
+            .iter()
+            .map(|row| concat_speech::transcribe::Segment {
+                start: row.start,
+                end: row.end,
+                text: row.text.clone(),
+            })
+            .collect();
+        let (generation, cancel) = self.dub_start(studio);
+        self.dub.invalidate();
+        spawn_in_project(
+            move || {
+                let resegmented = concat_speech::gemini::resegment_for_dubbing(
+                    &segments,
+                    &api_key,
+                    &cancel,
+                )?;
+                cloud_tts::check_cancel(&cancel)?;
+                let rows = resegmented
+                    .into_iter()
+                    .map(|s| Cue {
+                        text: s.text,
+                        start: s.start,
+                        end: s.end,
+                        ..Cue::default()
+                    })
+                    .collect();
+                Ok(DubResult {
+                    rows,
+                    preview: None,
+                    listen: false,
+                    review_all: false,
+                    notice: None,
+                })
+            },
+            move |studio, _, _, result| {
+                if result.is_ok() {
+                    studio.notify("Đã tối ưu ngắt câu & ngữ điệu tự nhiên bằng Gemini AI.", false);
+                }
+                studio.handle(Msg::Speech(SpeechMsg::DubFinished(
+                    generation,
+                    Box::new(result),
+                )))
+            },
+        );
+    }
     fn dub_save_wav(&mut self, studio: &mut Studio) {
         let Some(ref _preview) = self.dub.preview else {
             self.message = "Chưa có bản âm thanh để lưu. Hãy bấm Tạo trước.".to_owned();
@@ -753,6 +827,23 @@ impl SpeechPane {
                 .collect()
         };
         rows.sort_by(|a, b| a.start.total_cmp(&b.start));
+        let rows: Vec<Cue> = concat_speech::caption_layout::clean_stumbles_and_orphans(
+            rows.into_iter()
+                .map(|c| concat_speech::transcribe::Segment {
+                    start: c.start,
+                    end: c.end,
+                    text: c.text,
+                })
+                .collect(),
+        )
+        .into_iter()
+        .map(|s| Cue {
+            text: s.text,
+            start: s.start,
+            end: s.end,
+            ..Cue::default()
+        })
+        .collect();
         if let Err(error) = dubbing::validate(&rows) {
             self.message = error;
             return;
@@ -1116,7 +1207,11 @@ impl SpeechPane {
                     if let Some(last) = spans.last_mut() {
                         last.1 = duration;
                     }
-                    for (cue, (start, end)) in rows.iter_mut().zip(spans) {
+                    for (cue, (start, mut end)) in rows.iter_mut().zip(spans) {
+                        let max_dur = (cue.end - cue.start).max(0.1) * 3.8;
+                        if end - start > max_dur {
+                            end = start + max_dur;
+                        }
                         cue.audio = Some(path.clone());
                         cue.audio_start = start;
                         cue.audio_end = end;
@@ -1126,9 +1221,12 @@ impl SpeechPane {
                     let cue = &mut rows[index];
                     cue.audio = Some(path);
                     cue.audio_start = 0.0;
-                    cue.audio_end = duration;
                     if mode == 0 {
+                        cue.audio_end = duration;
                         cue.end = cue.start + duration;
+                    } else {
+                        let max_dur = (cue.end - cue.start).max(0.1) * 3.8;
+                        cue.audio_end = duration.min(max_dur);
                     }
                 }
                 cloud_tts::check_cancel(&cancel)?;
@@ -1163,13 +1261,17 @@ impl SpeechPane {
         }
         if index < 0 {
             if let Some(path) = self.dub.preview.clone() {
-                let card = format!("dub:{}", path.display());
-                studio.preview_file(&card, &t("dubbing.preview"), &path);
-                self.dub.reviewed = studio
-                    .source
-                    .as_ref()
-                    .is_some_and(|source| source.card == card);
-                return;
+                if path.is_file() {
+                    let card = format!("dub:{}", path.display());
+                    studio.preview_file(&card, &t("dubbing.preview"), &path);
+                    self.dub.reviewed = studio
+                        .source
+                        .as_ref()
+                        .is_some_and(|source| source.card == card);
+                    return;
+                } else {
+                    self.dub.preview = None;
+                }
             }
         }
         let rows = if index < 0 {
@@ -1195,6 +1297,7 @@ impl SpeechPane {
                     .collect::<Vec<_>>()
                     .join(", ")],
             );
+            studio.notify(&self.message, true);
             return;
         }
         let project = studio
@@ -1265,7 +1368,10 @@ impl SpeechPane {
                     }
                 }
             }
-            Err(error) => self.message = error,
+            Err(error) => {
+                self.message = error.clone();
+                studio.notify(&format!("Lỗi nghe thử: {error}"), true);
+            }
         }
     }
     fn dub_apply(&mut self, studio: &mut Studio) {
@@ -1417,11 +1523,18 @@ impl SpeechPane {
             mode: self.dub.mode,
             provider: self.dub.provider,
             temperature: self.dub.options.temperature,
-            model_choice: cloud_tts::models(self.dub.provider)
-                .iter()
-                .position(|model| *model == self.dub.model())
-                .unwrap_or(cloud_tts::models(self.dub.provider).len())
-                as i32,
+            model_choice: {
+                let is_sts = self.dub.mode == 3 && self.dub.vc_method == 1;
+                let list = if is_sts {
+                    cloud_tts::sts_models(self.dub.provider)
+                } else {
+                    cloud_tts::models(self.dub.provider)
+                };
+                list.iter()
+                    .position(|model| *model == self.dub.model())
+                    .unwrap_or(list.len())
+                    as i32
+            },
             extended_settings: cloud_tts::has_extended_settings(self.dub.model()),
             stability: self.dub.options.stability,
             similarity: self.dub.options.similarity,
@@ -1453,6 +1566,7 @@ impl SpeechPane {
             } else {
                 self.dub.vc_denoise
             },
+            message: self.message.clone().into(),
         }
     }
     fn dub_transform_voice(&mut self, studio: &mut Studio) {

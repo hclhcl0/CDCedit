@@ -58,7 +58,13 @@ impl Studio {
                 "studio.mergeCancelProgress",
                 &[&format!("{:.0}", job.progress * 100.0)],
             ),
-            None => t("studio.mergeSelected"),
+            None => {
+                if self.selection.len() == 1 {
+                    "Render clip kèm hiệu ứng (Bake video cho CapCut)".to_string()
+                } else {
+                    t("studio.mergeSelected")
+                }
+            }
         }
     }
 
@@ -114,12 +120,17 @@ impl Studio {
         let output = folder.join("merged.mp4");
         let request = plan.request(session.project(), &root, &output);
         let compositor = self.host.monitor.off_thread();
+        let is_single = self.selection.len() == 1;
         self.merge_job = Some(MergeJob {
             cancel: job.cancel_handle(),
             progress: 0.0,
         });
         self.pause();
-        self.notify(&t("studio.mergeStarted"), false);
+        if is_single {
+            self.notify("Đang render clip kèm hiệu ứng (Bake video)...", false);
+        } else {
+            self.notify(&t("studio.mergeStarted"), false);
+        }
         let epoch = crate::host::project_epoch();
         spawn_in_project(
             move || {
@@ -155,7 +166,12 @@ impl Studio {
                 let outcome = result.and_then(|_| {
                     let summary = media::probe(&output.to_string_lossy())?;
                     let mut item = summary.to_new_media();
-                    item.name = t("studio.mergedClips");
+                    let is_single = plan.clips().len() == 1;
+                    item.name = if is_single {
+                        format!("{}_baked", plan.clips()[0].name)
+                    } else {
+                        t("studio.mergedClips")
+                    };
                     item.origin = Some(model::MediaOrigin::Processed);
                     studio.flush_commit();
                     let command = plan.replacement(studio.project(), item)?;
@@ -174,7 +190,14 @@ impl Studio {
                         studio.transition_selected = None;
                         studio.request_media_art();
                         studio.request_preview();
-                        studio.notify(&t("studio.mergeFinished"), false);
+                        if plan.clips().len() == 1 {
+                            studio.notify(
+                                "✨ Đã render thành công clip kèm hiệu ứng! Khi xuất sang CapCut sẽ giữ nguyên toàn bộ hiệu ứng.",
+                                false,
+                            );
+                        } else {
+                            studio.notify(&t("studio.mergeFinished"), false);
+                        }
                     }
                     Err(error) => studio.notify(&tf("studio.mergeFailed", &[&error]), true),
                 }

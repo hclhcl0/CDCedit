@@ -100,7 +100,7 @@ export global InspectorFmt {
             return InspectorFmt.fixed1(v * 100) + "% of height";
         }
         if (fmt == ParamFormat.outline) {
-            return v == 0 ? I18n.t("common.none") : InspectorFmt.fixed1(v * 100) + "%";
+            return v == 0 ? I18n.t("common.none") : "\{Math.round(v * 100)}%";
         }
         if (fmt == ParamFormat.seconds2) {
             return v == 0 ? I18n.t("common.none") : InspectorFmt.fixed2(v) + "s";

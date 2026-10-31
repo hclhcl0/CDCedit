@@ -299,6 +299,7 @@ fn a_shaky_shot_is_measured_and_held_still() {
                     moving: false,
                     proxy: false,
                     color_space: ColorSpace::default(),
+                    bypass_effects: false,
                 },
             )
             .expect("the monitor draws");

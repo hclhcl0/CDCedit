@@ -60,6 +60,9 @@ pub enum CaptionsMsg {
     ProviderChanged(i32),
     GeminiLanguageChanged(i32),
     GeminiProofreadToggled(bool),
+    GeminiSmartSplitToggled(bool),
+    GeminiTwoSpeakersToggled(bool),
+    Speaker2ColorChanged(String),
     GlossaryEdited(String),
     ReviewReady(
         Vec<Segment>,
@@ -69,13 +72,16 @@ pub enum CaptionsMsg {
     ReviewApply(bool),
     PlacementChanged(i32),
     SizeChanged(i32),
+    TextColorChanged(String),
+    StrokeChoiceChanged(i32),
+    StrokeColorChanged(String),
     /// Run the pass the sheet describes.
     Begin,
     Cancel,
     /// The transcriber's worker reporting the stage it is in.
     Progress(JobStage),
     /// The transcriber's worker is done: what was said, or why not.
-    Finished(Result<Vec<Segment>, String>),
+    Finished(Result<Vec<concat_speech::gemini::DiarizedSegment>, String>),
     /// Asks for a SubRip file to read in.
     ImportSrt,
     ImportTranslated(Vec<srt::Cue>),
@@ -98,6 +104,11 @@ struct Subject {
     speed: f64,
     /// The look chosen when the run began.
     look: (f64, f64),
+    text_color: String,
+    speaker2_color: String,
+    stroke_width: f64,
+    stroke_color: String,
+    gemini_two_speakers: bool,
     /// The transcriber model, and the thirty-second windows whisper reads
     /// the sound in: what the run's timing is kept by.
     model: String,
@@ -132,6 +143,9 @@ pub struct CaptionsPane {
     pub provider: i32,
     pub gemini_language: i32,
     pub gemini_proofread: bool,
+    pub gemini_smart_split: bool,
+    pub gemini_two_speakers: bool,
+    pub speaker2_color: String,
     pub glossary: String,
     review_segments: Option<Vec<Segment>>,
     review_suggestions: Vec<concat_speech::gemini::CorrectionSuggestion>,
@@ -142,6 +156,12 @@ pub struct CaptionsPane {
     pub placement: usize,
     /// 0 small, 1 medium, 2 large.
     pub size: usize,
+    /// Subtitle fill colour hex string, e.g. "#ffffff".
+    pub text_color: String,
+    /// Stroke thickness choice: 0 none, 1 thin, 2 medium, 3 thick.
+    pub stroke_choice: usize,
+    /// Stroke outline colour hex string, e.g. "#000000".
+    pub stroke_color: String,
     pub running: bool,
     /// How far the running transcription looks.
     pub pace: Pace,
@@ -221,7 +241,13 @@ impl CaptionsPane {
                     }
                     self.review_suggestions.clear();
                     self.review_choices.clear();
-                    self.update(CaptionsMsg::Finished(Ok(segments)), studio);
+                    let diarized = segments.into_iter().map(|s| concat_speech::gemini::DiarizedSegment {
+                        start: s.start,
+                        end: s.end,
+                        text: s.text,
+                        speaker: 0,
+                    }).collect();
+                    self.update(CaptionsMsg::Finished(Ok(diarized)), studio);
                 }
             }
             CaptionsMsg::VoiceToggled(on) => {
@@ -301,10 +327,24 @@ impl CaptionsPane {
                 self.gemini_proofread = on;
                 self.message.clear();
             }
+            CaptionsMsg::GeminiSmartSplitToggled(on) => {
+                self.gemini_smart_split = on;
+                self.message.clear();
+            }
+            CaptionsMsg::GeminiTwoSpeakersToggled(on) => {
+                self.gemini_two_speakers = on;
+                self.message.clear();
+            }
+            CaptionsMsg::Speaker2ColorChanged(color) => self.speaker2_color = color,
             CaptionsMsg::PlacementChanged(index) => {
                 self.placement = (index.max(0) as usize).min(2);
             }
             CaptionsMsg::SizeChanged(index) => self.size = (index.max(0) as usize).min(2),
+            CaptionsMsg::TextColorChanged(color) => self.text_color = color,
+            CaptionsMsg::StrokeChoiceChanged(index) => {
+                self.stroke_choice = (index.max(0) as usize).min(3);
+            }
+            CaptionsMsg::StrokeColorChanged(color) => self.stroke_color = color,
             CaptionsMsg::Begin => {
                 if self.running || self.review_segments.is_some() {
                     return;
@@ -350,48 +390,112 @@ impl CaptionsPane {
                             video.height,
                             look.1,
                         );
-                        let readable = concat_speech::caption_layout::readable(segments, columns);
-                        self.standalone_cues = readable
-                            .iter()
-                            .filter_map(|segment| {
-                                let text = segment.text.trim().to_owned();
-                                (!text.is_empty()).then(|| srt::Cue {
-                                    start: subject.start + segment.start / subject.speed,
-                                    end: subject.start + segment.end / subject.speed,
-                                    text,
+                        let readable = readable_diarized(segments, columns);
+                        let has_two_speakers = subject.gemini_two_speakers
+                            && readable.iter().any(|s| s.speaker == 1);
+
+                        if has_two_speakers {
+                            let track1 = studio.apply(Command::AddTrack { bottom: false });
+                            let track2 = studio.apply(Command::AddTrack { bottom: false });
+                            self.standalone_cues = readable
+                                .iter()
+                                .filter_map(|segment| {
+                                    let text = segment.text.trim().to_owned();
+                                    (!text.is_empty()).then(|| srt::Cue {
+                                        start: subject.start + segment.start / subject.speed,
+                                        end: subject.start + segment.end / subject.speed,
+                                        text: format!("[Người {}] {text}", segment.speaker + 1),
+                                    })
                                 })
-                            })
-                            .collect();
-                        let commands: Vec<Command> = readable
-                            .into_iter()
-                            .filter_map(|segment| {
-                                let text = segment.text.trim().to_owned();
-                                (!text.is_empty()).then(|| {
-                                    caption_clip(
+                                .collect();
+                            let commands: Vec<Command> = readable
+                                .into_iter()
+                                .filter_map(|segment| {
+                                    let text = segment.text.trim().to_owned();
+                                    if text.is_empty() {
+                                        return None;
+                                    }
+                                    let (track_id, color) = if segment.speaker == 0 {
+                                        (track1.clone(), &subject.text_color)
+                                    } else {
+                                        (track2.clone(), &subject.speaker2_color)
+                                    };
+                                    Some(caption_clip_on_track(
                                         text,
                                         subject.start + segment.start / subject.speed,
                                         (segment.end - segment.start) / subject.speed,
                                         look,
+                                        color,
+                                        subject.stroke_width,
+                                        &subject.stroke_color,
                                         base.as_ref(),
-                                    )
+                                        track_id,
+                                    ))
                                 })
-                            })
-                            .collect();
-                        let count = commands.len();
-                        if studio.session.is_none() {
-                            if count == 0 {
-                                studio.notify(&t("captions.nothingSaidClip"), true);
+                                .collect();
+                            let count = commands.len();
+                            if studio.session.is_none() {
+                                if count == 0 {
+                                    studio.notify(&t("captions.nothingSaidClip"), true);
+                                } else {
+                                    studio.notify(&tf("captions.addedTwoSpeakerCaptions", &[&count]), false);
+                                    self.ask_export_srt(studio);
+                                }
                             } else {
-                                studio.notify(&tf("captions.addedCaptions", &[&count]), false);
-                                self.ask_export_srt(studio);
+                                self.open = false;
+                                if count == 0 {
+                                    studio.notify(&t("captions.nothingSaidClip"), true);
+                                } else {
+                                    studio.apply(Command::Batch { commands });
+                                    studio.notify(&tf("captions.addedTwoSpeakerCaptions", &[&count]), false);
+                                }
                             }
                         } else {
-                            self.open = false;
-                            if count == 0 {
-                                studio.notify(&t("captions.nothingSaidClip"), true);
+                            self.standalone_cues = readable
+                                .iter()
+                                .filter_map(|segment| {
+                                    let text = segment.text.trim().to_owned();
+                                    (!text.is_empty()).then(|| srt::Cue {
+                                        start: subject.start + segment.start / subject.speed,
+                                        end: subject.start + segment.end / subject.speed,
+                                        text,
+                                    })
+                                })
+                                .collect();
+                            let commands: Vec<Command> = readable
+                                .into_iter()
+                                .filter_map(|segment| {
+                                    let text = segment.text.trim().to_owned();
+                                    (!text.is_empty()).then(|| {
+                                        caption_clip(
+                                            text,
+                                            subject.start + segment.start / subject.speed,
+                                            (segment.end - segment.start) / subject.speed,
+                                            look,
+                                            &subject.text_color,
+                                            subject.stroke_width,
+                                            &subject.stroke_color,
+                                            base.as_ref(),
+                                        )
+                                    })
+                                })
+                                .collect();
+                            let count = commands.len();
+                            if studio.session.is_none() {
+                                if count == 0 {
+                                    studio.notify(&t("captions.nothingSaidClip"), true);
+                                } else {
+                                    studio.notify(&tf("captions.addedCaptions", &[&count]), false);
+                                    self.ask_export_srt(studio);
+                                }
                             } else {
-                                studio.apply(Command::Batch { commands });
-                                studio.notify(&tf("captions.addedCaptions", &[&count]), false);
+                                self.open = false;
+                                if count == 0 {
+                                    studio.notify(&t("captions.nothingSaidClip"), true);
+                                } else {
+                                    studio.apply(Command::Batch { commands });
+                                    studio.notify(&tf("captions.addedCaptions", &[&count]), false);
+                                }
                             }
                         }
                     }
@@ -410,7 +514,14 @@ impl CaptionsPane {
             // Asked with the studio unborrowed, on a turn of its own; see
             // `host::after_dialog`.
             CaptionsMsg::ImportTranslated(cues) => {
-                let commands = srt_commands(cues, self.look(), studio.prefs.title_style.as_ref());
+                let commands = srt_commands(
+                    cues,
+                    self.look(),
+                    self.text_color(),
+                    self.stroke_width(),
+                    self.stroke_color(),
+                    studio.prefs.title_style.as_ref(),
+                );
                 if !commands.is_empty() {
                     studio.apply(Command::Batch { commands });
                 }
@@ -474,7 +585,14 @@ impl CaptionsPane {
         };
         let look = self.look();
         let base = studio.prefs.title_style.clone();
-        let commands = srt_commands(cues, look, base.as_ref());
+        let commands = srt_commands(
+            cues,
+            look,
+            self.text_color(),
+            self.stroke_width(),
+            self.stroke_color(),
+            base.as_ref(),
+        );
         if commands.is_empty() {
             self.message = t("captions.noSubtitlesInFile");
             return;
@@ -641,6 +759,12 @@ impl CaptionsPane {
                 .then(|| sources.first().map(|source| source.id.clone()))
                 .flatten()
         });
+        let text_color = if self.text_color.is_empty() { "#ffffff".to_string() } else { self.text_color.clone() };
+        let stroke_choice = if self.stroke_choice == 0 && !self.open { 2 } else { self.stroke_choice };
+        let stroke_color = if self.stroke_color.is_empty() { "#000000".to_string() } else { self.stroke_color.clone() };
+        let gemini_smart_split = if self.open { self.gemini_smart_split } else { true };
+        let gemini_two_speakers = if self.open { self.gemini_two_speakers } else { true };
+        let speaker2_color = if self.speaker2_color.is_empty() { "#ffe600".to_string() } else { self.speaker2_color.clone() };
         *self = CaptionsPane {
             open: true,
             from_voice,
@@ -649,10 +773,16 @@ impl CaptionsPane {
             model,
             placement: 0,
             size: 1,
+            text_color,
+            speaker2_color,
+            stroke_choice,
+            stroke_color,
             timings: std::mem::take(&mut self.timings),
             provider: self.provider,
             gemini_language: self.gemini_language,
             gemini_proofread: self.gemini_proofread,
+            gemini_smart_split,
+            gemini_two_speakers,
             glossary: self.glossary.clone(),
             standalone_file: self.standalone_file.take(),
             standalone_cues,
@@ -683,6 +813,35 @@ impl CaptionsPane {
         )
     }
 
+    pub fn text_color(&self) -> &str {
+        if self.text_color.is_empty() {
+            "#ffffff"
+        } else {
+            &self.text_color
+        }
+    }
+
+    pub fn speaker2_color(&self) -> &str {
+        if self.speaker2_color.is_empty() {
+            "#ffe600"
+        } else {
+            &self.speaker2_color
+        }
+    }
+
+    pub fn stroke_width(&self) -> f64 {
+        const STROKES: [f64; 4] = [0.0, 0.15, 0.25, 0.50];
+        STROKES.get(self.stroke_choice).copied().unwrap_or(0.0)
+    }
+
+    pub fn stroke_color(&self) -> &str {
+        if self.stroke_color.is_empty() {
+            "#000000"
+        } else {
+            &self.stroke_color
+        }
+    }
+
     /// The script as titles, one after another from the playhead.
     fn run_script(&mut self, studio: &mut Studio) {
         let lines = script_captions(&self.text);
@@ -691,6 +850,9 @@ impl CaptionsPane {
             return;
         }
         let look = self.look();
+        let text_color = self.text_color().to_owned();
+        let stroke_width = self.stroke_width();
+        let stroke_color = self.stroke_color().to_owned();
         let mut at = f64::from(studio.playhead);
         let mut cues = Vec::new();
         let base = studio.prefs.title_style.clone();
@@ -702,7 +864,16 @@ impl CaptionsPane {
                     end: at + seconds,
                     text: text.clone(),
                 });
-                let command = caption_clip(text, at, seconds, look, base.as_ref());
+                let command = caption_clip(
+                    text,
+                    at,
+                    seconds,
+                    look,
+                    &text_color,
+                    stroke_width,
+                    &stroke_color,
+                    base.as_ref(),
+                );
                 at += seconds;
                 command
             })
@@ -768,7 +939,7 @@ impl CaptionsPane {
             return;
         }
         let selection = if self.provider == 1 {
-            Some(("gemini-3.5-transcribe-live".to_owned(), 0.0))
+            Some(("gemini-3.5-transcribe".to_owned(), 0.0))
         } else {
             installed(&studio.settings.transcribers)
                 .get(self.model)
@@ -788,6 +959,8 @@ impl CaptionsPane {
         let dirs = studio.host.dirs.clone();
         let transcriber = Arc::clone(&studio.host.transcriber);
         let gemini = self.provider == 1;
+        let gemini_smart_split = self.gemini_smart_split;
+        let gemini_two_speakers = self.gemini_two_speakers;
         let api_key = studio.prefs.gemini_api_key.expose().to_owned();
         let vietnamese = self.gemini_language == 0;
         self.gemini_cancel = Arc::default();
@@ -824,6 +997,11 @@ impl CaptionsPane {
             start: clip_start,
             speed: clip_speed,
             look: self.look(),
+            text_color: self.text_color().to_owned(),
+            speaker2_color: self.speaker2_color().to_owned(),
+            stroke_width: self.stroke_width(),
+            stroke_color: self.stroke_color().to_owned(),
+            gemini_two_speakers: self.gemini_two_speakers,
             model,
             windows,
         });
@@ -840,13 +1018,37 @@ impl CaptionsPane {
                 let mut warning = None;
                 let mut suggestions = Vec::new();
                 let result = if gemini {
-                    concat_speech::gemini::transcribe(
+                    let raw_result = concat_speech::gemini::transcribe_with_options(
                         &request,
                         &api_key,
                         vietnamese,
+                        gemini_two_speakers,
+                        &glossary,
                         &gemini_cancel,
                         progress,
-                    )
+                    );
+                    if gemini_smart_split {
+                        match raw_result {
+                            Ok(segments) if !segments.is_empty() => {
+                                match concat_speech::gemini::resegment_diarized_for_dubbing(
+                                    &segments,
+                                    &api_key,
+                                    &gemini_cancel,
+                                ) {
+                                    Ok(refined) => Ok(refined),
+                                    Err(error) => {
+                                        warning = Some(format!(
+                                            "Gemini ngắt câu thông minh gặp sự cố ({error}); đã giữ phân đoạn gốc."
+                                        ));
+                                        Ok(segments)
+                                    }
+                                }
+                            }
+                            other => other,
+                        }
+                    } else {
+                        raw_result
+                    }
                 } else {
                     let result = transcriber.transcribe_with_language(
                         &dirs,
@@ -871,7 +1073,39 @@ impl CaptionsPane {
                             }
                         }
                     }
-                    result
+                    match result {
+                        Ok(segments) => {
+                            if gemini_two_speakers && !api_key.trim().is_empty() && !segments.is_empty() {
+                                match concat_speech::gemini::diarize_two_speakers(
+                                    &segments,
+                                    &api_key,
+                                    &gemini_cancel,
+                                ) {
+                                    Ok(diarized) => Ok(diarized),
+                                    Err(_) => Ok(segments
+                                        .into_iter()
+                                        .map(|s| concat_speech::gemini::DiarizedSegment {
+                                            start: s.start,
+                                            end: s.end,
+                                            text: s.text,
+                                            speaker: 0,
+                                        })
+                                        .collect()),
+                                }
+                            } else {
+                                Ok(segments
+                                    .into_iter()
+                                    .map(|s| concat_speech::gemini::DiarizedSegment {
+                                        start: s.start,
+                                        end: s.end,
+                                        text: s.text,
+                                        speaker: 0,
+                                    })
+                                    .collect())
+                            }
+                        }
+                        Err(e) => Err(e),
+                    }
                 };
                 (result, warning, suggestions, review_timeline)
             },
@@ -887,8 +1121,16 @@ impl CaptionsPane {
                             "Timeline đã thay đổi. Hãy nhận dạng lại trước khi áp dụng.".into(),
                         ))));
                     } else if let Ok(segments) = result {
+                        let segs: Vec<concat_speech::transcribe::Segment> = segments
+                            .into_iter()
+                            .map(|s| concat_speech::transcribe::Segment {
+                                start: s.start,
+                                end: s.end,
+                                text: s.text,
+                            })
+                            .collect();
                         studio.handle(Msg::Captions(CaptionsMsg::ReviewReady(
-                            segments,
+                            segs,
                             suggestions,
                         )));
                     }
@@ -929,6 +1171,9 @@ impl CaptionsPane {
             provider: self.provider,
             gemini_language: self.gemini_language,
             gemini_proofread: self.gemini_proofread,
+            gemini_smart_split: self.gemini_smart_split,
+            gemini_two_speakers: self.gemini_two_speakers,
+            speaker2_color: crate::format::colour_of(self.speaker2_color()),
             glossary: self.glossary.clone().into(),
             reviewing: self.review_segments.is_some(),
             reviews: slint::ModelRc::from(std::rc::Rc::new(slint::VecModel::from(
@@ -958,6 +1203,9 @@ impl CaptionsPane {
             ))),
             placement: self.placement as i32,
             size: self.size as i32,
+            text_color: crate::format::colour_of(self.text_color()),
+            stroke_choice: self.stroke_choice as i32,
+            stroke_color: crate::format::colour_of(self.stroke_color()),
             running: self.running,
             progress: self.pace.floor,
             ceiling: self.pace.ceiling,
@@ -982,7 +1230,14 @@ impl CaptionsPane {
 /// Imported cues keep the file's timing, including captions shorter than
 /// generated speech segments. The title command applies the engine's minimum
 /// clip duration where needed.
-fn srt_commands(cues: Vec<srt::Cue>, look: (f64, f64), base: Option<&TextStyle>) -> Vec<Command> {
+fn srt_commands(
+    cues: Vec<srt::Cue>,
+    look: (f64, f64),
+    text_color: &str,
+    stroke_width: f64,
+    stroke_color: &str,
+    base: Option<&TextStyle>,
+) -> Vec<Command> {
     cues.into_iter()
         .filter(|cue| !cue.text.trim().is_empty())
         .map(|cue| {
@@ -991,6 +1246,9 @@ fn srt_commands(cues: Vec<srt::Cue>, look: (f64, f64), base: Option<&TextStyle>)
                 cue.start,
                 cue.end - cue.start,
                 look,
+                text_color,
+                stroke_width,
+                stroke_color,
                 base,
             )
         })
@@ -1140,19 +1398,42 @@ fn caption_clip(
     start: f64,
     duration: f64,
     look: (f64, f64),
+    text_color: &str,
+    stroke_width: f64,
+    stroke_color: &str,
     base: Option<&TextStyle>,
 ) -> Command {
+    caption_clip_on_track(
+        text,
+        start,
+        duration,
+        look,
+        text_color,
+        stroke_width,
+        stroke_color,
+        base,
+        None,
+    )
+}
+
+fn caption_clip_on_track(
+    text: String,
+    start: f64,
+    duration: f64,
+    look: (f64, f64),
+    text_color: &str,
+    stroke_width: f64,
+    stroke_color: &str,
+    base: Option<&TextStyle>,
+    track_id: Option<String>,
+) -> Command {
     let (offset_y, font_size) = look;
-    // The kept look where there is one - family, weight, colours, stroke,
-    // shadow, background - at the caption's own size and place; the
-    // bundled face otherwise.
-    let style = match base {
+    let mut style = match base {
         Some(base) => TextStyle {
             content: text,
             font_size,
             max_width: 0.82,
             max_height: 0.0,
-            // Runs are some words' looks, and these are other words.
             runs: Vec::new(),
             ..base.clone()
         },
@@ -1165,14 +1446,46 @@ fn caption_clip(
             ..TextStyle::default()
         },
     };
+    if !text_color.is_empty() {
+        style.color = text_color.to_owned();
+    }
+    style.stroke_width = stroke_width;
+    if !stroke_color.is_empty() {
+        style.stroke_color = stroke_color.to_owned();
+    }
+    style.shadow = true;
     Command::AddTextClip {
-        track_id: None,
+        track_id,
         above: true,
         start,
         style: Some(style),
         duration: Some(duration),
         offset_y: Some(offset_y),
     }
+}
+
+fn readable_diarized(
+    segments: Vec<concat_speech::gemini::DiarizedSegment>,
+    columns: usize,
+) -> Vec<concat_speech::gemini::DiarizedSegment> {
+    let mut result = Vec::new();
+    for seg in segments {
+        let single_seg = vec![concat_speech::transcribe::Segment {
+            start: seg.start,
+            end: seg.end,
+            text: seg.text,
+        }];
+        let readable = concat_speech::caption_layout::readable(single_seg, columns);
+        for r in readable {
+            result.push(concat_speech::gemini::DiarizedSegment {
+                start: r.start,
+                end: r.end,
+                text: r.text,
+                speaker: seg.speaker,
+            });
+        }
+    }
+    result
 }
 
 /// Longest a caption line gets before it is wrapped: about what two lines
@@ -1273,7 +1586,7 @@ mod tests {
         let cues = concat_project::srt::parse(
             "1\n00:00:01,000 --> 00:00:01,100\nOlá\nAção\n\n2\n00:00:02,000 --> 00:00:03,000\nFim\n",
         ).unwrap();
-        let commands = super::srt_commands(cues.clone(), (0.35, 0.04), None);
+        let commands = super::srt_commands(cues.clone(), (0.35, 0.04), "#ffffff", 0.0, "#000000", None);
         let mut editor = concat_project::Editor::new();
         editor
             .apply(concat_project::Command::Batch { commands })
@@ -1333,7 +1646,7 @@ mod tests {
             end: 1.0,
             text: "  ".into(),
         }];
-        assert!(super::srt_commands(cues, (0.35, 0.04), None).is_empty());
+        assert!(super::srt_commands(cues, (0.35, 0.04), "#ffffff", 0.0, "#000000", None).is_empty());
     }
 
     /// A clip in the voice list is its file and where it starts, in

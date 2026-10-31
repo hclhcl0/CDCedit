@@ -2493,6 +2493,20 @@ pub fn preview_sources_of(
     seconds: f64,
     proxy: bool,
 ) -> Result<PreviewSources, String> {
+    preview_sources_with_options(pool, plan, seconds, proxy, false)
+}
+
+/// [`preview_sources`] for one instant of a plan already built. With
+/// `proxy`, a file with a stand-in is read from it. When `bypass_effects`
+/// is true (e.g. fast scrubbing in low-resource mode), heavy effects and
+/// cutouts are skipped to keep interactions smooth.
+pub fn preview_sources_with_options(
+    pool: &concat_media::ReaderPool,
+    plan: &PreviewPlan,
+    seconds: f64,
+    proxy: bool,
+    bypass_effects: bool,
+) -> Result<PreviewSources, String> {
     let rate = plan.rate;
     let BuiltTimeline {
         timeline,
@@ -2533,21 +2547,30 @@ pub fn preview_sources_of(
         )) {
             Ok(frame) => {
                 let highlighted = highlight == Some(layer.clip);
-                let frame = match cutouts.get(&layer.clip).and_then(|job| {
-                    if highlighted {
-                        job.highlight(&frame, layer.source_time)
-                    } else {
-                        job.cut(&frame, layer.source_time)
+                let frame = if bypass_effects {
+                    frame
+                } else {
+                    match cutouts.get(&layer.clip).and_then(|job| {
+                        if highlighted {
+                            job.highlight(&frame, layer.source_time)
+                        } else {
+                            job.cut(&frame, layer.source_time)
+                        }
+                    }) {
+                        Some(drawn) => std::sync::Arc::new(drawn),
+                        None => frame,
                     }
-                }) {
-                    Some(drawn) => std::sync::Arc::new(drawn),
-                    None => frame,
+                };
+                let passes = if bypass_effects {
+                    Vec::new()
+                } else {
+                    passes_at(chains, reveal_maps, timeline, layer.clip, time)
                 };
                 layers.push(filled(
                     layer,
                     frame,
                     tracks.get(&layer.clip).copied().unwrap_or(0),
-                    passes_at(chains, reveal_maps, timeline, layer.clip, time),
+                    passes,
                     geometry.get(&layer.clip),
                     shapes_at(shapes, layer, time, rate),
                     stabilized.get(&layer.clip),
@@ -2585,22 +2608,32 @@ pub fn preview_sources_of(
     };
     // Every live treatment goes into the plan now, so a caller drawing the
     // plan itself has them.
-    frame_plan.treatments = treatments
-        .iter()
-        .filter(|treatment| treatment.covers(time))
-        .map(|treatment| PlannedTreatment {
-            track: treatment.track,
-            effects: treatment.passes_at(time),
-            strength: treatment.strength_at(time),
-        })
-        .collect();
-    frame_plan
-        .treatments
-        .sort_by_key(|treatment| treatment.track);
+    if !bypass_effects {
+        frame_plan.treatments = treatments
+            .iter()
+            .filter(|treatment| treatment.covers(time))
+            .map(|treatment| PlannedTreatment {
+                track: treatment.track,
+                effects: treatment.passes_at(time),
+                strength: treatment.strength_at(time),
+            })
+            .collect();
+        frame_plan
+            .treatments
+            .sort_by_key(|treatment| treatment.track);
+    }
     Ok(PreviewSources {
         plan: frame_plan,
-        treatments: treatments.clone(),
-        transitions: transitions.clone(),
+        treatments: if bypass_effects {
+            Vec::new()
+        } else {
+            treatments.clone()
+        },
+        transitions: if bypass_effects {
+            Vec::new()
+        } else {
+            transitions.clone()
+        },
     })
 }
 

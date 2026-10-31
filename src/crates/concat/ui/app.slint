@@ -288,6 +288,7 @@ export component App inherits Window {
     callback start-reveal-recent(path: string);
     callback start-search-edited(query: string);
     callback start-sort-changed(sort: int);
+    callback start-project-tab-changed(index: int);
     /// One of the launch screen's links, by name; see `start::link`.
     callback start-link(name: string);
     callback start-dismiss-error();
@@ -377,6 +378,7 @@ export component App inherits Window {
     callback export-cancel();
     callback export-reveal();
     callback export-again();
+    callback export-capcut();
 
     callback settings-closed();
     callback settings-page-changed(index: int);
@@ -384,6 +386,10 @@ export component App inherits Window {
     callback settings-language-changed(index: int);
     callback settings-gemini-api-key-edited(text: string);
     callback settings-eleven-api-key-edited(text: string);
+    callback settings-capcut-font-size-edited(size: float);
+    callback settings-capcut-scale-percent-edited(scale: float);
+    callback settings-capcut-position-y-edited(y: float);
+    callback settings-capcut-stroke-width-edited(width: float);
     callback settings-log-level-changed(index: int);
     callback settings-theme-changed(dark: bool);
     callback settings-accent-changed(index: int);
@@ -393,6 +399,7 @@ export component App inherits Window {
     callback settings-scale-changed(index: int);
     callback settings-playhead-stops-changed(on: bool);
     callback settings-proxies-changed(on: bool);
+    callback settings-low-resource-changed(on: bool);
     callback settings-gpu-changed(on: bool);
     callback settings-magnetic-changed(on: bool);
     callback settings-download-source-changed(index: int);
@@ -455,11 +462,17 @@ export component App inherits Window {
     callback captions-configure-api();
     callback captions-gemini-language-changed(index: int);
     callback captions-gemini-proofread-toggled(on: bool);
+    callback captions-gemini-smart-split-toggled(on: bool);
+    callback captions-gemini-two-speakers-toggled(on: bool);
+    callback captions-speaker2-color-changed(color: color);
     callback captions-glossary-edited(text: string);
     callback captions-review-choice(index: int, choice: int);
     callback captions-review-apply(use-choices: bool);
     callback captions-placement-changed(index: int);
     callback captions-size-changed(index: int);
+    callback captions-text-color-changed(color: color);
+    callback captions-stroke-choice-changed(index: int);
+    callback captions-stroke-color-changed(color: color);
     callback captions-begin();
     callback captions-cancel();
     callback captions-import-srt();
@@ -780,6 +793,7 @@ export component App inherits Window {
                 recents-total: root.recents-total;
                 query: root.start.query;
                 sort: root.start.sort;
+                project-tab: root.start.project-tab;
                 busy: root.start.busy;
                 phone: root.phone;
                 version: root.app-version;
@@ -793,6 +807,7 @@ export component App inherits Window {
                 reveal-recent(path) => { root.start-reveal-recent(path); }
                 search-edited(query) => { root.start-search-edited(query); }
                 sort-changed(sort) => { root.start-sort-changed(sort); }
+                project-tab-changed(index) => { root.start-project-tab-changed(index); }
                 link(name) => { root.start-link(name); }
             }
 
@@ -889,11 +904,17 @@ export component App inherits Window {
             configure-api => { root.captions-configure-api(); }
             gemini-language-changed(index) => { root.captions-gemini-language-changed(index); }
             gemini-proofread-toggled(on) => { root.captions-gemini-proofread-toggled(on); }
+            gemini-smart-split-toggled(on) => { root.captions-gemini-smart-split-toggled(on); }
+            gemini-two-speakers-toggled(on) => { root.captions-gemini-two-speakers-toggled(on); }
+            speaker2-color-changed(color) => { root.captions-speaker2-color-changed(color); }
             glossary-edited(text) => { root.captions-glossary-edited(text); }
             review-choice(index, choice) => { root.captions-review-choice(index, choice); }
             review-apply(use-choices) => { root.captions-review-apply(use-choices); }
             placement-changed(index) => { root.captions-placement-changed(index); }
             size-changed(index) => { root.captions-size-changed(index); }
+            text-color-changed(color) => { root.captions-text-color-changed(color); }
+            stroke-choice-changed(index) => { root.captions-stroke-choice-changed(index); }
+            stroke-color-changed(color) => { root.captions-stroke-color-changed(color); }
             begin => { root.captions-begin(); }
             cancel => { root.captions-cancel(); }
             import-srt => { root.captions-import-srt(); }
@@ -1017,6 +1038,7 @@ export component App inherits Window {
         cancel => { root.export-cancel(); }
         reveal => { root.export-reveal(); }
         again => { root.export-again(); }
+        export-capcut => { root.export-capcut(); }
     }
 
     SettingsDialog {
@@ -1052,6 +1074,10 @@ export component App inherits Window {
         language-changed(index) => { root.settings-language-changed(index); }
         gemini-api-key-edited(text) => { root.settings-gemini-api-key-edited(text); }
         eleven-api-key-edited(text) => { root.settings-eleven-api-key-edited(text); }
+        capcut-font-size-edited(size) => { root.settings-capcut-font-size-edited(size); }
+        capcut-scale-percent-edited(scale) => { root.settings-capcut-scale-percent-edited(scale); }
+        capcut-position-y-edited(y) => { root.settings-capcut-position-y-edited(y); }
+        capcut-stroke-width-edited(width) => { root.settings-capcut-stroke-width-edited(width); }
         log-level-changed(index) => { root.settings-log-level-changed(index); }
         theme-changed(dark) => { root.settings-theme-changed(dark); }
         accent-changed(index) => { root.settings-accent-changed(index); }
@@ -1061,6 +1087,7 @@ export component App inherits Window {
         scale-changed(index) => { root.settings-scale-changed(index); }
         playhead-stops-changed(on) => { root.settings-playhead-stops-changed(on); }
         proxies-changed(on) => { root.settings-proxies-changed(on); }
+        low-resource-changed(on) => { root.settings-low-resource-changed(on); }
         gpu-changed(on) => { root.settings-gpu-changed(on); }
         magnetic-changed(on) => { root.settings-magnetic-changed(on); }
         download-source-changed(index) => { root.settings-download-source-changed(index); }

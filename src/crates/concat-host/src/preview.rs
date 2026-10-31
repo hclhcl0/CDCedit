@@ -53,16 +53,19 @@ pub struct FrameSpec {
     /// What shows where no picture covers the frame; see
     /// `VideoSettings::canvas`.
     pub canvas: [u8; 4],
+    /// Whether to temporarily skip heavy shaders and cutouts during scrubbing in low-resource mode.
+    pub bypass_effects: bool,
 }
 
 /// The reader pool behind the monitor, shareable across threads.
 #[derive(Clone)]
 pub struct Monitor {
     pool: Arc<concat_media::ReaderPool>,
-    /// The last clip list's plan, kept until the list changes: playback
-    /// and scrubbing ask for many instants of one document, and the plan
-    /// is the half of a frame that does not depend on the instant.
-    plan: Arc<Mutex<Option<PlanEntry>>>,
+    /// The last clip list's plans (up to two sizes, e.g. moving and paused),
+    /// kept until the list changes: playback and scrubbing ask for many
+    /// instants of one document, and the plan is the half of a frame that
+    /// does not depend on the instant.
+    plan: Arc<Mutex<Vec<PlanEntry>>>,
     /// The files a coming cut leads into that playback has already sent
     /// to be opened early, so each is opened once and not once a frame.
     early: Arc<Mutex<Vec<PathBuf>>>,
@@ -96,7 +99,7 @@ impl Monitor {
     pub fn new() -> Self {
         Self {
             pool: Arc::clone(crate::scheduler().pool()),
-            plan: Arc::new(Mutex::new(None)),
+            plan: Arc::new(Mutex::new(Vec::new())),
             early: Arc::new(Mutex::new(Vec::new())),
             #[cfg(feature = "gpu")]
             gpu: None,
@@ -110,7 +113,7 @@ impl Monitor {
     pub fn with_gpu(device: wgpu::Device, queue: wgpu::Queue) -> Self {
         Self {
             pool: Arc::clone(crate::scheduler().pool()),
-            plan: Arc::new(Mutex::new(None)),
+            plan: Arc::new(Mutex::new(Vec::new())),
             early: Arc::new(Mutex::new(Vec::new())),
             gpu: Some(Arc::new(Mutex::new(
                 concat_render::WgpuCompositor::with_device(device, queue),
@@ -189,7 +192,13 @@ impl Monitor {
         spec: FrameSpec,
     ) -> Result<concat_export::PreviewSources, String> {
         let plan = self.plan_for(clips, settings, spec);
-        concat_export::preview_sources_of(&self.pool, &plan, spec.time, spec.proxy)
+        concat_export::preview_sources_with_options(
+            &self.pool,
+            &plan,
+            spec.time,
+            spec.proxy,
+            spec.bypass_effects,
+        )
     }
 
     /// Draws [`Monitor::frame_sources`] into a texture on the device this
@@ -260,15 +269,25 @@ impl Monitor {
             .plan
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        if let Some(entry) = slot.as_ref()
-            && entry.width == spec.width
-            && entry.height == spec.height
-            && entry.rate == rate
-            && entry.color_space == spec.color_space
-            && entry.canvas == spec.canvas
-            && (Arc::ptr_eq(&entry.clips, &clips) || *entry.clips == *clips)
-        {
+        if let Some(entry) = slot.iter().find(|entry| {
+            entry.width == spec.width
+                && entry.height == spec.height
+                && entry.rate == rate
+                && entry.color_space == spec.color_space
+                && entry.canvas == spec.canvas
+                && (Arc::ptr_eq(&entry.clips, &clips) || *entry.clips == *clips)
+        }) {
             return Arc::clone(&entry.plan);
+        }
+        // Drop entries from an older clip list or settings before inserting.
+        slot.retain(|entry| {
+            entry.rate == rate
+                && entry.color_space == spec.color_space
+                && entry.canvas == spec.canvas
+                && (Arc::ptr_eq(&entry.clips, &clips) || *entry.clips == *clips)
+        });
+        if slot.len() >= 2 {
+            slot.remove(0);
         }
         let plan = Arc::new(concat_export::preview_plan(
             &clips,
@@ -279,7 +298,7 @@ impl Monitor {
             spec.color_space,
             spec.canvas,
         ));
-        *slot = Some(PlanEntry {
+        slot.push(PlanEntry {
             clips,
             width: spec.width,
             height: spec.height,
@@ -300,7 +319,13 @@ impl Monitor {
         spec: FrameSpec,
     ) -> Result<Vec<u8>, String> {
         let plan = self.plan_for(clips, settings, spec);
-        let sources = concat_export::preview_sources_of(&self.pool, &plan, spec.time, spec.proxy)?;
+        let sources = concat_export::preview_sources_with_options(
+            &self.pool,
+            &plan,
+            spec.time,
+            spec.proxy,
+            spec.bypass_effects,
+        )?;
         sources.pixels()
     }
 
@@ -321,7 +346,11 @@ impl Monitor {
         let moments = concat_export::preview_moments(
             &plan,
             spec.time,
-            frames.min(concat_media::prefetch::AHEAD),
+            frames.min(if crate::performance::low_resource() {
+                4
+            } else {
+                concat_media::prefetch::AHEAD
+            }),
             spec.proxy,
         );
         let fps = (settings.rate_num as f64 / settings.rate_den.max(1) as f64).max(1.0);
@@ -385,20 +414,20 @@ impl Monitor {
     /// clip's measured movement - has changed under a clip list that has
     /// not.
     pub fn forget_plan(&self) {
-        *self
-            .plan
+        self.plan
             .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner()) = None;
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clear();
     }
 
     /// Forgets every cached frame, reader and plan, for when the project
     /// closes.
     pub fn clear(&self) {
         self.pool.clear();
-        *self
-            .plan
+        self.plan
             .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner()) = None;
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clear();
         self.early
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())

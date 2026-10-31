@@ -1162,8 +1162,8 @@ pub fn consolidation_clips(
         reason: reason.into(),
     };
     let selected: HashSet<_> = clip_ids.iter().collect();
-    if selected.len() < 2 || selected.len() != clip_ids.len() {
-        return Err(refuse("Select two or more distinct video clips to merge."));
+    if selected.is_empty() || selected.len() != clip_ids.len() {
+        return Err(refuse("Select one or more distinct video clips to process."));
     }
     let mut clips: Vec<Clip> = clip_ids
         .iter()
@@ -1178,9 +1178,9 @@ pub fn consolidation_clips(
     let first = &clips[0];
     if clips
         .iter()
-        .any(|clip| clip.kind != ClipKind::Video || clip.track_id != first.track_id)
+        .any(|clip| (clip.kind != ClipKind::Video && clip.kind != ClipKind::Image) || clip.track_id != first.track_id)
     {
-        return Err(refuse("Select video clips on the same track to merge."));
+        return Err(refuse("Select video or image clips on the same track to process."));
     }
     if timeline.track(&first.track_id).is_none() {
         return Err(CommandError::TrackGone);

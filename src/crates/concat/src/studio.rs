@@ -443,7 +443,7 @@ pub enum Edge {
 /// Where one clip sat when a gesture began, so the whole set moves rigidly.
 pub struct MoveOrigin {
     pub clip: String,
-    pub start: f32,
+    pub start: f64,
     pub row: i32,
 }
 
@@ -874,7 +874,7 @@ pub struct Studio {
     /// What the last art scan was for: the document's revision, the
     /// screen, and how much was pending. The scan runs when one of them
     /// changes and is a comparison on the pointer stream between.
-    art_stamp: Option<(u64, bool, usize, bool)>,
+    art_stamp: Option<(u64, bool, usize, bool, bool)>,
     /// Media whose proxy has been seen to, this project: `proxy::ensure`
     /// costs two stats of the file, and once is enough.
     proxied: HashSet<String>,
@@ -901,6 +901,10 @@ pub struct Studio {
     pub hover: Option<f32>,
     /// Stops the burst of sound a hover with audio plays.
     hover_hush: slint::Timer,
+    /// Timestamp of the last scrub/seek event for adaptive preview debounce.
+    pub last_scrub: Option<std::time::Instant>,
+    /// Settles the preview back to full resolution after scrubbing stops.
+    scrub_settle: slint::Timer,
     /// One clip, held for Paste.
     pub clipboard: Vec<Held>,
     /// The monitor: its frame, and the requests for the next.
@@ -933,6 +937,7 @@ pub struct Studio {
     pub on_start: bool,
     pub start: crate::panes::start::StartPane,
     pub recents: Vec<projects::Recent>,
+    pub capcut_drafts: Vec<crate::capcut_hub::CapCutDraft>,
     pub posters: HashMap<String, slint::Image>,
     posters_pending: HashSet<String>,
     /// How long each recent project's timeline runs, in seconds, read on
@@ -2373,6 +2378,7 @@ impl Studio {
         i18n::select(prefs.locale.as_deref().unwrap_or("vi"), &host.dirs);
         let languages = i18n::languages(&host.dirs);
         let recents = projects::recents(&host.dirs.config);
+        let capcut_drafts = crate::capcut_hub::list_capcut_drafts();
         let text_presets = presets::all(&host.dirs);
         let mut studio = Self {
             prefs,
@@ -2405,6 +2411,8 @@ impl Studio {
             glide_beat: slint::Timer::default(),
             hover: None,
             hover_hush: slint::Timer::default(),
+            last_scrub: None,
+            scrub_settle: slint::Timer::default(),
             clipboard: Vec::new(),
             monitor: crate::panes::monitor::MonitorPane::default(),
             export: Default::default(),
@@ -2422,6 +2430,7 @@ impl Studio {
             on_start: true,
             start,
             recents,
+            capcut_drafts,
             posters: HashMap::new(),
             posters_pending: HashSet::new(),
             lengths: HashMap::new(),
@@ -3183,6 +3192,8 @@ impl Studio {
         // The transport owns the monitor from here; a frame from under a
         // pointer that happens to be over the lanes must not stay on it.
         self.end_hover();
+        self.last_scrub = None;
+        self.scrub_settle.stop();
         self.playing = true;
         log::debug!("playback: playing from {:.3}s", self.playhead);
         self.host.playback.play(f64::from(self.playhead));
@@ -3259,7 +3270,33 @@ impl Studio {
         // The textures playback streamed through are let go once it stops.
         if was_playing {
             self.host.monitor.shrink();
+            self.request_preview();
         }
+    }
+
+    /// Marks that the timeline or preview is actively being scrubbed or dragged,
+    /// enabling fast adaptive proxy playback and scheduling a settle to full resolution.
+    pub fn mark_scrubbing(&mut self) {
+        self.last_scrub = Some(std::time::Instant::now());
+        self.scrub_settle.start(
+            slint::TimerMode::SingleShot,
+            std::time::Duration::from_millis(150),
+            move || {
+                crate::host::Shell::with(|shell, _| {
+                    let mut studio = shell.studio.borrow_mut();
+                    if studio.last_scrub.is_some() {
+                        studio.last_scrub = None;
+                        studio.request_preview();
+                    }
+                });
+            },
+        );
+    }
+
+    /// Whether the studio is currently in a scrubbing motion.
+    pub fn is_scrubbing(&self) -> bool {
+        self.last_scrub
+            .is_some_and(|t| t.elapsed() < std::time::Duration::from_millis(200))
     }
 
     /// Moves the playhead, the transport with it, and asks for the frame.
@@ -3282,6 +3319,9 @@ impl Studio {
         if self.prefs.playhead_stops_at_end {
             self.playhead = self.playhead.min(self.duration().max(0.0));
         }
+        if !self.playing && self.prefs.low_resource() {
+            self.mark_scrubbing();
+        }
         // A phone's lanes move under a playhead held at their middle.
         self.lanes.recentre(self.playhead);
         self.host.playback.seek(f64::from(self.playhead));
@@ -3302,6 +3342,7 @@ impl Studio {
     /// A scrub: the playhead goes to `seconds`, and while a finger is on
     /// the phone's lanes, where it went is a sample of how fast they move.
     pub fn scrub(&mut self, seconds: f32) {
+        self.mark_scrubbing();
         self.seek(seconds.max(0.0));
         if self.coast.tracking {
             let at = self.coast.clock();
@@ -3442,8 +3483,9 @@ impl Studio {
             return;
         };
         let project_path = session.path().to_owned();
-        // With proxies on in Settings, a file larger than HD gets a proxy
-        // for playback and the filmstrips, written once on the scheduler's
+        // With proxies on in Settings, a file larger than HD gets a proxy.
+        // Low-resource mode also admits demanding HD files. Copies are
+        // written once on the scheduler's
         // proxy lane; see concat_host::proxy. Asked once per file per
         // project. Off, the default, nothing is written.
         type Unproxied = (
@@ -3453,12 +3495,17 @@ impl Studio {
             u32,
             Option<concat_media::ColorRange>,
             bool,
+            Option<String>,
         );
         let unproxied: Vec<Unproxied> = self
             .project()
             .media
             .iter()
-            .filter(|_| self.prefs.proxies)
+            .filter(|item| {
+                self.prefs.proxies
+                    || self.prefs.low_resource()
+                    || item.video_codec.as_deref().is_some_and(concat_host::proxy::is_demanding_codec)
+            })
             .filter(|item| item.kind == model::MediaKind::Video && !item.placeholder)
             .filter(|item| !self.proxied.contains(&item.id))
             .filter_map(|item| {
@@ -3470,17 +3517,20 @@ impl Studio {
                     height,
                     item.color_range.map(concat_export::engine_range),
                     item.color_space.is_hdr(),
+                    item.video_codec.clone(),
                 ))
             })
             .collect();
-        for (id, path, width, height, range, hdr) in unproxied {
-            concat_host::proxy::ensure(
+        for (id, path, width, height, range, hdr, codec) in unproxied {
+            concat_host::proxy::ensure_for_mode(
                 std::path::Path::new(&project_path),
                 &path,
                 width,
                 height,
                 range,
                 hdr,
+                codec.as_deref(),
+                self.prefs.low_resource(),
             );
             self.proxied.insert(id);
         }
@@ -4203,7 +4253,26 @@ impl Studio {
                 .is_some_and(|clip| clip.kind == model::ClipKind::Text)
         });
         if titles {
-            self.selection.clone()
+            let playhead = f64::from(self.playhead);
+            let mut targets: Vec<String> = self
+                .selection
+                .iter()
+                .filter(|id| {
+                    self.clip(id)
+                        .is_some_and(|clip| !self.locked(&clip.track_id))
+                })
+                .cloned()
+                .collect();
+            if let Some(pos) = targets.iter().position(|id| {
+                self.clip(id).is_some_and(|clip| {
+                    clip.start <= playhead && playhead < clip.start + clip.duration
+                })
+            }) && pos > 0
+            {
+                let active = targets.remove(pos);
+                targets.insert(0, active);
+            }
+            targets
         } else {
             Vec::new()
         }
@@ -5068,7 +5137,7 @@ impl Studio {
                 let clip = self.clip(clip_id)?;
                 Some(MoveOrigin {
                     clip: clip.id.clone(),
-                    start: clip.start as f32,
+                    start: clip.start,
                     row: self.row_of(&clip.track_id),
                 })
             })
@@ -5101,14 +5170,34 @@ impl Studio {
                     .iter()
                     .filter_map(|origin| {
                         let clip = self.clip(&origin.clip)?;
-                        let start = origin.start + seconds;
+                        let start = origin.start as f32 + seconds;
                         Some([start, start + clip.duration as f32])
                     })
                     .flatten()
                     .collect();
-                let shift = seconds + self.snap_shift(&edges, threshold, &moving);
+                let shift =
+                    f64::from(seconds) + f64::from(self.snap_shift(&edges, threshold, &moving));
+                let earliest = origins
+                    .iter()
+                    .map(|origin| origin.start)
+                    .fold(f64::INFINITY, f64::min);
+                let shift = if earliest.is_finite() {
+                    shift.max(-earliest)
+                } else {
+                    shift
+                };
                 let rows = nearest_row(lanes, row_top(lanes, anchor.row) + pixels) - anchor.row;
                 let count = self.timeline().tracks.len() as i32;
+                let min_row = origins.iter().map(|origin| origin.row).min().unwrap_or(0);
+                let max_row = origins.iter().map(|origin| origin.row).max().unwrap_or(0);
+                let rows = rows.clamp(-min_row, (count - 1 - max_row).max(0));
+                let row_blocked = rows != 0
+                    && origins.iter().any(|origin| {
+                        let row = (origin.row + rows).clamp(0, count - 1);
+                        self.row_track(row)
+                            .is_none_or(|track| self.locked(&track.id))
+                    });
+                let rows = if row_blocked { 0 } else { rows };
                 let moves: Vec<ClipMove> = origins
                     .iter()
                     .filter_map(|origin| {
@@ -5122,7 +5211,7 @@ impl Studio {
                             })?;
                         Some(ClipMove {
                             clip_id: origin.clip.clone(),
-                            start: f64::from((origin.start + shift).max(0.0)),
+                            start: (origin.start + shift).max(0.0),
                             track_id,
                         })
                     })
@@ -5588,7 +5677,7 @@ impl Studio {
                         _ => TextAlign::Center,
                     }
                 }
-                ClipField::StrokeWidth => text.stroke_width = value.clamp(0.0, 0.15),
+                ClipField::StrokeWidth => text.stroke_width = value.clamp(0.0, 1.0),
                 ClipField::Shadow => text.shadow = value != 0.0,
                 ClipField::LineHeight => text.line_height = value.clamp(0.7, 2.5),
                 ClipField::Tracking => text.tracking = value.clamp(-0.05, 0.3),
@@ -6201,8 +6290,31 @@ impl Studio {
         clips
     }
 
+    /// The stage clips under the playhead, plus the primary selected title
+    /// when a title or batch of titles is selected away from the playhead,
+    /// so its stage box can still be seen and dragged on the monitor.
+    fn stage_interactive_clips(&self) -> Vec<&Clip> {
+        let mut clips = self.stage_clips();
+        let any_selected_on_stage = clips
+            .iter()
+            .any(|clip| self.selection.iter().any(|id| id == &clip.id));
+        if !any_selected_on_stage
+            && let Some(primary_id) = self.edit_targets().into_iter().next()
+            && let Some(clip) = self.clip(&primary_id)
+            && clip.kind == model::ClipKind::Text
+            && !self.locked(&clip.track_id)
+            && self
+                .timeline()
+                .track(&clip.track_id)
+                .is_some_and(|track| track.visible)
+        {
+            clips.push(clip);
+        }
+        clips
+    }
+
     pub fn stage_items(&self) -> Vec<StageItemData> {
-        self.stage_clips()
+        self.stage_interactive_clips()
             .into_iter()
             .map(|clip| {
                 let footprint = self.footprint(clip);
@@ -6265,17 +6377,29 @@ impl Studio {
     /// way a press on the lanes does.
     fn stage_hit(&self, x: f64, y: f64) -> Option<String> {
         let frame = self.output_size();
-        self.stage_clips()
+        let candidates: Vec<&Clip> = self
+            .stage_interactive_clips()
             .into_iter()
             .rev()
             .filter(|clip| !self.locked(&clip.track_id))
+            .collect();
+        if self.selection.len() > 1
+            && let Some(selected_hit) = candidates.iter().find(|clip| {
+                self.selection.iter().any(|held| held == &clip.id)
+                    && self.footprint(clip).contains(x, y, frame)
+            })
+        {
+            return Some(selected_hit.id.clone());
+        }
+        candidates
+            .into_iter()
             .find(|clip| self.footprint(clip).contains(x, y, frame))
             .map(|clip| clip.id.clone())
     }
 
     /// A press on the stage floor: resolve the selection, then arm a move
-    /// of everything selected that is under the playhead. Empty stage
-    /// clears the selection, as an empty lane does.
+    /// of everything selected. Empty stage clears the selection, as an
+    /// empty lane does.
     pub fn stage_pressed(&mut self, x: f32, y: f32, additive: bool) {
         if let Some(clip) = self.paint_target() {
             let point = self.stage_to_source(&clip, f64::from(x), f64::from(y));
@@ -6317,11 +6441,24 @@ impl Studio {
             self.gesture = Gesture::None;
             return;
         }
+        let showing: HashSet<&str> = self
+            .timeline()
+            .tracks
+            .iter()
+            .filter(|track| track.visible)
+            .map(|track| track.id.as_str())
+            .collect();
         let origins: Vec<StageOrigin> = self
-            .stage_clips()
-            .into_iter()
+            .timeline()
+            .clips
+            .iter()
+            .map(|clip| clip.as_ref())
             .filter(|clip| {
-                self.selection.iter().any(|held| held == &clip.id) && !self.locked(&clip.track_id)
+                (clip.kind.is_visual()
+                    || matches!(clip.kind, model::ClipKind::Text | model::ClipKind::Shape))
+                    && showing.contains(clip.track_id.as_str())
+                    && self.selection.iter().any(|held| held == &clip.id)
+                    && !self.locked(&clip.track_id)
             })
             .map(|clip| {
                 // A keyed clip is dragged from where its ride has it at
@@ -6627,9 +6764,34 @@ impl Studio {
                     }
                 }
                 let playhead = self.playhead;
-                if let Some(clip) = self.echo_clip_mut(clip) {
-                    let at = place_in(clip, playhead);
-                    write_keyable(clip, model::KeyProperty::Scale, next.clamp(0.05, 8.0), at);
+                let factor = if *scale > 1e-6 { next / scale } else { 1.0 };
+                let mut targets = vec![clip.clone()];
+                for id in self.edit_targets() {
+                    if !targets.contains(&id) {
+                        targets.push(id);
+                    }
+                }
+                for target_id in targets {
+                    let base_scale = if target_id == *clip {
+                        *scale
+                    } else {
+                        self.session
+                            .as_ref()
+                            .and_then(|s| s.project().active().clip(&target_id))
+                            .map(|before| {
+                                shown(before, model::KeyProperty::Scale, place_in(before, playhead))
+                            })
+                            .unwrap_or(*scale)
+                    };
+                    if let Some(target_clip) = self.echo_clip_mut(&target_id) {
+                        let at = place_in(target_clip, playhead);
+                        write_keyable(
+                            target_clip,
+                            model::KeyProperty::Scale,
+                            (base_scale * factor).clamp(0.05, 8.0),
+                            at,
+                        );
+                    }
                 }
             }
             Gesture::StageStretch {
@@ -6675,8 +6837,18 @@ impl Studio {
                 if snap {
                     next = (next * 20.0).round() / 20.0;
                 }
-                if let Some(clip) = self.echo_clip_mut(clip) {
-                    clip.text.get_or_insert_with(TextStyle::default).max_width = next;
+                let mut targets = vec![clip.clone()];
+                for id in self.edit_targets() {
+                    if !targets.contains(&id) {
+                        targets.push(id);
+                    }
+                }
+                for target_id in targets {
+                    if let Some(target_clip) = self.echo_clip_mut(&target_id)
+                        && target_clip.kind == model::ClipKind::Text
+                    {
+                        target_clip.text.get_or_insert_with(TextStyle::default).max_width = next;
+                    }
                 }
             }
             Gesture::TextHeight {
@@ -6693,8 +6865,18 @@ impl Studio {
                 if snap {
                     next = (next * 20.0).round() / 20.0;
                 }
-                if let Some(clip) = self.echo_clip_mut(clip) {
-                    clip.text.get_or_insert_with(TextStyle::default).max_height = next;
+                let mut targets = vec![clip.clone()];
+                for id in self.edit_targets() {
+                    if !targets.contains(&id) {
+                        targets.push(id);
+                    }
+                }
+                for target_id in targets {
+                    if let Some(target_clip) = self.echo_clip_mut(&target_id)
+                        && target_clip.kind == model::ClipKind::Text
+                    {
+                        target_clip.text.get_or_insert_with(TextStyle::default).max_height = next;
+                    }
                 }
             }
             Gesture::StageMask {
@@ -6739,10 +6921,36 @@ impl Studio {
                 // Kept in the inspector's range, wrapping rather than
                 // stopping: a turn through the bottom carries on.
                 next = (next + 180.0).rem_euclid(360.0) - 180.0;
+                let delta = next - rotation;
                 let playhead = self.playhead;
-                if let Some(clip) = self.echo_clip_mut(clip) {
-                    let at = place_in(clip, playhead);
-                    write_keyable(clip, model::KeyProperty::Rotation, next, at);
+                let mut targets = vec![clip.clone()];
+                for id in self.edit_targets() {
+                    if !targets.contains(&id) {
+                        targets.push(id);
+                    }
+                }
+                for target_id in targets {
+                    let target_rot = if target_id == *clip {
+                        next
+                    } else {
+                        let base = self
+                            .session
+                            .as_ref()
+                            .and_then(|s| s.project().active().clip(&target_id))
+                            .map(|before| {
+                                shown(
+                                    before,
+                                    model::KeyProperty::Rotation,
+                                    place_in(before, playhead),
+                                )
+                            })
+                            .unwrap_or(*rotation);
+                        (base + delta + 180.0).rem_euclid(360.0) - 180.0
+                    };
+                    if let Some(target_clip) = self.echo_clip_mut(&target_id) {
+                        let at = place_in(target_clip, playhead);
+                        write_keyable(target_clip, model::KeyProperty::Rotation, target_rot, at);
+                    }
                 }
             }
             _ => {
@@ -6770,7 +6978,16 @@ impl Studio {
             | Gesture::StageRotate { clip, .. }
             | Gesture::StageStretch { clip, .. }
             | Gesture::StageMask { clip, .. }
-            | Gesture::TextWidth { clip, .. } => vec![clip],
+            | Gesture::TextWidth { clip, .. }
+            | Gesture::TextHeight { clip, .. } => {
+                let mut ids = vec![clip];
+                for target in self.edit_targets() {
+                    if !ids.contains(&target) {
+                        ids.push(target);
+                    }
+                }
+                ids
+            }
             Gesture::Paint {
                 clip,
                 tool,
@@ -8104,6 +8321,7 @@ impl Studio {
             proxy: false,
             color_space: self.project().active().video.color_space,
             canvas: self.project().active().video.canvas,
+            bypass_effects: false,
         };
         let monitor = self.host.monitor.clone();
         let out_dir = project_dir.join("frames");
@@ -9443,6 +9661,18 @@ impl Studio {
             return;
         }
         self.notify(&tf("studio.importedLutsFindThem", &[&imported]), false);
+    }
+
+    pub fn export_capcut_project(&mut self) {
+        crate::capcut_export::export_studio_to_capcut(self);
+    }
+
+    pub fn import_capcut_project(&mut self) {
+        crate::capcut_import::import_capcut_dialog(self);
+    }
+
+    pub fn refresh_capcut_drafts(&mut self) {
+        self.capcut_drafts = crate::capcut_hub::list_capcut_drafts();
     }
 
     pub fn save_template(&mut self) {
@@ -11619,43 +11849,79 @@ impl Studio {
             failed: self.toast.failed,
         });
         app.set_start(self.start.data());
-        app.set_recents_total(self.recents.len() as i32);
-        sync(
-            &models.recents,
-            crate::panes::start::shown(&self.recents, &self.start.query, self.start.sort)
-                .into_iter()
-                .map(|recent| {
-                    let project = &recent.info;
-                    RecentProjectData {
-                        path: project.path.as_str().into(),
-                        name: project.name.as_str().into(),
-                        detail: format!(
-                            "{} × {} · {}",
-                            project.width,
-                            project.height,
-                            rate_label(project.rate_num, project.rate_den)
-                        )
-                        .into(),
-                        // When it was last worked on, which is what a
-                        // person means by recent; when it was last opened
-                        // where the file keeps no time.
-                        when: when_phrase(recent.edited_at.unwrap_or(project.opened_at)).into(),
-                        length: self
-                            .lengths
-                            .get(&project.path)
-                            .copied()
-                            .flatten()
-                            .filter(|seconds| *seconds > 0.0)
-                            .map(running_time)
-                            .unwrap_or_default()
+        if self.start.project_tab == 1 {
+            let total = self.capcut_drafts.len() as i32;
+            app.set_recents_total(total);
+            let drafts = crate::capcut_hub::shown_capcut(
+                &self.capcut_drafts,
+                &self.start.query,
+                self.start.sort,
+            );
+            sync(
+                &models.recents,
+                drafts
+                    .into_iter()
+                    .map(|draft| {
+                        let poster = self.posters.get(&draft.path).cloned().or_else(|| {
+                            draft.cover_path.as_ref().and_then(|p| crate::host::image_at(p))
+                        }).unwrap_or_default();
+                        RecentProjectData {
+                            path: draft.path.as_str().into(),
+                            name: draft.name.as_str().into(),
+                            detail: format!(
+                                "CapCut · {:.1} MB",
+                                draft.size_bytes as f64 / (1024.0 * 1024.0)
+                            )
                             .into(),
-                        ratio: project.width as f32 / project.height.max(1) as f32,
-                        missing: !recent.present,
-                        poster: self.posters.get(&project.path).cloned().unwrap_or_default(),
-                    }
-                })
-                .collect(),
-        );
+                            when: when_phrase(draft.modified_at_millis).into(),
+                            length: if draft.duration_sec > 0.0 {
+                                running_time(draft.duration_sec).into()
+                            } else {
+                                "".into()
+                            },
+                            ratio: draft.width as f32 / draft.height.max(1) as f32,
+                            missing: !draft.exists,
+                            poster,
+                        }
+                    })
+                    .collect(),
+            );
+        } else {
+            app.set_recents_total(self.recents.len() as i32);
+            sync(
+                &models.recents,
+                crate::panes::start::shown(&self.recents, &self.start.query, self.start.sort)
+                    .into_iter()
+                    .map(|recent| {
+                        let project = &recent.info;
+                        RecentProjectData {
+                            path: project.path.as_str().into(),
+                            name: project.name.as_str().into(),
+                            detail: format!(
+                                "{} × {} · {}",
+                                project.width,
+                                project.height,
+                                rate_label(project.rate_num, project.rate_den)
+                            )
+                            .into(),
+                            when: when_phrase(recent.edited_at.unwrap_or(project.opened_at)).into(),
+                            length: self
+                                .lengths
+                                .get(&project.path)
+                                .copied()
+                                .flatten()
+                                .filter(|seconds| *seconds > 0.0)
+                                .map(running_time)
+                                .unwrap_or_default()
+                                .into(),
+                            ratio: project.width as f32 / project.height.max(1) as f32,
+                            missing: !recent.present,
+                            poster: self.posters.get(&project.path).cloned().unwrap_or_default(),
+                        }
+                    })
+                    .collect(),
+            );
+        }
 
         // The Text page's presets: the look each card draws its name in.
         // All of them for the phone's one shelf; on the desktop, Styles
@@ -11838,6 +12104,7 @@ impl Studio {
         editor.set_recording(self.voiceover.recording());
         editor.set_captions_open(self.captions.open);
         editor.set_speech_open(self.speech.open);
+        editor.set_voice_changer_open(self.speech.open && self.speech.dub.mode == 3);
         editor.set_voiceover_open(self.voiceover.is_open());
 
         let bar = self.menu_bar();
@@ -11863,6 +12130,7 @@ impl Studio {
             self.art_pending.len() + self.posters_pending.len(),
             // Proxies switched on in Settings are seen to at once.
             self.prefs.proxies,
+            self.prefs.low_resource(),
         );
         if self.art_stamp == Some(stamp) {
             if !self.on_start {
@@ -11877,6 +12145,13 @@ impl Studio {
             self.assign_media_rows();
             self.request_media_art();
         }
+    }
+
+    /// Reconsiders media whose proxy policy changed without a document edit.
+    pub fn recheck_proxies(&mut self) {
+        self.proxied.clear();
+        self.art_stamp = None;
+        self.request_preview();
     }
 
     /// The right-click menu: the bin card's when it was opened on one,
@@ -11994,6 +12269,16 @@ impl Studio {
             ),
             rule(),
         ];
+        if clip.kind == model::ClipKind::Video || clip.kind == model::ClipKind::Image {
+            rows.push(action(
+                "bake-clip-effects",
+                "Render clip kèm hiệu ứng (Bake video cho CapCut)".to_string(),
+                Glyph::Sparkle,
+                "",
+                !locked && self.merge_job.is_none() && !self.host.exporter.is_busy(),
+            ));
+            rows.push(rule());
+        }
         // The picture sized to the frame, whole or covering it: beside the
         // inspector's two buttons, where a vertical cut is assembled clip
         // by clip.
@@ -12071,6 +12356,13 @@ impl Studio {
                 "captions",
                 t("captions.generateCaptions"),
                 Glyph::TextMark,
+                "",
+                self.clip_has_sound(clip),
+            ));
+            rows.push(action(
+                "voice-changer",
+                "Voice Changer (Đổi giọng ElevenLabs / DSP)".to_string(),
+                Glyph::VoiceChanger,
                 "",
                 self.clip_has_sound(clip),
             ));
@@ -12291,6 +12583,27 @@ impl Studio {
                     Glyph::Export,
                     &keymap::label(&self.prefs, "export"),
                     !self.timeline().clips.is_empty(),
+                ),
+                row(
+                    "export-capcut",
+                    "Xuất sang dự án CapCut (Draft)…".to_owned(),
+                    Glyph::Slot,
+                    "",
+                    !self.timeline().clips.is_empty(),
+                ),
+                row(
+                    "import-capcut",
+                    "Nhập dự án CapCut (Import Draft)…".to_owned(),
+                    Glyph::Import,
+                    "",
+                    true,
+                ),
+                row(
+                    "capcut-hub",
+                    "Quản lý Dự án CapCut (Trang chủ)…".to_owned(),
+                    Glyph::Film,
+                    "",
+                    true,
                 ),
                 row(
                     "template",
@@ -12817,6 +13130,12 @@ impl Studio {
                 self.delete_clips_to_playhead(&ids, side);
             }
             "merge" => self.merge(),
+            "bake-clip-effects" => {
+                self.flush_commit();
+                self.selection = vec![id.to_owned()];
+                self.transition_selected = None;
+                self.merge();
+            }
             // On the clip that was right-clicked, which becomes the
             // selection, as Enhance's row makes it.
             "fit" | "fill" => {

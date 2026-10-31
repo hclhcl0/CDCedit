@@ -47,6 +47,18 @@ fn scratch(project: &Project, media_id: &str) -> Option<Project> {
     let mut scratch = project.clone();
     let timeline = scratch.active_mut();
     timeline.clips.clear();
+    if timeline.tracks.is_empty() {
+        timeline.tracks.push(concat_project::model::Track {
+            id: "t_preview".into(),
+            visible: true,
+            muted: false,
+            extra: Default::default(),
+        });
+    }
+    for track in &mut timeline.tracks {
+        track.muted = false;
+        track.visible = true;
+    }
     let track_id = timeline.tracks.first()?.id.clone();
     commands::apply(
         &mut scratch,
@@ -237,12 +249,14 @@ impl Studio {
             source.playing = false;
             source.timer.stop();
             self.host.playback.pause();
+            self.request_preview();
             return;
         }
         if source.time >= source.duration - 1e-3 {
             source.time = 0.0;
         }
         source.playing = true;
+        self.host.playback.seek(source.time);
         self.host.playback.play(source.time);
         source.timer.start(
             slint::TimerMode::Repeated,

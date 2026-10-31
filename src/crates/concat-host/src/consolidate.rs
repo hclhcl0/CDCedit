@@ -42,6 +42,11 @@ impl Consolidation {
         })
     }
 
+    /// The clips that this consolidation renders.
+    pub fn clips(&self) -> &[Clip] {
+        &self.clips
+    }
+
     /// The lane the replacement belongs on, for the window's lock check.
     pub fn track_id(&self) -> &str {
         &self.clips[0].track_id

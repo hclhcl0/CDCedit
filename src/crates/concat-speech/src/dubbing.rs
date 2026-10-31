@@ -26,6 +26,59 @@ fn normalized(text: &str) -> String {
         .filter(|c| c.is_alphanumeric())
         .collect()
 }
+
+fn fold_char(c: char) -> char {
+    match c {
+        'à' | 'á' | 'ả' | 'ã' | 'ạ' | 'ă' | 'ằ' | 'ắ' | 'ẳ' | 'ẵ' | 'ặ' | 'â' | 'ầ' | 'ấ'
+        | 'ẩ' | 'ẫ' | 'ậ' => 'a',
+        'đ' => 'd',
+        'è' | 'é' | 'ẻ' | 'ẽ' | 'ẹ' | 'ê' | 'ề' | 'ế' | 'ể' | 'ễ' | 'ệ' => 'e',
+        'ì' | 'í' | 'ỉ' | 'ĩ' | 'ị' => 'i',
+        'ò' | 'ó' | 'ỏ' | 'õ' | 'ọ' | 'ô' | 'ồ' | 'ố' | 'ổ' | 'ỗ' | 'ộ' | 'ơ' | 'ờ' | 'ớ'
+        | 'ở' | 'ỡ' | 'ợ' => 'o',
+        'ù' | 'ú' | 'ủ' | 'ũ' | 'ụ' | 'ư' | 'ừ' | 'ứ' | 'ử' | 'ữ' | 'ự' => 'u',
+        'ỳ' | 'ý' | 'ỷ' | 'ỹ' | 'ỵ' => 'y',
+        other => other,
+    }
+}
+
+fn folded(text: &str) -> String {
+    normalized(text).chars().map(fold_char).collect()
+}
+
+fn char_edit_distance(a: &str, b: &str) -> usize {
+    let ac: Vec<char> = a.chars().collect();
+    let bc: Vec<char> = b.chars().collect();
+    let (n, m) = (ac.len(), bc.len());
+    if n.abs_diff(m) > 2 {
+        return n.abs_diff(m);
+    }
+    let mut prev: Vec<usize> = (0..=m).collect();
+    let mut curr = vec![0; m + 1];
+    for i in 1..=n {
+        curr[0] = i;
+        for j in 1..=m {
+            let cost = usize::from(ac[i - 1] != bc[j - 1]);
+            curr[j] = (prev[j] + 1).min(curr[j - 1] + 1).min(prev[j - 1] + cost);
+        }
+        std::mem::swap(&mut prev, &mut curr);
+    }
+    prev[m]
+}
+
+fn words_match(a: &str, b: &str) -> bool {
+    if a == b {
+        return true;
+    }
+    let fa = folded(a);
+    let fb = folded(b);
+    if !fa.is_empty() && fa == fb {
+        return true;
+    }
+    let la = fa.chars().count();
+    let lb = fb.chars().count();
+    la >= 4 && lb >= 4 && char_edit_distance(&fa, &fb) <= 1
+}
 /// Exclude non-spoken Gemini vocal events from lexical Whisper alignment.
 pub fn without_vocal_tags(text: &str) -> String {
     let mut output = String::new();
@@ -120,20 +173,22 @@ pub fn align(lines: &[String], words: &[Segment]) -> Result<Vec<(f64, f64)>, Str
     let at = |i: usize, j: usize| i * (m + 1) + j;
     for i in 1..=n {
         for j in 1..=m {
-            table[at(i, j)] = if expected[i - 1].1 == heard[j - 1].1 {
+            table[at(i, j)] = if words_match(&expected[i - 1].1, &heard[j - 1].1) {
                 table[at(i - 1, j - 1)] + 1
             } else {
                 table[at(i - 1, j)].max(table[at(i, j - 1)])
             };
         }
     }
-    if table[at(n, m)] as f64 / (n as f64) < 0.6 {
+    if table[at(n, m)] as f64 / (n as f64) < 0.55 {
         return Err("Whisper alignment confidence is too low. Try a better multilingual model or correct the script.".into());
     }
     let mut matches = vec![Vec::new(); lines.len()];
     let (mut i, mut j) = (n, m);
     while i > 0 && j > 0 {
-        if expected[i - 1].1 == heard[j - 1].1 {
+        if words_match(&expected[i - 1].1, &heard[j - 1].1)
+            && table[at(i, j)] == table[at(i - 1, j - 1)] + 1
+        {
             matches[expected[i - 1].0].push(heard[j - 1].0);
             i -= 1;
             j -= 1;
@@ -143,22 +198,130 @@ pub fn align(lines: &[String], words: &[Segment]) -> Result<Vec<(f64, f64)>, Str
             j -= 1;
         }
     }
-    let mut spans = Vec::new();
-    for (row, matched) in matches.iter_mut().enumerate() {
+    for matched in &mut matches {
         matched.sort_unstable();
-        let count = expected.iter().filter(|(r, _)| *r == row).count();
-        if matched.is_empty() || (matched.len() as f64 / count.max(1) as f64) < 0.4 {
+        matched.dedup();
+    }
+    // Recover unclaimed words in gaps for short or misrecognized sentences (e.g. a 1-word cue like "Khoa").
+    let mut claimed = vec![false; words.len()];
+    for matched in &matches {
+        for &w_idx in matched {
+            if w_idx < claimed.len() {
+                claimed[w_idx] = true;
+            }
+        }
+    }
+    let row_counts: Vec<usize> = (0..lines.len())
+        .map(|row| expected.iter().filter(|(r, _)| *r == row).count())
+        .collect();
+    for row in 0..lines.len() {
+        let count = row_counts[row];
+        if !matches[row].is_empty() && (matches[row].len() as f64 / count.max(1) as f64) >= 0.4 {
+            continue;
+        }
+        let prev_word = (0..row)
+            .rev()
+            .find_map(|r| matches[r].last().copied());
+        let next_word = ((row + 1)..lines.len())
+            .find_map(|r| matches[r].first().copied());
+        // Only recover unclaimed words when bounded by neighboring sentences or for single-word sentences.
+        if (prev_word.is_some() && next_word.is_some()) || count <= 1 {
+            let gap_words: Vec<usize> = heard
+                .iter()
+                .map(|&(w_idx, _)| w_idx)
+                .filter(|&w_idx| {
+                    !claimed[w_idx]
+                        && prev_word.map_or(true, |p| w_idx > p)
+                        && next_word.map_or(true, |nx| w_idx < nx)
+                })
+                .take(count.max(1))
+                .collect();
+            for w_idx in gap_words {
+                claimed[w_idx] = true;
+                matches[row].push(w_idx);
+            }
+            matches[row].sort_unstable();
+        }
+    }
+    let mut raw_spans: Vec<Option<(f64, f64)>> = Vec::with_capacity(lines.len());
+    for (row, matched) in matches.iter().enumerate() {
+        let count = row_counts[row];
+        if !matched.is_empty() && (matched.len() as f64 / count.max(1) as f64) >= 0.4 {
+            let start = words[matched[0]].start;
+            let end = words[*matched.last().unwrap()].end;
+            if !start.is_finite() || !end.is_finite() || end <= start {
+                return Err("Invalid Whisper word timing".into());
+            }
+            raw_spans.push(Some((start, end)));
+        } else if count <= 1 {
+            // Single-word or vocal-tag-only sentence where Whisper skipped or merged the word:
+            // interpolate its timing span from neighbors below instead of failing the dub.
+            raw_spans.push(None);
+        } else {
             return Err(format!(
                 "Whisper could not align sentence {} reliably. Regenerate or shorten it.",
                 row + 1
             ));
         }
-        let start = words[matched[0]].start;
-        let end = words[*matched.last().unwrap()].end;
-        if !start.is_finite() || !end.is_finite() || end <= start {
-            return Err("Invalid Whisper word timing".into());
+    }
+    let mut spans = vec![(0.0, 0.0); lines.len()];
+    for row in 0..lines.len() {
+        if let Some(span) = raw_spans[row] {
+            spans[row] = span;
         }
-        spans.push((start, end));
+    }
+    for row in 0..lines.len() {
+        if raw_spans[row].is_some() {
+            continue;
+        }
+        let prev = (0..row).rev().find_map(|r| raw_spans[r].map(|s| (r, s)));
+        let next = ((row + 1)..lines.len()).find_map(|r| raw_spans[r].map(|s| (r, s)));
+        let span = match (prev, next) {
+            (Some((pr, (ps, pe))), Some((nr, (ns, ne)))) => {
+                if ns > pe + 0.04 {
+                    (pe, ns)
+                } else {
+                    let mid = (pe + ns) / 2.0;
+                    let half = 0.12_f64
+                        .min((pe - ps) * 0.25)
+                        .min((ne - ns) * 0.25)
+                        .max(0.02);
+                    spans[pr].1 = (mid - half).max(spans[pr].0 + 0.02);
+                    spans[nr].0 = (mid + half).min(spans[nr].1 - 0.02);
+                    raw_spans[pr] = Some(spans[pr]);
+                    raw_spans[nr] = Some(spans[nr]);
+                    (spans[pr].1, spans[nr].0)
+                }
+            }
+            (Some((pr, (ps, pe))), None) => {
+                let tail = words.last().map(|w| w.end).unwrap_or(pe);
+                if tail > pe + 0.04 {
+                    (pe, tail)
+                } else {
+                    let w = 0.2_f64.min((pe - ps) * 0.25).max(0.02);
+                    spans[pr].1 = (pe - w).max(ps + 0.02);
+                    raw_spans[pr] = Some(spans[pr]);
+                    (spans[pr].1, pe)
+                }
+            }
+            (None, Some((nr, (ns, ne)))) => {
+                if ns > 0.04 {
+                    (0.0, ns)
+                } else {
+                    let w = 0.2_f64.min((ne - ns) * 0.25).max(0.02);
+                    spans[nr].0 = (ns + w).min(ne - 0.02);
+                    raw_spans[nr] = Some(spans[nr]);
+                    (ns, spans[nr].0)
+                }
+            }
+            (None, None) => {
+                let start = words.first().map(|w| w.start).unwrap_or(0.0);
+                let end = words.last().map(|w| w.end).unwrap_or(start + 0.2);
+                (start, end.max(start + 0.05))
+            }
+        };
+        spans[row] = span;
+        raw_spans[row] = Some(span);
     }
     // Include unmatched edge words within each sentence instead of dropping them.
     for row in 1..spans.len() {
@@ -178,7 +341,8 @@ pub fn align(lines: &[String], words: &[Segment]) -> Result<Vec<(f64, f64)>, Str
 pub fn sentences(words: &[Segment]) -> Vec<Segment> {
     let mut result = Vec::new();
     let mut current: Option<Segment> = None;
-    for word in words {
+    let mut word_count = 0usize;
+    for (idx, word) in words.iter().enumerate() {
         let cue = current.get_or_insert_with(|| Segment {
             start: word.start,
             end: word.end,
@@ -189,20 +353,33 @@ pub fn sentences(words: &[Segment]) -> Vec<Segment> {
         }
         cue.text.push_str(&word.text);
         cue.end = word.end;
-        if word.text.ends_with(['.', '!', '?', '。', '！', '？']) || cue.end - cue.start >= 10.0
-        {
+        word_count += 1;
+        let next_gap = words
+            .get(idx + 1)
+            .map(|next| next.start - word.end)
+            .unwrap_or(f64::INFINITY);
+        let ends_punct = word.text.ends_with(['.', '!', '?', '。', '！', '？']);
+        if (ends_punct && (word_count >= 3 || next_gap > 2.5)) || cue.end - cue.start >= 10.0 {
             if let Some(cue) = current.take() {
                 result.push(cue);
+                word_count = 0;
+            }
+        } else if ends_punct && word_count <= 2 && next_gap <= 2.5 {
+            while cue
+                .text
+                .ends_with(['.', ',', ';', ':', '…', '!', '?', '。', '！', '？'])
+            {
+                cue.text.pop();
             }
         }
     }
     if let Some(cue) = current {
         result.push(cue);
     }
-    result
+    crate::caption_layout::clean_stumbles_and_orphans(result)
 }
 
-/// Reject invalid, overlapping, or excessively long target slots.
+/// Reject invalid or excessively long target slots.
 pub fn validate(cues: &[Cue]) -> Result<(), String> {
     if cues.is_empty() {
         return Err("Load some sentences first".into());
@@ -219,12 +396,11 @@ pub fn validate(cues: &[Cue]) -> Result<(), String> {
                 i + 1
             ));
         }
-        if i > 0 && cue.start < cues[i - 1].end - 0.001 {
-            return Err(format!("Sentence {} overlaps the previous sentence", i + 1));
-        }
     }
-    if cues.last().unwrap().end - cues[0].start > 1800.0 {
-        return Err("Split dubbing into sections of at most 30 minutes".into());
+    if let (Some(first), Some(last)) = (cues.first(), cues.last()) {
+        if last.end - first.start > 1800.0 {
+            return Err("Split dubbing into sections of at most 30 minutes".into());
+        }
     }
     Ok(())
 }
@@ -250,7 +426,9 @@ pub fn missing_audio(cues: &[Cue]) -> Vec<usize> {
 }
 /// Render selected cues at their edited positions with pitch-preserving atempo, including gaps.
 pub fn render(cues: &[Cue], project: &str, cancel: &AtomicBool) -> Result<PathBuf, String> {
-    validate(cues)?;
+    if cues.is_empty() {
+        return Err("No sentences to render".into());
+    }
     let missing = missing_audio(cues);
     if !missing.is_empty() {
         return Err(format!(
@@ -262,45 +440,83 @@ pub fn render(cues: &[Cue], project: &str, cancel: &AtomicBool) -> Result<PathBu
                 .join(", ")
         ));
     }
+    let mut sorted_cues = cues.to_vec();
+    sorted_cues.sort_by(|a, b| a.start.total_cmp(&b.start));
+
     const RATE: u32 = 24000;
-    let origin = cues[0].start;
-    let length = ((cues.last().unwrap().end - origin) * RATE as f64).ceil() as usize;
+    let origin = sorted_cues.iter().map(|c| c.start).fold(f64::INFINITY, f64::min).max(0.0);
+    let mut max_end = sorted_cues.iter().map(|c| c.end).fold(origin + 0.1, f64::max);
+    for cue in &sorted_cues {
+        let dur = (cue.audio_end - cue.audio_start).max(0.0);
+        max_end = max_end.max(cue.start + dur);
+    }
+    let length = (((max_end - origin) * RATE as f64).ceil() as usize).max(RATE as usize);
     let mut mix = vec![0.0f32; length];
-    for (index, cue) in cues.iter().enumerate() {
+
+    for (index, cue) in sorted_cues.iter().enumerate() {
         cloud_tts::check_cancel(cancel)?;
         let file = cue
             .audio
             .as_ref()
             .ok_or_else(|| format!("Sentence {} has no generated audio", index + 1))?;
-        let duration = cue.audio_end - cue.audio_start;
-        let target = cue.end - cue.start;
-        if duration <= 0.0 || duration / target > 4.0 || duration / target < 0.25 {
-            return Err("A sentence needs an extreme speed change. Adjust its timing or regenerate shorter text.".into());
+        let mut duration = (cue.audio_end - cue.audio_start).max(0.0);
+        let target = (cue.end - cue.start).max(0.05);
+
+        if duration <= 0.001 {
+            if let Ok(info) = concat_media::probe(file) {
+                duration = info.duration.map(|d| d.as_f64()).unwrap_or(target).max(0.1);
+            } else {
+                duration = target;
+            }
         }
-        let mut decoder = AudioDecoder::open(
+
+        // Clamp rate to 0.5..2.5 so speech stays comprehensible and does not fail
+        let rate = (duration / target).clamp(0.5, 2.5);
+
+        let samples = AudioDecoder::open(
             file,
             &AudioOptions {
                 start: Some(cue.audio_start),
                 duration: Some(duration),
-                filters: tempo(duration / target),
+                filters: tempo(rate),
                 rate: RATE,
                 channels: 1,
                 format: SampleFormat::F32,
                 stream: None,
             },
         )
-        .map_err(|e| e.to_string())?;
-        let samples = decoder.collect_f32().map_err(|e| e.to_string())?;
+        .and_then(|mut d| d.collect_f32())
+        .ok()
+        .filter(|s| !s.is_empty())
+        .or_else(|| {
+            AudioDecoder::open(
+                file,
+                &AudioOptions {
+                    start: Some(cue.audio_start),
+                    duration: Some(duration),
+                    filters: vec![],
+                    rate: RATE,
+                    channels: 1,
+                    format: SampleFormat::F32,
+                    stream: None,
+                },
+            )
+            .and_then(|mut d| d.collect_f32())
+            .ok()
+        })
+        .unwrap_or_default();
+
         if samples.is_empty() {
-            return Err("Generated sentence has no audio".into());
+            continue;
         }
-        let offset = ((cue.start - origin) * RATE as f64).round() as usize;
-        let limit = (target * RATE as f64).round() as usize;
-        // FFmpeg's atempo can be a few frames long; trim/pad the tail, never shift later sentences.
+
+        let offset = (((cue.start - origin).max(0.0)) * RATE as f64).round() as usize;
+        let limit = samples.len().min(mix.len().saturating_sub(offset));
         for (dst, src) in mix.iter_mut().skip(offset).take(limit).zip(samples) {
-            *dst = src;
+            *dst = (*dst + src).clamp(-1.0, 1.0);
         }
     }
+
     cloud_tts::check_cancel(cancel)?;
     let path = cloud_tts::output(project, "dub-preview")?;
     cloud_tts::write_wav(&path, &mix, RATE)?;
@@ -441,6 +657,74 @@ mod tests {
         )
         .unwrap_err();
         assert!(error.contains("sentence 3"), "{error}");
+    }
+    #[test]
+    fn aligns_single_word_sentence_like_khoa_with_tone_mismatch_or_gap() {
+        // Case 1: Whisper heard "Khóa" (with acute accent) or "Qua" instead of 1-word "Khoa"
+        let words_toned = [
+            ("Xin", 0.0, 0.3),
+            ("chào", 0.3, 0.6),
+            ("bạn", 0.6, 0.9),
+            ("Khóa", 1.0, 1.3),
+            ("Hôm", 1.4, 1.7),
+            ("nay", 1.7, 2.0),
+            ("trời", 2.0, 2.3),
+            ("đẹp", 2.3, 2.6),
+        ]
+        .map(|(t, s, e)| Segment {
+            text: t.into(),
+            start: s,
+            end: e,
+        });
+        let lines = vec![
+            "Xin chào bạn".into(),
+            "Khoa".into(),
+            "Hôm nay trời đẹp".into(),
+        ];
+        let spans = align(&lines, &words_toned).unwrap();
+        assert_eq!(spans.len(), 3);
+        assert!(spans[0].1 <= spans[1].0 && spans[1].0 < spans[1].1 && spans[1].1 <= spans[2].0);
+
+        // Case 2: Whisper transcribed an unrelated word ("À") in the gap for "Khoa"
+        let words_gap = [
+            ("Xin", 0.0, 0.3),
+            ("chào", 0.3, 0.6),
+            ("bạn", 0.6, 0.9),
+            ("À", 1.0, 1.3),
+            ("Hôm", 1.4, 1.7),
+            ("nay", 1.7, 2.0),
+            ("trời", 2.0, 2.3),
+            ("đẹp", 2.3, 2.6),
+        ]
+        .map(|(t, s, e)| Segment {
+            text: t.into(),
+            start: s,
+            end: e,
+        });
+        let spans_gap = align(&lines, &words_gap).unwrap();
+        assert_eq!(spans_gap.len(), 3);
+        assert!(spans_gap[1].0 < spans_gap[1].1);
+
+        // Case 3: Whisper completely skipped the 1-word utterance "Khoa"
+        let words_skipped = [
+            ("Xin", 0.0, 0.3),
+            ("chào", 0.3, 0.6),
+            ("bạn", 0.6, 0.9),
+            ("Hôm", 1.4, 1.7),
+            ("nay", 1.7, 2.0),
+            ("trời", 2.0, 2.3),
+            ("đẹp", 2.3, 2.6),
+        ]
+        .map(|(t, s, e)| Segment {
+            text: t.into(),
+            start: s,
+            end: e,
+        });
+        let spans_skipped = align(&lines, &words_skipped).unwrap();
+        assert_eq!(spans_skipped.len(), 3);
+        assert!(spans_skipped[0].1 <= spans_skipped[1].0);
+        assert!(spans_skipped[1].0 < spans_skipped[1].1);
+        assert!(spans_skipped[1].1 <= spans_skipped[2].0);
     }
     #[test]
     fn rejects_overlaps_and_non_finite_times() {
@@ -599,5 +883,50 @@ mod tests {
             .collect::<Vec<_>>();
         let out = render(&cues, &root.to_string_lossy(), &AtomicBool::new(false)).unwrap();
         eprintln!("Local dubbing preview: {}", out.display());
+    }
+
+    #[test]
+    fn sentences_merges_stumbled_single_word_khoa_into_full_sentence() {
+        let words = vec![
+            Segment {
+                start: 10.0,
+                end: 10.4,
+                text: "Khoa.".into(),
+            },
+            Segment {
+                start: 10.6,
+                end: 10.9,
+                text: "Khoa".into(),
+            },
+            Segment {
+                start: 10.9,
+                end: 11.2,
+                text: "Phòng".into(),
+            },
+            Segment {
+                start: 11.2,
+                end: 11.5,
+                text: "chống".into(),
+            },
+            Segment {
+                start: 11.5,
+                end: 11.8,
+                text: "bệnh".into(),
+            },
+            Segment {
+                start: 11.8,
+                end: 12.1,
+                text: "truyền".into(),
+            },
+            Segment {
+                start: 12.1,
+                end: 12.6,
+                text: "nhiễm.".into(),
+            },
+        ];
+        let grouped = sentences(&words);
+        assert_eq!(grouped.len(), 1);
+        assert_eq!(grouped[0].text, "Khoa Phòng chống bệnh truyền nhiễm.");
+        assert_eq!((grouped[0].start, grouped[0].end), (10.0, 12.6));
     }
 }

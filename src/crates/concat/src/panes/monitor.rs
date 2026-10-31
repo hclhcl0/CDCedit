@@ -186,7 +186,17 @@ impl MonitorPane {
                         }
                     }
                 }
+                let interactive = studio.playing
+                    || studio.source.as_ref().is_some_and(|source| source.playing)
+                    || studio.is_scrubbing();
                 if self.wanted {
+                    self.request(studio);
+                } else if studio.prefs.low_resource()
+                    && (spec.proxy || spec.bypass_effects)
+                    && !interactive
+                {
+                    // Settle: A low-resource frame arrived right as scrubbing/playback stopped.
+                    // Immediately re-request the clear, sharp full-resolution frame.
                     self.request(studio);
                 }
             }
@@ -231,28 +241,38 @@ impl MonitorPane {
             self.wanted = true;
             return;
         }
-        let (width, height) =
-            Self::frame_size(self.quality_of(studio.project()), studio.output_size());
+        let moving =
+            studio.playing || studio.source.as_ref().is_some_and(|source| source.playing);
+        let low_res = studio.prefs.low_resource();
+        let interactive = moving || (low_res && studio.is_scrubbing());
+        let selected_quality = self.quality_of(studio.project());
+        let quality = if low_res {
+            if interactive {
+                2
+            } else {
+                selected_quality.min(1)
+            }
+        } else {
+            selected_quality
+        };
+        let (width, height) = Self::frame_size(quality, studio.output_size());
         let Some((clips, settings)) = studio.preview_clips() else {
             return;
         };
-        let quality = self.quality_of(studio.project());
+        let bypass_effects = low_res && studio.is_scrubbing();
         let spec = FrameSpec {
             time: f64::from(studio.preview_time()),
             width,
             height,
-            moving: studio.playing || studio.source.as_ref().is_some_and(|source| source.playing),
-            // Playback reads the proxies at Half and Quarter; Full plays
-            // the files themselves, or Full would be the proxy blurred up.
-            // With proxies off in Settings it plays the files at every
-            // quality, a proxy left from before included.
-            proxy: studio.prefs.proxies
-                && (studio.playing || studio.source.as_ref().is_some_and(|source| source.playing))
-                && quality > 0,
+            moving,
+            // Playback reads proxies at Half and Quarter when proxies are enabled
+            // (or in low-resource mode); Full plays the files themselves.
+            proxy: (studio.prefs.proxies || low_res) && interactive && quality > 0,
             color_space: studio.project().active().video.color_space,
             canvas: studio.project().active().video.canvas,
+            bypass_effects,
         };
-        if !studio.playing {
+        if !moving {
             self.cadence.report(studio.project().active().video.rate());
         }
         let monitor = studio.host.monitor.clone();

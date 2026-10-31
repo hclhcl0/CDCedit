@@ -153,6 +153,7 @@ export struct StartData {
     /// recent first, 1 by name.
     query: string,
     sort: int,
+    project-tab: int,
 }
 
 // ── the small parts ──────────────────────────────────────────────────────
@@ -1574,7 +1575,7 @@ global Learn {
 global AiTools {
     out property <LearnItem> voice-changer: {
         name: "tool-voice-changer", glyph: Glyph.voice-changer, external: false,
-        title: "Thu Âm & Thay Đổi Giọng Nói", note: "Ghi âm micro / duyệt file: Đổi giọng DSP, AI Speech-to-Speech & Đọc lại TTS",
+        title: "Voice Changer (ElevenLabs / DSP)", note: "Biến đổi giọng nói bằng ElevenLabs AI Speech-to-Speech hoặc bộ lọc DSP phòng thu",
     };
     out property <LearnItem> audio-studio: {
         name: "tool-audio-studio", glyph: Glyph.audio-studio, external: false,
@@ -1641,6 +1642,7 @@ component WideHome inherits Rectangle {
     in property <int> recents-total;
     in property <string> query;
     in property <int> sort;
+    in property <int> project-tab;
     in property <bool> busy;
     in property <string> version;
     in property <bool> can-drop;
@@ -1652,6 +1654,7 @@ component WideHome inherits Rectangle {
     callback reveal-recent(path: string);
     callback search-edited(query: string);
     callback sort-changed(sort: int);
+    callback project-tab-changed(index: int);
     callback link(name: string);
 
     /// The margin the page keeps from the window's edges.
@@ -1781,8 +1784,18 @@ component WideHome inherits Rectangle {
                 // ── the projects ─────────────────────────────────────
                 SectionHead {
                     height: 34px;
-                    text: I18n.t("start.recentProjects");
+                    text: root.project-tab == 1 ? "Dự án CapCut" : I18n.t("start.recentProjects");
                     count: root.recents-total > 0 ? "\{root.recents-total}" : "";
+
+                    VerticalLayout {
+                        alignment: center;
+                        SegmentedControl {
+                            width: 250px;
+                            options: ["Dự án CDCedit", "Dự án CapCut"];
+                            current: root.project-tab;
+                            changed(index) => { root.project-tab-changed(index); }
+                        }
+                    }
 
                     // Past a page of them: by the time there are more
                     // than a screen holds, the eye is not a search.
@@ -1806,8 +1819,19 @@ component WideHome inherits Rectangle {
 
                 Rectangle { height: 16px; }
 
-                if root.recents-total == 0: EmptyProjects {
+                if root.recents-total == 0 && root.project-tab == 0: EmptyProjects {
                     first-edit => { root.link("first-edit"); }
+                }
+
+                if root.recents-total == 0 && root.project-tab == 1: VerticalLayout {
+                    padding: 32px;
+                    alignment: center;
+                    Text {
+                        text: "Không tìm thấy dự án CapCut nào trên máy tính.";
+                        color: Theme.fg-muted;
+                        font-size: Theme.fs-lg;
+                        horizontal-alignment: center;
+                    }
                 }
 
                 if root.recents-total > 0 && root.recents.length == 0: Text {
@@ -1924,6 +1948,7 @@ component NarrowHome inherits Rectangle {
     in property <[RecentProjectData]> recents;
     in property <int> recents-total;
     in property <string> query;
+    in property <int> project-tab;
     in property <bool> busy;
     in property <string> version;
     /// A phone: no folder picker, so no Open; projects live in the app's
@@ -1937,6 +1962,7 @@ component NarrowHome inherits Rectangle {
     callback open-recent(path: string);
     callback forget-recent(path: string);
     callback search-edited(query: string);
+    callback project-tab-changed(index: int);
     callback link(name: string);
 
     property <length> pad: 16px;
@@ -2020,13 +2046,23 @@ component NarrowHome inherits Rectangle {
                 clicked => { root.compose(); }
             }
 
-            if root.recents-total > 0: VerticalLayout {
+            VerticalLayout {
                 padding-top: 24px;
 
                 SectionHead {
                     height: 28px;
-                    text: I18n.t("start.recentProjects");
+                    text: root.project-tab == 1 ? "Dự án CapCut" : I18n.t("start.recentProjects");
                     count: "\{root.recents-total}";
+
+                    VerticalLayout {
+                        alignment: center;
+                        SegmentedControl {
+                            width: 180px;
+                            options: ["CDCedit", "CapCut"];
+                            current: root.project-tab;
+                            changed(index) => { root.project-tab-changed(index); }
+                        }
+                    }
                 }
 
                 if root.searchable: VerticalLayout {
@@ -2164,6 +2200,7 @@ export component StartScreen inherits Rectangle {
     in property <int> recents-total;
     in property <string> query;
     in property <int> sort;
+    in property <int> project-tab;
     /// A project is being made: every verb on the page waits for it.
     in property <bool> busy;
     /// "0.2.7"
@@ -2182,6 +2219,7 @@ export component StartScreen inherits Rectangle {
     callback open-settings();
     callback search-edited(query: string);
     callback sort-changed(sort: int);
+    callback project-tab-changed(index: int);
     /// One of the page's links, by name; see `start::link` in Rust.
     callback link(name: string);
 
@@ -2197,6 +2235,7 @@ export component StartScreen inherits Rectangle {
         recents-total: root.recents-total;
         query: root.query;
         sort: root.sort;
+        project-tab: root.project-tab;
         busy: root.busy;
         version: root.version;
         can-drop: root.can-drop;
@@ -2207,6 +2246,7 @@ export component StartScreen inherits Rectangle {
         reveal-recent(path) => { root.reveal-recent(path); }
         search-edited(query) => { root.search-edited(query); }
         sort-changed(sort) => { root.sort-changed(sort); }
+        project-tab-changed(index) => { root.project-tab-changed(index); }
         link(name) => { root.link(name); }
     }
 
@@ -2216,6 +2256,7 @@ export component StartScreen inherits Rectangle {
         recents: root.recents;
         recents-total: root.recents-total;
         query: root.query;
+        project-tab: root.project-tab;
         busy: root.busy;
         version: root.version;
         phone: root.phone;
@@ -2225,6 +2266,7 @@ export component StartScreen inherits Rectangle {
         open-recent(path) => { root.open-recent(path); }
         forget-recent(path) => { root.forget-recent(path); }
         search-edited(query) => { root.search-edited(query); }
+        project-tab-changed(index) => { root.project-tab-changed(index); }
         link(name) => { root.link(name); }
     }
 }

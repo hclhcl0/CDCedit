@@ -125,10 +125,10 @@ impl Model {
             .map_err(|error| format!("onnx runtime: {error}"))?;
         // Every core on one frame at a time: the models are convolutional
         // and a frame fills a machine on its own.
-        let threads = std::thread::available_parallelism()
+        let total = std::thread::available_parallelism()
             .map(|count| count.get())
-            .unwrap_or(1)
-            .clamp(1, 8);
+            .unwrap_or(4);
+        let threads = total.saturating_sub(2).clamp(1, 16);
         builder = builder
             .with_intra_threads(threads)
             .map_err(|error| format!("onnx runtime: {error}"))?;
@@ -218,7 +218,14 @@ fn fixed_accelerators() -> Vec<ort::ep::ExecutionProviderDispatch> {
             ort::ep::CPU::default().build(),
         ]
     }
-    #[cfg(not(target_vendor = "apple"))]
+    #[cfg(target_os = "windows")]
+    {
+        vec![
+            ort::ep::DirectML::default().build(),
+            ort::ep::CPU::default().build(),
+        ]
+    }
+    #[cfg(not(any(target_vendor = "apple", target_os = "windows")))]
     {
         accelerators()
     }
@@ -229,10 +236,12 @@ fn platform_accelerator() -> Option<ort::ep::ExecutionProviderDispatch> {
     Some(ort::ep::NNAPI::default().build())
 }
 
-// Not DirectML on Windows: the bundle ships Microsoft's CPU build of the
-// runtime, which has no DirectML, and asking it for one crashed the second
-// session a process opened - an object cutout after a person one (#399).
-#[cfg(not(any(target_vendor = "apple", target_os = "android")))]
+#[cfg(target_os = "windows")]
+fn platform_accelerator() -> Option<ort::ep::ExecutionProviderDispatch> {
+    Some(ort::ep::DirectML::default().build())
+}
+
+#[cfg(not(any(target_vendor = "apple", target_os = "android", target_os = "windows")))]
 fn platform_accelerator() -> Option<ort::ep::ExecutionProviderDispatch> {
     None
 }

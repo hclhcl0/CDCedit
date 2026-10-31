@@ -74,6 +74,10 @@ export struct SettingsData {
     gemini-key-count: int,
     eleven-api-key: string,
     eleven-key-count: int,
+    capcut-font-size: float,
+    capcut-scale-percent: float,
+    capcut-position-y: float,
+    capcut-stroke-width: float,
     /// what the log records: 0 errors only, 1 warnings, 2 normal, 3
     /// debug, 4 everything
     log-level: int,
@@ -81,6 +85,7 @@ export struct SettingsData {
     playhead-stops: bool,
     /// large files get a smaller copy for playback
     proxies: bool,
+    low-resource: bool,
     /// the window and the compositor draw on the GPU, not in software
     gpu: bool,
     /// there is a software rasteriser to draw on instead: Windows, Linux
@@ -651,6 +656,10 @@ export component SettingsDialog inherits Modal {
     callback language-changed(index: int);
     callback gemini-api-key-edited(text: string);
     callback eleven-api-key-edited(text: string);
+    callback capcut-font-size-edited(size: float);
+    callback capcut-scale-percent-edited(scale: float);
+    callback capcut-position-y-edited(y: float);
+    callback capcut-stroke-width-edited(width: float);
     callback log-level-changed(index: int);
     /// The theme, chosen rather than flipped. A toggle in the strip could only
     /// say "the other one"; a page with two named options can say which one is
@@ -669,6 +678,7 @@ export component SettingsDialog inherits Modal {
     callback scale-changed(index: int);
     callback playhead-stops-changed(on: bool);
     callback proxies-changed(on: bool);
+    callback low-resource-changed(on: bool);
     callback gpu-changed(on: bool);
     callback magnetic-changed(on: bool);
     callback download-source-changed(index: int);
@@ -923,6 +933,79 @@ export component SettingsDialog inherits Modal {
                     Field { value: root.data.eleven-api-key; placeholder: "key1; key2; key3"; secret: true; technical: true; edited(text) => { root.eleven-api-key-edited(text); } }
                 }
 
+                DialogSection {
+                    title: "Xuất phụ đề sang CapCut";
+                    hint: "Tùy chỉnh thông số phụ đề khi xuất dự án sang CapCut PC (cỡ chữ, tỉ lệ biến đổi, vị trí Y, độ dày viền đen)";
+                    open: true;
+
+                    HorizontalLayout {
+                        spacing: 12px;
+                        VerticalLayout {
+                            spacing: 4px;
+                            Text {
+                                text: "Cỡ chữ";
+                                color: Theme.fg-muted;
+                            }
+                            NumberField {
+                                value: root.data.capcut-font-size;
+                                minimum: 1;
+                                maximum: 100;
+                                step: 1;
+                                precision: 1;
+                                changed(v) => { root.capcut-font-size-edited(v); }
+                            }
+                        }
+
+                        VerticalLayout {
+                            spacing: 4px;
+                            Text {
+                                text: "Tỉ lệ %";
+                                color: Theme.fg-muted;
+                            }
+                            NumberField {
+                                value: root.data.capcut-scale-percent;
+                                minimum: 10;
+                                maximum: 500;
+                                step: 1;
+                                precision: 0;
+                                changed(v) => { root.capcut-scale-percent-edited(v); }
+                            }
+                        }
+
+                        VerticalLayout {
+                            spacing: 4px;
+                            Text {
+                                text: "Vị trí Y";
+                                color: Theme.fg-muted;
+                            }
+                            NumberField {
+                                value: root.data.capcut-position-y;
+                                minimum: -2000;
+                                maximum: 2000;
+                                step: 10;
+                                precision: 0;
+                                changed(v) => { root.capcut-position-y-edited(v); }
+                            }
+                        }
+
+                        VerticalLayout {
+                            spacing: 4px;
+                            Text {
+                                text: "Viền đen";
+                                color: Theme.fg-muted;
+                            }
+                            NumberField {
+                                value: root.data.capcut-stroke-width;
+                                minimum: 0;
+                                maximum: 100;
+                                step: 1;
+                                precision: 0;
+                                changed(v) => { root.capcut-stroke-width-edited(v); }
+                            }
+                        }
+                    }
+                }
+
                 // What the log records. Normal is what a bug report needs
                 // most days; Debug and Everything are for when a report
                 // asks, and the file grows faster for them. CONCAT_LOG in
@@ -1012,11 +1095,20 @@ export component SettingsDialog inherits Modal {
                 DialogSection {
                     ruled: false;
                     title: I18n.t("settings.proxies");
-                    hint: I18n.t("settings.proxiesHint");
-                    switchable: true;
-                    on: root.data.proxies;
+                    hint: root.data.low-resource ? I18n.t("settings.lowResourceHint") : I18n.t("settings.proxiesHint");
+                    switchable: !root.data.low-resource;
+                    on: root.data.proxies || root.data.low-resource;
                     open: false;
                     switched(on) => { root.proxies-changed(on); }
+                }
+                DialogSection {
+                    ruled: false;
+                    title: I18n.t("settings.lowResource");
+                    hint: I18n.t("settings.lowResourceHint");
+                    switchable: true;
+                    on: root.data.low-resource;
+                    open: false;
+                    switched(on) => { root.low-resource-changed(on); }
                 }
 
                 // Off, the window and the compositor draw in software:

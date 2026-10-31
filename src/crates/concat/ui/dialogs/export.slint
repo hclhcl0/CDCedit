@@ -440,6 +440,7 @@ component ExportFooter inherits VerticalLayout {
     callback cancel();
     callback reveal();
     callback again();
+    callback export-capcut();
 
     property <bool> running: root.data.phase == ExportPhase.running;
 
@@ -611,6 +612,7 @@ export component ExportDialog inherits Rectangle {
     callback cancel();
     callback reveal();
     callback again();
+    callback export-capcut();
 
     property <bool> running: root.data.phase == ExportPhase.running;
     /// How many columns the width holds. Three groups a column wide need
@@ -854,6 +856,7 @@ export component ExportDialog inherits Rectangle {
                     cancel => { root.cancel(); }
                     reveal => { root.reveal(); }
                     again => { root.again(); }
+                    export-capcut => { root.export-capcut(); }
                 }
             }
         }

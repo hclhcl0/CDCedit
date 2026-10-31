@@ -417,8 +417,15 @@ export component TimelineTray inherits Rectangle {
             glyph: Glyph.volume;
             label: I18n.t("tray.textToSpeech");
             icon-size: 16px;
-            checked: Editor.speech-open;
+            checked: Editor.speech-open && !Editor.voice-changer-open;
             clicked => { root.speak(); }
+        }
+        TrayButton {
+            glyph: Glyph.voice-changer;
+            label: "Voice Changer (ElevenLabs / Đổi giọng)";
+            icon-size: 16px;
+            checked: Editor.voice-changer-open;
+            clicked => { Editor.voice-changer(); }
         }
         // A voiceover: the picture rolls from the playhead and the words go
         // onto a lane under it. The same button stops the take.

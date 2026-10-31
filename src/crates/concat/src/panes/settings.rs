@@ -54,11 +54,17 @@ pub enum SettingsMsg {
     LanguageChanged(i32),
     GeminiApiKeyEdited(crate::api_key::ApiKey),
     ElevenApiKeyEdited(crate::api_key::ApiKey),
+    CapcutFontSizeEdited(f64),
+    CapcutScalePercentEdited(f64),
+    CapcutPositionYEdited(f64),
+    CapcutStrokeWidthEdited(f64),
     /// The log level's row: an index into [`LOG_LEVELS`].
     LogLevelChanged(i32),
     PlayheadStopsChanged(bool),
     /// The proxies switch: whether large files get a smaller copy to play.
     ProxiesChanged(bool),
+    /// The low-resource playback switch.
+    LowResourceChanged(bool),
     /// The GPU switch: on, the window and the compositor draw on the GPU;
     /// off, in software. Read at the next launch.
     GpuChanged(bool),
@@ -275,6 +281,7 @@ impl SettingsPane {
     pub fn update(&mut self, msg: SettingsMsg, studio: &mut Studio) {
         match msg {
             SettingsMsg::Restore => {
+                concat_host::performance::set_low_resource(studio.prefs.low_resource());
                 self.language = studio
                     .languages
                     .iter()
@@ -349,6 +356,22 @@ impl SettingsPane {
                 studio.prefs.eleven_api_key = key;
                 studio.prefs.save(&studio.host.dirs);
             }
+            SettingsMsg::CapcutFontSizeEdited(val) => {
+                studio.prefs.capcut_export.font_size = val;
+                studio.prefs.save(&studio.host.dirs);
+            }
+            SettingsMsg::CapcutScalePercentEdited(val) => {
+                studio.prefs.capcut_export.scale_percent = val;
+                studio.prefs.save(&studio.host.dirs);
+            }
+            SettingsMsg::CapcutPositionYEdited(val) => {
+                studio.prefs.capcut_export.position_y = val;
+                studio.prefs.save(&studio.host.dirs);
+            }
+            SettingsMsg::CapcutStrokeWidthEdited(val) => {
+                studio.prefs.capcut_export.stroke_width = val;
+                studio.prefs.save(&studio.host.dirs);
+            }
             SettingsMsg::LanguageChanged(index) => {
                 let index = index.max(0) as usize;
                 if let Some(language) = studio.languages.get(index).cloned() {
@@ -386,6 +409,12 @@ impl SettingsPane {
                 // On, the media already in the project gets its proxies
                 // straight away (refresh_art's stamp holds the switch);
                 // off, playback reads the files from the next frame.
+            }
+            SettingsMsg::LowResourceChanged(on) => {
+                studio.prefs.low_resource = Some(on);
+                studio.prefs.save(&studio.host.dirs);
+                concat_host::performance::set_low_resource(on);
+                studio.recheck_proxies();
             }
             SettingsMsg::GpuChanged(on) => {
                 studio.prefs.software_gpu = !on;
@@ -970,12 +999,17 @@ impl SettingsPane {
             eleven_api_key: studio.prefs.eleven_api_key.expose().into(),
             eleven_key_count: concat_speech::api_keys::parse(studio.prefs.eleven_api_key.expose())
                 .len() as i32,
+            capcut_font_size: studio.prefs.capcut_export.font_size as f32,
+            capcut_scale_percent: studio.prefs.capcut_export.scale_percent as f32,
+            capcut_position_y: studio.prefs.capcut_export.position_y as f32,
+            capcut_stroke_width: studio.prefs.capcut_export.stroke_width as f32,
             log_level: LOG_LEVELS
                 .iter()
                 .position(|level| *level == log::max_level())
                 .unwrap_or(2) as i32,
             playhead_stops: self.playhead_stops,
             proxies: studio.prefs.proxies,
+            low_resource: studio.prefs.low_resource(),
             gpu: !studio.prefs.draws_in_software(),
             gpu_switchable: cfg!(any(windows, target_os = "linux")),
             magnetic: studio.prefs.magnetic(),

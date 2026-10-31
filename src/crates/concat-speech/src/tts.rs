@@ -1266,10 +1266,10 @@ fn provider(accelerated: bool) -> &'static str {
     }
 }
 
-/// The threads the engine may use: every core up to eight.
+/// The threads the engine may use: up to 16 cores.
 fn threads() -> i32 {
     std::thread::available_parallelism()
-        .map(|count| count.get().min(8))
+        .map(|count| count.get().min(16))
         .unwrap_or(4) as i32
 }
 

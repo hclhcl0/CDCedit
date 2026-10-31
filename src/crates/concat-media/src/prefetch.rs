@@ -154,6 +154,8 @@ struct Queue {
     proxy_running: usize,
     /// Jobs of any priority running now.
     running: usize,
+    /// Maximum simultaneous jobs for the current performance mode.
+    worker_limit: usize,
     closed: bool,
 }
 
@@ -170,9 +172,16 @@ impl Lane {
     /// background work never takes the last free worker, and a proxy runs
     /// alone among proxies.
     fn take(&self, queue: &mut Queue) -> Option<(Priority, Job)> {
-        let reserve = if self.workers > 1 { 1 } else { 0 };
+        let limit = queue.worker_limit;
+        if queue.running >= limit {
+            return None;
+        }
+        let reserve = if limit > 1 { 1 } else { 0 };
         for priority in Priority::ALL {
-            if priority.background() && queue.background_running + reserve >= self.workers {
+            if priority.background()
+                && (queue.background_running + reserve >= limit
+                    || (limit <= 2 && queue.background_running > 0))
+            {
                 continue;
             }
             if priority == Priority::Proxy && queue.proxy_running > 0 {
@@ -221,6 +230,7 @@ impl Prefetcher {
                 background_running: 0,
                 proxy_running: 0,
                 running: 0,
+                worker_limit: workers,
                 closed: false,
             }),
             ready: Condvar::new(),
@@ -260,6 +270,13 @@ impl Prefetcher {
     /// decoding may take while the window and the mix keep the rest.
     pub fn default_workers() -> usize {
         std::thread::available_parallelism().map_or(2, |threads| (threads.get() / 4).clamp(2, 4))
+    }
+
+    /// Reduces parallel decoding without stopping the scheduler or losing
+    /// queued work. A job already running is allowed to finish.
+    pub fn set_worker_limit(&self, limit: usize) {
+        lock(&self.lane.queue).worker_limit = limit.clamp(1, self.lane.workers);
+        self.lane.ready.notify_all();
     }
 
     /// The pool the frames land in.

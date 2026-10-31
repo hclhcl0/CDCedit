@@ -66,7 +66,7 @@ impl Default for Translation {
             media: false,
             language: 0,
             whisper: 0,
-            model: "gemini-3.6-flash".into(),
+            model: "gemini-3.8-flash".into(),
             natural: false,
             glossary: String::new(),
             rows: Vec::new(),

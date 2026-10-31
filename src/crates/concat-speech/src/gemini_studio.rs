@@ -54,10 +54,13 @@ pub struct Filters {
     pub search: String,
 }
 pub fn model(index: usize) -> &'static str {
-    if index == 1 {
-        "gemini-3.8-flash-lite-tts"
-    } else {
-        "gemini-3.8-flash-tts"
+    match index {
+        0 => "gemini-3.8-flash-lite-tts",
+        1 => "gemini-3.8-flash-tts",
+        2 => "gemini-3.1-flash-tts",
+        3 => "gemini-2.5-flash-preview-tts",
+        4 => "gemini-3.5-flash-lite",
+        _ => "gemini-3.8-flash-lite-tts",
     }
 }
 fn valid_voice(id: &str) -> bool {

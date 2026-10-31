@@ -62,7 +62,7 @@ export component GeminiStudioDialog inherits Modal {
                 DialogSection {
                     first:true;title:"Công cụ Gemini TTS 3.8";
                     Select {options:["Hội thoại A/B & phản ứng xen lời","Phong cách & biểu cảm","Thiết kế giọng từ mô tả","Tái tạo giọng từ mẫu","Thư viện giọng mở rộng"];current:root.data.mode;changed(index)=>{root.action(3,index,"",0);}}
-                    DialogRow {label:"Mô hình";Select{options:["Gemini 3.8 Flash TTS","Gemini 3.8 Flash-Lite TTS"];current:root.data.model;changed(i)=>{root.action(4,i,"",0);}}}
+                    DialogRow {label:"Mô hình";Select{options:["Gemini 3.8 Flash Lite TTS","Gemini 3.8 Flash TTS","Gemini 3.1 Flash TTS","Gemini 2.5 Flash TTS","Gemini 3.5 Flash Lite"];current:root.data.model;changed(i)=>{root.action(4,i,"",0);}}}
                     DialogRow {label:"Key / dự án";Select{options:root.data.key-names;current:root.data.key-index;changed(i)=>{root.action(10,i,"",0);}}}
                     Text {text:"Dùng key trong Cài đặt. Google có thể tính phí. Giọng tự tạo được lưu tại dự án của key đã tạo; chọn key dự án khi tải thư viện.";color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
                     if !root.data.ready:Text {text:"Chưa có Gemini API key. Hãy thêm trong Cài đặt → Chung.";color:Theme.fg;font-size:Theme.fs;wrap:word-wrap;}

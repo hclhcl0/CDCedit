@@ -84,7 +84,7 @@ impl Timeline {
                 Some((
                     ClipMove {
                         clip_id: wanted.clip_id.clone(),
-                        start: wanted.start.max(0.0),
+                        start: wanted.start,
                         track_id,
                     },
                     clip.duration,

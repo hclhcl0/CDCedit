@@ -32,9 +32,39 @@ const PIXELS_WITHOUT_PROXY: u64 = 1920 * 1080;
 const DIVISOR: u32 = 4;
 const SHORTEST_LONG_SIDE: u32 = 960;
 
+/// Whether a codec is computationally heavy and benefits from a proxy even at 1080p.
+pub fn is_demanding_codec(codec: &str) -> bool {
+    let codec = codec.to_ascii_lowercase();
+    ["hevc", "h265", "av1", "vp9", "prores", "dnxhr", "10bit", "10-bit"]
+        .iter()
+        .any(|name| codec.contains(name))
+}
+
 /// Whether a `width` by `height` file is worth a proxy.
 pub fn wanted(width: u32, height: u32) -> bool {
-    u64::from(width) * u64::from(height) > PIXELS_WITHOUT_PROXY
+    wanted_for_media(width, height, None)
+}
+
+/// Whether a `width` by `height` file with `codec` is worth a proxy.
+/// Video larger than Full HD always gets one; Full HD (or larger than 720p)
+/// with demanding codecs (such as H.265/HEVC, AV1, VP9, ProRes) also gets one.
+pub fn wanted_for_media(width: u32, height: u32, codec: Option<&str>) -> bool {
+    let pixels = u64::from(width) * u64::from(height);
+    if pixels > PIXELS_WITHOUT_PROXY {
+        return true;
+    }
+    if pixels >= PIXELS_WITHOUT_PROXY && codec.is_some_and(is_demanding_codec) {
+        return true;
+    }
+    false
+}
+
+/// In low-resource mode, decode-heavy codecs merit a proxy even at HD.
+/// Ordinary video gets one above 720p. Audio-only and tiny clips do not.
+pub fn wanted_low_resource(width: u32, height: u32, codec: Option<&str>) -> bool {
+    let pixels = u64::from(width) * u64::from(height);
+    let hard_codec = codec.is_some_and(is_demanding_codec);
+    pixels > 1280 * 720 || (hard_codec && pixels >= 640 * 360)
 }
 
 /// The proxy's size for a `width` by `height` original: the long side a
@@ -108,7 +138,25 @@ pub fn ensure(
     range: Option<ColorRange>,
     hdr: bool,
 ) -> bool {
-    if !wanted(width, height) {
+    ensure_for_mode(project, media, width, height, range, hdr, None, false)
+}
+
+/// As [`ensure`], with the low-resource policy and the media's codec.
+pub fn ensure_for_mode(
+    project: &Path,
+    media: &str,
+    width: u32,
+    height: u32,
+    range: Option<ColorRange>,
+    hdr: bool,
+    codec: Option<&str>,
+    low_resource: bool,
+) -> bool {
+    if !(if low_resource {
+        wanted_low_resource(width, height, codec)
+    } else {
+        wanted_for_media(width, height, codec)
+    }) {
         return false;
     }
     let Some(target) = path_for(project, media, range, hdr) else {
@@ -346,6 +394,26 @@ mod tests {
         assert!(wanted(3840, 2160));
         assert!(wanted(2560, 1440));
         assert!(!wanted(0, 0));
+    }
+
+    #[test]
+    fn demanding_1080p_video_gets_a_proxy_in_standard_mode() {
+        assert!(wanted_for_media(1920, 1080, Some("hevc")));
+        assert!(wanted_for_media(1920, 1080, Some("h265")));
+        assert!(wanted_for_media(1920, 1080, Some("av1")));
+        assert!(wanted_for_media(1920, 1080, Some("vp9")));
+        assert!(wanted_for_media(1920, 1080, Some("prores")));
+        assert!(!wanted_for_media(1920, 1080, Some("h264")));
+        assert!(!wanted_for_media(1280, 720, Some("hevc")));
+    }
+
+    #[test]
+    fn low_resource_mode_proxies_demanding_hd_video() {
+        assert!(wanted_low_resource(1920, 1080, Some("h264")));
+        assert!(wanted_low_resource(1280, 720, Some("hevc")));
+        assert!(wanted_low_resource(640, 360, Some("av1")));
+        assert!(!wanted_low_resource(1280, 720, Some("h264")));
+        assert!(!wanted_low_resource(320, 180, Some("hevc")));
     }
 
     #[test]

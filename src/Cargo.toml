@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.package]
-version = "0.2.8"
+version = "1.0.0"
 edition = "2024"
 rust-version = "1.93"
 license = "AGPL-3.0-or-later"
@@ -88,7 +88,7 @@ incremental = true
 # build is `--profile app`.
 [profile.quick.package.concat]
 opt-level = 0
-codegen-units = 256
+codegen-units = 16
 
 # The shipping build of the editor window: `cargo build --profile app -p concat`.
 #

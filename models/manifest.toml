@@ -262,3 +262,12 @@ bytes = 487601967
 sha256 = "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b"
 licence = "MIT"
 upstream = "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-small.bin"
+
+[[model]]
+id = "whisper-phowhisper-small"
+family = "whisper"
+file = "ggml-PhoWhisper-small.bin"
+bytes = 487601984
+sha256 = "db8de368e822fce5dcdce7c0c4c80c4b554c27655516dea5ec8c093e22f58785"
+licence = "Apache-2.0"
+upstream = "https://huggingface.co/dongxiat/ggml-PhoWhisper-small/resolve/b6677d19bc96a276d7cf5006e2ea18e18d02df16/ggml-PhoWhisper-small.bin"

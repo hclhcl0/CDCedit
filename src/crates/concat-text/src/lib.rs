@@ -1850,7 +1850,13 @@ fn paint(
     // measured, not the line. Whatever reaches past the frame's edge
     // grows the canvas by that much on both sides, so it is painted
     // rather than cut, and the canvas's centre stays the frame's.
-    let stroke_w = style.stroke_width.max(0.0) as f32 * frame_h;
+    // CapCut-matching stroke: scaled to font size (em) so that 25% produces ~3px crisp subtitle border
+    // identical to CapCut's default stroke, and 100% produces ~12px max stroke.
+    let stroke_w = if em > 0.0 {
+        (style.stroke_width.max(0.0) as f32 * 0.24 * em).max(0.0)
+    } else {
+        (style.stroke_width.max(0.0) as f32 * 0.012 * frame_h).max(0.0)
+    };
     let shadow_offset = (em * 0.05, em * 0.07);
     let shadow_blur = (em * 0.04).round().max(1.0) as usize;
     let plate_rect = plate

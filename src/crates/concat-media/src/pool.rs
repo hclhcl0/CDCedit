@@ -691,6 +691,21 @@ impl ReaderPool {
         Self::new(Self::frame_budget(total_memory), 8)
     }
 
+    /// Changes the preview cache and warm decoder cap while the editor is
+    /// open. Existing cached frames are discarded so the smaller budget is
+    /// effective immediately; frames held by an in-flight render live until
+    /// that render finishes.
+    pub fn set_limits(&self, cache_bytes: usize, max_readers: usize) {
+        let treated = cache_bytes / 4;
+        *self.sources.lock().unwrap_or_else(|p| p.into_inner()) =
+            FrameCache::new(cache_bytes - treated);
+        *self.treated.lock().unwrap_or_else(|p| p.into_inner()) = FrameCache::new(treated);
+        let mut readers = self.readers.lock().unwrap_or_else(|p| p.into_inner());
+        readers.max = max_readers.max(1);
+        let excess = readers.warm.len().saturating_sub(readers.max);
+        readers.warm.drain(..excess);
+    }
+
     /// Closes the warm readers nobody has asked for in `idle`, and that no
     /// decode is using now: a decoder holds its own buffers - a 4K one, a
     /// hardware one, a good deal - and eight kept open for files the

@@ -69,6 +69,14 @@ const KNOWN_MODELS: &[KnownModel] = &[
         english_only: false,
     },
     KnownModel {
+        id: "PhoWhisper-small",
+        label: "PhoWhisper Small (VinAI — Chuyên sâu Tiếng Việt)",
+        blurb: "Mô hình VinAI huấn luyện riêng cho tiếng Việt các vùng miền; nhận diện chuẩn xác.",
+        approx_bytes: 487_601_984,
+        sha256: "db8de368e822fce5dcdce7c0c4c80c4b554c27655516dea5ec8c093e22f58785",
+        english_only: false,
+    },
+    KnownModel {
         id: "medium",
         label: "Medium (Tiếng Việt / Đa ngôn ngữ — Chất lượng cao)",
         blurb: "Ưu tiên độ chính xác, tải khoảng 1,53 GB; xử lý chậm hơn Small trên CPU.",
@@ -79,21 +87,29 @@ const KNOWN_MODELS: &[KnownModel] = &[
 ];
 
 fn known(id: &str) -> Option<&'static KnownModel> {
-    KNOWN_MODELS.iter().find(|model| model.id == id)
+    KNOWN_MODELS
+        .iter()
+        .find(|model| model.id.eq_ignore_ascii_case(id))
 }
 
 /// The file a model arrives as, and what it is called on the mirror.
 fn model_archive(id: &str) -> String {
-    format!("ggml-{id}.bin")
+    let canonical = known(id).map(|m| m.id).unwrap_or(id);
+    format!("ggml-{canonical}.bin")
 }
 
 /// The whisper.cpp commit the table's digests were taken at: what the
 /// fallback fetches is pinned to it, so `main` moving on changes nothing.
 const UPSTREAM_COMMIT: &str = "5359861c739e955e79d9a303bcbc70fb988958b1";
+const PHOWHISPER_COMMIT: &str = "b6677d19bc96a276d7cf5006e2ea18e18d02df16";
 
 /// Where the mirror was filled from, and the second place a download tries.
 fn model_upstream(id: &str) -> String {
-    format!("https://huggingface.co/ggerganov/whisper.cpp/resolve/{UPSTREAM_COMMIT}/ggml-{id}.bin")
+    if id.eq_ignore_ascii_case("phowhisper-small") {
+        format!("https://huggingface.co/dongxiat/ggml-PhoWhisper-small/resolve/{PHOWHISPER_COMMIT}/ggml-PhoWhisper-small.bin")
+    } else {
+        format!("https://huggingface.co/ggerganov/whisper.cpp/resolve/{UPSTREAM_COMMIT}/ggml-{id}.bin")
+    }
 }
 
 /// Where downloaded models live: `<app data>/whisper-models/ggml-<id>.bin`.
@@ -205,8 +221,21 @@ fn is_safe_model_id(id: &str) -> bool {
 }
 
 fn model_file(dirs: &AppDirs, id: &str) -> Result<PathBuf, String> {
-    let path = models_dir(dirs)?.join(format!("ggml-{id}.bin"));
-    if known(id).is_some() || (is_safe_model_id(id) && path.is_file()) {
+    let dir = models_dir(dirs)?;
+    let canonical = known(id).map(|m| m.id).unwrap_or(id);
+    let path = dir.join(format!("ggml-{canonical}.bin"));
+    if path.is_file() {
+        return Ok(path);
+    }
+    let lower_path = dir.join(format!("ggml-{}.bin", id.to_lowercase()));
+    if lower_path.is_file() {
+        return Ok(lower_path);
+    }
+    let orig_path = dir.join(format!("ggml-{id}.bin"));
+    if orig_path.is_file() {
+        return Ok(orig_path);
+    }
+    if known(id).is_some() || is_safe_model_id(id) {
         Ok(path)
     } else {
         Err(format!("unknown model {id:?}"))
@@ -386,7 +415,11 @@ impl Transcriber {
                 blurb: model.blurb.to_owned(),
                 english_only: model.english_only,
                 size_bytes: model.approx_bytes,
-                downloaded: dir.join(format!("ggml-{}.bin", model.id)).is_file(),
+                downloaded: {
+                    let name1 = format!("ggml-{}.bin", model.id);
+                    let name2 = format!("ggml-{}.bin", model.id.to_lowercase());
+                    dir.join(&name1).is_file() || dir.join(&name2).is_file()
+                },
             })
             .collect();
         if let Ok(entries) = std::fs::read_dir(&dir) {
@@ -493,11 +526,18 @@ impl Transcriber {
         let mut loaded = self.model.try_lock().map_err(|_| {
             "a transcription is running - wait for it or cancel it first".to_owned()
         })?;
-        if loaded.as_ref().is_some_and(|model| model.id == id) {
+        if loaded.as_ref().is_some_and(|model| model.id.eq_ignore_ascii_case(id)) {
             *loaded = None;
         }
-        std::fs::remove_file(&file)
-            .map_err(|error| format!("could not remove {}: {error}", file.display()))
+        let res = std::fs::remove_file(&file)
+            .map_err(|error| format!("could not remove {}: {error}", file.display()));
+        if let Ok(dir) = models_dir(dirs) {
+            let alt = dir.join(format!("ggml-{}.bin", id.to_lowercase()));
+            if alt.is_file() && alt != file {
+                let _ = std::fs::remove_file(&alt);
+            }
+        }
+        res
     }
 
     /// The model still loaded from the last run, which the next run on it
@@ -617,7 +657,7 @@ impl Transcriber {
         // machine's eight, whisper starved them, and the preview stuttered
         // and its sound broke up for as long as a run went on (#388).
         let threads = std::thread::available_parallelism()
-            .map(|count| count.get().saturating_sub(2).clamp(1, 8))
+            .map(|count| count.get().saturating_sub(2).clamp(1, 14))
             .unwrap_or(4);
         let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
         params.set_n_threads(threads as i32);
@@ -731,7 +771,7 @@ impl Transcriber {
             return Ok(result);
         }
 
-        Ok(state
+        let raw_segments: Vec<Segment> = state
             .as_iter()
             .filter_map(|segment| {
                 // Whisper's timestamps are centiseconds.
@@ -741,7 +781,8 @@ impl Transcriber {
                 let text = segment.to_str_lossy().ok()?.trim().to_owned();
                 keep_segment(start, end, text)
             })
-            .collect())
+            .collect();
+        Ok(crate::caption_layout::clean_stumbles_and_orphans(raw_segments))
     }
 
     /// Asks the running transcription to stop at its next check.

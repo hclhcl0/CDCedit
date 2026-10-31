@@ -45,6 +45,9 @@ desktop.ini
 /*.flac
 /*.aac
 /scratch_*
+/scratch/
+out.txt
+test.log
 
 # Local environment
 .env

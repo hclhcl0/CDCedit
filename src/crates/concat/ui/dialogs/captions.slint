@@ -8,7 +8,7 @@ import { Button, CopyChip, Field, DialogRow, DialogSection, Modal, Progress } fr
 import { SegmentedControl } from "../primitives/segmented-control.slint";
 import { Select } from "../primitives/select.slint";
 import { PaneScroll } from "../workspace/pane.slint";
-import { Switch } from "../inspector/controls.slint";
+import { Switch, ColourField } from "../inspector/controls.slint";
 
 // Captions: what the tray's Captions tool opens.
 //
@@ -46,6 +46,9 @@ export struct CaptionsSheetData {
     provider: int,
     gemini-language: int,
     gemini-proofread: bool,
+    gemini-smart-split: bool,
+    gemini-two-speakers: bool,
+    speaker2-color: color,
     glossary: string,
     reviewing: bool,
     reviews: [CaptionReviewRow],
@@ -53,6 +56,9 @@ export struct CaptionsSheetData {
     placement: int,
     /// 0 Small, 1 Medium, 2 Large
     size: int,
+    text-color: color,
+    stroke-choice: int,
+    stroke-color: color,
     running: bool,
     /// 0..1: where the transcription surely is.
     progress: float,
@@ -84,11 +90,17 @@ export component CaptionsDialog inherits Modal {
     callback configure-api();
     callback gemini-language-changed(index: int);
     callback gemini-proofread-toggled(on: bool);
+    callback gemini-smart-split-toggled(on: bool);
+    callback gemini-two-speakers-toggled(on: bool);
+    callback speaker2-color-changed(color: color);
     callback glossary-edited(text: string);
     callback review-choice(index: int, choice: int);
     callback review-apply(use-choices: bool);
     callback placement-changed(index: int);
     callback size-changed(index: int);
+    callback text-color-changed(color: color);
+    callback stroke-choice-changed(index: int);
+    callback stroke-color-changed(color: color);
     callback begin();
     callback cancel();
     callback import-srt();
@@ -258,7 +270,7 @@ export component CaptionsDialog inherits Modal {
                 DialogRow {
                     label: I18n.t("captions.provider");
                     Select {
-                        options: ["Whisper", "Gemini 3.5 Transcribe Live"];
+                        options: ["Whisper", "Gemini 3.5 Transcribe"];
                         current: root.data.provider;
                         changed(index) => { root.provider-changed(index); }
                     }
@@ -277,6 +289,56 @@ export component CaptionsDialog inherits Modal {
                 }
                 if root.data.provider == 1: Text {
                     text: I18n.t("captions.geminiNotice");
+                    color: Theme.fg-muted;
+                    font-size: Theme.fs-sm;
+                    wrap: word-wrap;
+                }
+                if root.data.provider == 1: HorizontalLayout {
+                    spacing: 10px;
+                    padding-top: 4px;
+                    Text {
+                        horizontal-stretch: 1;
+                        text: I18n.t("captions.geminiSmartSplit");
+                        color: Theme.fg;
+                        font-size: Theme.fs;
+                        vertical-alignment: center;
+                        wrap: word-wrap;
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        Switch {
+                            checked: root.data.gemini-smart-split;
+                            toggled(on) => { root.gemini-smart-split-toggled(on); }
+                        }
+                    }
+                }
+                if root.data.provider == 1 && root.data.gemini-smart-split: Text {
+                    text: I18n.t("captions.geminiSmartSplitNotice");
+                    color: Theme.fg-muted;
+                    font-size: Theme.fs-sm;
+                    wrap: word-wrap;
+                }
+                if root.data.provider == 1: HorizontalLayout {
+                    spacing: 10px;
+                    padding-top: 4px;
+                    Text {
+                        horizontal-stretch: 1;
+                        text: I18n.t("captions.geminiTwoSpeakers");
+                        color: Theme.fg;
+                        font-size: Theme.fs;
+                        vertical-alignment: center;
+                        wrap: word-wrap;
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        Switch {
+                            checked: root.data.gemini-two-speakers;
+                            toggled(on) => { root.gemini-two-speakers-toggled(on); }
+                        }
+                    }
+                }
+                if root.data.provider == 1 && root.data.gemini-two-speakers: Text {
+                    text: I18n.t("captions.geminiTwoSpeakersNotice");
                     color: Theme.fg-muted;
                     font-size: Theme.fs-sm;
                     wrap: word-wrap;
@@ -347,6 +409,142 @@ export component CaptionsDialog inherits Modal {
                         options: [I18n.t("common.small"), I18n.t("common.medium"), I18n.t("common.large")];
                         current: root.data.size;
                         changed(index) => { root.size-changed(index); }
+                    }
+                }
+
+                DialogRow {
+                    label: root.data.gemini-two-speakers ? I18n.t("captions.speaker1Color") : I18n.t("captions.textColor");
+                    HorizontalLayout {
+                        spacing: 6px;
+                        alignment: start;
+                        for c[i] in [
+                            { name: "Trắng", val: #ffffff },
+                            { name: "Vàng", val: #ffe600 },
+                            { name: "Xanh lơ", val: #00e5ff },
+                            { name: "Xanh lá", val: #69f0ae }
+                        ]: Rectangle {
+                            width: 24px;
+                            height: 24px;
+                            border-radius: 12px;
+                            background: c.val;
+                            border-width: root.data.text-color == c.val ? 2px : 1px;
+                            border-color: root.data.text-color == c.val ? Theme.accent : Theme.line;
+                            TouchArea {
+                                clicked => { root.text-color-changed(c.val); }
+                                mouse-cursor: pointer;
+                            }
+                        }
+                        ColourField {
+                            label: "";
+                            value: root.data.text-color;
+                            changed(c) => { root.text-color-changed(c); }
+                        }
+                    }
+                }
+
+                if root.data.gemini-two-speakers: DialogRow {
+                    label: I18n.t("captions.speaker2Color");
+                    HorizontalLayout {
+                        spacing: 6px;
+                        alignment: start;
+                        for c[i] in [
+                            { name: "Vàng", val: #ffe600 },
+                            { name: "Xanh lơ", val: #00e5ff },
+                            { name: "Hồng", val: #ff80ab },
+                            { name: "Xanh lá", val: #69f0ae }
+                        ]: Rectangle {
+                            width: 24px;
+                            height: 24px;
+                            border-radius: 12px;
+                            background: c.val;
+                            border-width: root.data.speaker2-color == c.val ? 2px : 1px;
+                            border-color: root.data.speaker2-color == c.val ? Theme.accent : Theme.line;
+                            TouchArea {
+                                clicked => { root.speaker2-color-changed(c.val); }
+                                mouse-cursor: pointer;
+                            }
+                        }
+                        ColourField {
+                            label: "";
+                            value: root.data.speaker2-color;
+                            changed(c) => { root.speaker2-color-changed(c); }
+                        }
+                    }
+                }
+
+                DialogRow {
+                    label: I18n.t("captions.stroke");
+                    SegmentedControl {
+                        options: [
+                            I18n.t("captions.strokeNone"),
+                            I18n.t("captions.strokeThin"),
+                            I18n.t("captions.strokeMedium"),
+                            I18n.t("captions.strokeThick")
+                        ];
+                        current: root.data.stroke-choice;
+                        changed(index) => { root.stroke-choice-changed(index); }
+                    }
+                }
+
+                if root.data.stroke-choice > 0: DialogRow {
+                    label: I18n.t("captions.strokeColor");
+                    HorizontalLayout {
+                        spacing: 6px;
+                        alignment: start;
+                        for c[i] in [
+                            { name: "Đen", val: #000000 },
+                            { name: "Trắng", val: #ffffff },
+                            { name: "Đỏ", val: #d50000 },
+                            { name: "Xanh đậm", val: #0d47a1 }
+                        ]: Rectangle {
+                            width: 24px;
+                            height: 24px;
+                            border-radius: 12px;
+                            background: c.val;
+                            border-width: root.data.stroke-color == c.val ? 2px : 1px;
+                            border-color: root.data.stroke-color == c.val ? Theme.accent : Theme.line;
+                            TouchArea {
+                                clicked => { root.stroke-color-changed(c.val); }
+                                mouse-cursor: pointer;
+                            }
+                        }
+                        ColourField {
+                            label: "";
+                            value: root.data.stroke-color;
+                            changed(c) => { root.stroke-color-changed(c); }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    height: root.data.gemini-two-speakers ? 68px : 44px;
+                    border-radius: Theme.r;
+                    background: #141416;
+                    border-width: 1px;
+                    border-color: Theme.line;
+                    clip: true;
+
+                    VerticalLayout {
+                        alignment: center;
+                        spacing: 4px;
+                        padding-left: 10px;
+                        padding-right: 10px;
+                        Text {
+                            text: root.data.gemini-two-speakers ? I18n.t("captions.previewSpeaker1") : "Phụ đề mẫu · Concat Video Editor";
+                            color: root.data.text-color;
+                            font-size: root.data.size == 0 ? 13px : (root.data.size == 1 ? 15px : 17px);
+                            font-weight: 700;
+                            horizontal-alignment: center;
+                            overflow: elide;
+                        }
+                        if root.data.gemini-two-speakers: Text {
+                            text: I18n.t("captions.previewSpeaker2");
+                            color: root.data.speaker2-color;
+                            font-size: root.data.size == 0 ? 13px : (root.data.size == 1 ? 15px : 17px);
+                            font-weight: 700;
+                            horizontal-alignment: center;
+                            overflow: elide;
+                        }
                     }
                 }
 

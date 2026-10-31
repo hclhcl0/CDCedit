@@ -13,6 +13,10 @@ use serde::{Deserialize, Serialize};
 
 const FILE: &str = "settings.json";
 
+fn low_resource_for(choice: Option<bool>, memory: Option<u64>) -> bool {
+    choice.unwrap_or_else(|| memory.is_some_and(|bytes| bytes <= 4 * 1024 * 1024 * 1024))
+}
+
 /// The interface scales Settings > Appearance offers, smallest first, as
 /// percents of the display's own scale. Nothing on the list - and no value
 /// at all - leaves the window at the scale the platform hands it. 110 is
@@ -71,6 +75,10 @@ pub struct Preferences {
     /// may not take (an HDR one opened NVENC first), and the person who
     /// wants one for smoother playback turns it on in Settings.
     pub proxies: bool,
+    /// Reduces preview, cache and decode concurrency for a small machine.
+    /// The original media and export settings are unchanged.
+    /// None follows the machine's memory; Some remembers an explicit choice.
+    pub low_resource: Option<bool>,
     /// Drawing in software: the window and the compositor on the
     /// platform's software rasteriser (WARP, lavapipe) instead of the GPU,
     /// as the person chose in Settings > General or with `concat
@@ -141,6 +149,34 @@ pub struct Preferences {
     /// by Settings › Shortcuts; resolved in [`crate::keymap`].
     #[serde(default)]
     pub keybinds: BTreeMap<String, String>,
+    /// Subtitle formatting preferences when exporting to CapCut.
+    #[serde(default)]
+    pub capcut_export: CapCutExportPrefs,
+}
+
+/// Preferences for subtitle styling when exporting to CapCut.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct CapCutExportPrefs {
+    pub font_size: f64,
+    pub scale_percent: f64,
+    pub position_y: f64,
+    pub stroke_enabled: bool,
+    pub stroke_color: String,
+    pub stroke_width: f64,
+}
+
+impl Default for CapCutExportPrefs {
+    fn default() -> Self {
+        Self {
+            font_size: 5.0,
+            scale_percent: 83.0,
+            position_y: -870.0,
+            stroke_enabled: true,
+            stroke_color: "#000000".to_string(),
+            stroke_width: 25.0,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -186,6 +222,12 @@ impl Default for VoiceoverPrefs {
 }
 
 impl Preferences {
+    /// Automatic on machines with no more than 4 GB of physical memory,
+    /// unless the person chose either setting explicitly.
+    pub fn low_resource(&self) -> bool {
+        low_resource_for(self.low_resource, concat_host::memory::total())
+    }
+
     /// Whether the timeline shows its VU meters; see `vu_meters`.
     pub fn meters_shown(&self) -> bool {
         self.vu_meters.unwrap_or(true)
@@ -414,6 +456,15 @@ fn write_private(path: &std::path::Path, bytes: &[u8]) -> std::io::Result<()> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn low_resource_defaults_to_small_machines_and_respects_choice() {
+        let gb = 1024 * 1024 * 1024;
+        assert!(super::low_resource_for(None, Some(4 * gb)));
+        assert!(!super::low_resource_for(None, Some(8 * gb)));
+        assert!(!super::low_resource_for(None, None));
+        assert!(!super::low_resource_for(Some(false), Some(2 * gb)));
+        assert!(super::low_resource_for(Some(true), Some(16 * gb)));
+    }
     use super::*;
 
     /// A choice made is kept, whatever the platform's default: a phone

@@ -865,6 +865,7 @@ impl Api {
                     proxy: false,
                     color_space: session.video().color_space,
                     canvas: session.video().canvas,
+                    bypass_effects: false,
                 },
             )
             .map_err(ApiError::failed)?;

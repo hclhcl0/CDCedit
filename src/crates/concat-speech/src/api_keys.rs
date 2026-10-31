@@ -61,7 +61,9 @@ pub(crate) fn http_error(service: &str, error: ureq::Error) -> String {
                 "{service} HTTP {code} {marker}. Check key permissions, model/voice access and quota."
             )
         }
-        _ => format!("Could not reach {service}. Check your network or retry."),
+        ureq::Error::Transport(ref t) => {
+            format!("Could not reach {service} ({t}). Check your network or retry.")
+        }
     }
 }
 fn redact(mut message: String, keys: &[&str]) -> String {

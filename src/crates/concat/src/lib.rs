@@ -1,3 +1,4 @@
+#![recursion_limit = "512"]
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Jareer Abdullah and Concat contributors
 
@@ -32,6 +33,9 @@ mod ui {
 }
 
 mod batch_volume;
+mod capcut_export;
+pub mod capcut_import;
+pub mod capcut_hub;
 mod chips;
 mod dock;
 mod fonts;
@@ -332,6 +336,7 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
     // frame. One that will not load is skipped, and its reason is the
     // first thing the window says.
     let mut studio = Studio::new(host);
+    concat_host::performance::set_low_resource(studio.prefs.low_resource());
     studio.set_phone(phone);
     if safe {
         // Each key in a call of its own: scripts/locales.py finds a key by
@@ -760,6 +765,9 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
     }));
     app.on_start_sort_changed(on_window!(|state, sort: i32| {
         state.handle(Msg::Start(StartMsg::Sort(sort)));
+    }));
+    app.on_start_project_tab_changed(on_window!(|state, tab: i32| {
+        state.handle(Msg::Start(StartMsg::ProjectTab(tab)));
     }));
     app.on_start_link(on_window!(|state, name: SharedString| {
         state.handle(Msg::Start(StartMsg::Link(name.to_string())));
@@ -1735,6 +1743,25 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
                 state.handle(Msg::Captions(CaptionsMsg::OpenOnClip(id)));
                 return;
             }
+            if action.as_str() == "voice-changer" {
+                state.flush_commit();
+                state.transition_selected = None;
+                state.selection = vec![id.clone()];
+                state.speech.dub.mode = 3;
+                state.speech.dub.vc_method = 1;
+                if !state.prefs.eleven_api_key.expose().trim().is_empty() {
+                    state.speech.dub.provider = 2;
+                } else if !state.prefs.gemini_api_key.expose().trim().is_empty() {
+                    state.speech.dub.provider = 1;
+                }
+                state.speech.dub.mute_original = true;
+                state.handle(Msg::Speech(SpeechMsg::Open));
+                let pos = state.speech.dub_sources(&state).into_iter().position(|s| s.0 == id);
+                if let Some(pos) = pos {
+                    state.speech.dub.source = pos;
+                }
+                return;
+            }
             state.clip_action(&id, action.as_str());
         }
     }));
@@ -2090,6 +2117,9 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
     app.on_export_start(on_window!(|state| {
         state.handle(Msg::Export(ExportMsg::Start));
     }));
+    app.on_export_capcut(on_window!(|state| {
+        state.export_capcut_project();
+    }));
 
     // ── settings ──
     app.on_settings_page_changed(on_window!(|state, index: i32| {
@@ -2119,6 +2149,18 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
             crate::api_key::ApiKey::new(text.to_string()),
         )));
     }));
+    app.on_settings_capcut_font_size_edited(on_window!(|state, val: f32| {
+        state.handle(Msg::Settings(SettingsMsg::CapcutFontSizeEdited(val as f64)));
+    }));
+    app.on_settings_capcut_scale_percent_edited(on_window!(|state, val: f32| {
+        state.handle(Msg::Settings(SettingsMsg::CapcutScalePercentEdited(val as f64)));
+    }));
+    app.on_settings_capcut_position_y_edited(on_window!(|state, val: f32| {
+        state.handle(Msg::Settings(SettingsMsg::CapcutPositionYEdited(val as f64)));
+    }));
+    app.on_settings_capcut_stroke_width_edited(on_window!(|state, val: f32| {
+        state.handle(Msg::Settings(SettingsMsg::CapcutStrokeWidthEdited(val as f64)));
+    }));
     app.on_settings_language_changed(on_window!(|state, index: i32| {
         state.handle(Msg::Settings(SettingsMsg::LanguageChanged(index)));
     }));
@@ -2130,6 +2172,9 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
     }));
     app.on_settings_proxies_changed(on_window!(|state, on: bool| {
         state.handle(Msg::Settings(SettingsMsg::ProxiesChanged(on)));
+    }));
+    app.on_settings_low_resource_changed(on_window!(|state, on: bool| {
+        state.handle(Msg::Settings(SettingsMsg::LowResourceChanged(on)));
     }));
     app.on_settings_gpu_changed(on_window!(|state, on: bool| {
         state.handle(Msg::Settings(SettingsMsg::GpuChanged(on)));
@@ -2246,18 +2291,24 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
         state.handle(Msg::Voiceover(VoiceoverMsg::PromptSpeed(index)));
     }));
     editor.on_speak(on_window!(|state| {
-        let msg = if state.speech.open {
-            SpeechMsg::Close
+        if state.speech.open && state.speech.dub.mode == 0 {
+            state.handle(Msg::Speech(SpeechMsg::Close));
         } else {
-            SpeechMsg::Open
-        };
-        state.handle(Msg::Speech(msg));
+            state.speech.dub.mode = 0;
+            state.handle(Msg::Speech(SpeechMsg::Open));
+        }
     }));
     editor.on_voice_changer(on_window!(|state| {
         if state.speech.open && state.speech.dub.mode == 3 {
             state.handle(Msg::Speech(SpeechMsg::Close));
         } else {
             state.speech.dub.mode = 3;
+            state.speech.dub.vc_method = 1;
+            if !state.prefs.eleven_api_key.expose().trim().is_empty() {
+                state.speech.dub.provider = 2;
+            } else if !state.prefs.gemini_api_key.expose().trim().is_empty() {
+                state.speech.dub.provider = 1;
+            }
             state.speech.dub.mute_original = true;
             state.handle(Msg::Speech(SpeechMsg::Open));
         }
@@ -2299,6 +2350,17 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
     app.on_captions_gemini_proofread_toggled(on_window!(|state, on: bool| {
         state.handle(Msg::Captions(CaptionsMsg::GeminiProofreadToggled(on)));
     }));
+    app.on_captions_gemini_smart_split_toggled(on_window!(|state, on: bool| {
+        state.handle(Msg::Captions(CaptionsMsg::GeminiSmartSplitToggled(on)));
+    }));
+    app.on_captions_gemini_two_speakers_toggled(on_window!(|state, on: bool| {
+        state.handle(Msg::Captions(CaptionsMsg::GeminiTwoSpeakersToggled(on)));
+    }));
+    app.on_captions_speaker2_color_changed(on_window!(|state, color: slint::Color| {
+        state.handle(Msg::Captions(CaptionsMsg::Speaker2ColorChanged(
+            crate::format::hex_of(color),
+        )));
+    }));
     app.on_captions_glossary_edited(on_window!(|state, text: slint::SharedString| {
         state.handle(Msg::Captions(CaptionsMsg::GlossaryEdited(text.to_string())));
     }));
@@ -2316,6 +2378,19 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
     }));
     app.on_captions_size_changed(on_window!(|state, index: i32| {
         state.handle(Msg::Captions(CaptionsMsg::SizeChanged(index)));
+    }));
+    app.on_captions_text_color_changed(on_window!(|state, color: slint::Color| {
+        state.handle(Msg::Captions(CaptionsMsg::TextColorChanged(
+            crate::format::hex_of(color),
+        )));
+    }));
+    app.on_captions_stroke_choice_changed(on_window!(|state, index: i32| {
+        state.handle(Msg::Captions(CaptionsMsg::StrokeChoiceChanged(index)));
+    }));
+    app.on_captions_stroke_color_changed(on_window!(|state, color: slint::Color| {
+        state.handle(Msg::Captions(CaptionsMsg::StrokeColorChanged(
+            crate::format::hex_of(color),
+        )));
     }));
     app.on_captions_begin(on_window!(|state| {
         state.handle(Msg::Captions(CaptionsMsg::Begin));
@@ -2415,6 +2490,13 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
                             },
                         ),
                         "export" => state.handle(Msg::Export(ExportMsg::Open)),
+                        "export-capcut" => state.export_capcut_project(),
+                        "import-capcut" => state.import_capcut_project(),
+                        "capcut-hub" => {
+                            let _ = state.close_project();
+                            state.start.project_tab = 1;
+                            state.refresh_capcut_drafts();
+                        },
                         "template" => state.save_template(),
                         "speech" => state.handle(Msg::Speech(SpeechMsg::Open)),
                         "clear-cache" => state.clear_project_cache(),
@@ -2840,7 +2922,7 @@ fn stop_exports() {
 }
 
 /// How long a launch runs before it counts as having started.
-const SAFE_AFTER: std::time::Duration = std::time::Duration::from_secs(15);
+const SAFE_AFTER: std::time::Duration = std::time::Duration::from_secs(3);
 
 /// Safe start: whether this launch draws on the software rasteriser
 /// because the last one died while starting, and the mark that says this
@@ -2871,7 +2953,16 @@ fn safe_start() -> (Option<concat_host::jobs::Tripwire>, bool) {
     let mark = dirs.data.join("startup");
     let mut preferences = prefs::Preferences::load(&dirs);
     let died = concat_host::jobs::Tripwire::tripped(&mark);
-    if preferences.settle_start(died, &concat_host::machine::build()) {
+    let build = match std::env::current_exe()
+        .ok()
+        .and_then(|exe| std::fs::metadata(exe).ok())
+        .and_then(|meta| meta.modified().ok())
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+    {
+        Some(stamp) => format!("{} · {}", concat_host::machine::build(), stamp.as_secs()),
+        None => concat_host::machine::build(),
+    };
+    if preferences.settle_start(died, &build) {
         preferences.save(&dirs);
     }
     if preferences.draws_in_software() && std::env::var_os("CONCAT_GPU").is_none() {

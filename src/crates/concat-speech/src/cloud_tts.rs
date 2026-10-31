@@ -42,9 +42,11 @@ impl Default for VoiceOptions {
     }
 }
 pub const GEMINI_MODELS: &[&str] = &[
-    "gemini-3.8-flash-tts",
     "gemini-3.8-flash-lite-tts",
+    "gemini-3.8-flash-tts",
+    "gemini-3.1-flash-tts",
     "gemini-2.5-flash-preview-tts",
+    "gemini-3.5-flash-lite",
     "gemini-2.5-pro-preview-tts",
 ];
 pub const ELEVEN_MODELS: &[&str] = &[
@@ -54,11 +56,30 @@ pub const ELEVEN_MODELS: &[&str] = &[
     "eleven_flash_v2_5",
     "eleven_multilingual_v2",
 ];
+pub const ELEVEN_STS_MODELS: &[&str] = &[
+    "eleven_multilingual_sts_v2",
+    "eleven_english_sts_v2",
+];
+pub const GEMINI_STS_MODELS: &[&str] = &[
+    "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite",
+    "gemini-3.8-flash",
+    "gemini-3.5-flash",
+    "gemini-2.5-flash",
+    "gemini-2.5-pro",
+];
 pub fn models(provider: i32) -> &'static [&'static str] {
     if provider == 1 {
         GEMINI_MODELS
     } else {
         ELEVEN_MODELS
+    }
+}
+pub fn sts_models(provider: i32) -> &'static [&'static str] {
+    if provider == 1 {
+        GEMINI_STS_MODELS
+    } else {
+        ELEVEN_STS_MODELS
     }
 }
 /// v4 accepts stability/similarity only. Unknown models get the same conservative controls.
@@ -292,7 +313,10 @@ fn synthesize_one_key(
 fn is_gemini_25(model: &str) -> bool {
     matches!(
         model,
-        "gemini-2.5-flash-preview-tts" | "gemini-2.5-pro-preview-tts"
+        "gemini-3.1-flash-tts"
+            | "gemini-2.5-flash-preview-tts"
+            | "gemini-3.5-flash-lite"
+            | "gemini-2.5-pro-preview-tts"
     )
 }
 fn gemini_request(
@@ -709,7 +733,7 @@ pub fn synthesize_speech_to_speech(
             cancel,
             |key| {
                 check_cancel(cancel)?;
-                let url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+                let url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent";
                 let req_body = serde_json::to_vec(&json!({
                     "contents": [{
                         "role": "user",

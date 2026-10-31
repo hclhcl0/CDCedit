@@ -24,6 +24,7 @@ export struct DubbingData {
     vc-pitch: float,
     vc-speed: float,
     vc-denoise: bool,
+    message: string,
 }
 
 export component DubbingPanel inherits VerticalLayout {
@@ -31,458 +32,718 @@ export component DubbingPanel inherits VerticalLayout {
     callback action(action: int, index: int, text: string, value: float);
     pure callback insert-tag(text: string, tag: string, at: int) -> string;
 
-    property <bool> show-tts-controls: root.data.mode != 3 || root.data.vc-method != 0;
     property <bool> narrow: root.width > 0px && root.width < 440px;
 
+    // ─────────────────────────────────────────────────────────────
+    // HEADER: CHUYỂN ĐỔI CHẾ ĐỘ
+    // ─────────────────────────────────────────────────────────────
     DialogSection {
         first: true;
-        title: "Chức năng Âm thanh & Giọng nói AI";
+        title: root.data.mode == 3 ? "Voice Changer — Biến Đổi Giọng Nói AI" : "Chế độ Âm thanh & Giọng nói";
 
         DialogRow {
             label: I18n.t("dubbing.mode");
             Select {
                 options: [
-                    I18n.t("speech.textToSpeech"),
-                    I18n.t("dubbing.textTrack"),
-                    I18n.t("dubbing.videoVoice"),
-                    "Thu âm & Thay đổi giọng nói (3 Phương án)"
+                    "📝 " + I18n.t("speech.textToSpeech"),
+                    "📄 " + I18n.t("dubbing.textTrack"),
+                    "🎬 " + I18n.t("dubbing.videoVoice"),
+                    "🎙️ Voice Changer (DSP & AI Speech-to-Speech)"
                 ];
                 current: root.data.mode;
                 changed(index) => { root.action(0, index, "", 0); }
             }
         }
+    }
 
-        HorizontalLayout {
-            spacing: 8px;
-            Button {
-                horizontal-stretch: 1;
-                label: "Studio Hội thoại 2 nhân vật & Thiết kế giọng (Gemini 3.8)…";
-                glyph: Glyph.audio-studio;
-                ghost: true;
-                clicked => { root.action(46, 0, "", 0); }
-            }
-        }
+    // ─────────────────────────────────────────────────────────────
+    // CHẾ ĐỘ 0: VĂN BẢN THÀNH GIỌNG NÓI (TTS) -> BỘ TẠO GIỌNG
+    // ─────────────────────────────────────────────────────────────
+    if root.data.mode != 3: DialogSection {
+        title: "Bộ tạo giọng nói (Voice Provider)";
 
-        if root.data.mode == 3: DialogRow {
-            label: "Phương án";
-            Select {
-                options: [
-                    "1 · Offline DSP & Lọc âm Phòng thu (Nhanh, Không cần mạng)",
-                    "2 · AI Speech-to-Speech (Giữ ngữ điệu & cảm xúc gốc)",
-                    "3 · Nhận diện lời nói (Whisper) → Sửa chữ → Đọc lại TTS"
-                ];
-                current: root.data.vc-method;
-                changed(index) => { root.action(42, index, "", 0); }
-            }
-        }
-
-        if root.data.mode != 0: DialogRow {
-            label: I18n.t("dubbing.source");
-            HorizontalLayout {
-                spacing: 8px;
-                Select {
-                    horizontal-stretch: 1;
-                    options: root.data.sources;
-                    current: root.data.source;
-                    placeholder: I18n.t("dubbing.chooseSource");
-                    changed(index) => { root.action(5, index, "", 0); }
-                }
-                Button {
-                    label: "Duyệt…";
-                    glyph: Glyph.folder;
-                    ghost: true;
-                    clicked => { root.action(33, 0, "", 0); }
-                }
-            }
-        }
-
-        if (root.data.mode == 2 || root.data.mode == 3) && !root.narrow: HorizontalLayout {
-            spacing: 8px;
-            Button {
-                horizontal-stretch: 1;
-                primary: root.data.recording;
-                glyph: root.data.recording ? Glyph.stop : Glyph.mic;
-                label: root.data.recording ? "Dừng thu âm Micro" : "Thu âm trực tiếp từ Micro";
-                clicked => { root.action(40, 0, "", 0); }
-            }
-            Button {
-                glyph: Glyph.volume;
-                label: "Nghe giọng gốc";
-                ghost: true;
-                enabled: root.data.sources.length > 0 && !root.data.recording;
-                clicked => { root.action(41, 0, "", 0); }
-            }
-        }
-
-        if (root.data.mode == 2 || root.data.mode == 3) && root.narrow: VerticalLayout {
-            spacing: 6px;
-            Button {
-                block: true;
-                primary: root.data.recording;
-                glyph: root.data.recording ? Glyph.stop : Glyph.mic;
-                label: root.data.recording ? "Dừng thu âm Micro" : "Thu âm trực tiếp từ Micro";
-                clicked => { root.action(40, 0, "", 0); }
-            }
-            Button {
-                block: true;
-                glyph: Glyph.volume;
-                label: "Nghe giọng gốc";
-                ghost: true;
-                enabled: root.data.sources.length > 0 && !root.data.recording;
-                clicked => { root.action(41, 0, "", 0); }
-            }
-        }
-
-        if root.data.recording: Text {
-            text: "🔴 Đang thu âm từ Micro… Hãy nói vào micro rồi bấm \"Dừng thu âm Micro\" khi hoàn tất.";
-            color: Theme.accent;
-            font-size: Theme.fs-sm;
-            wrap: word-wrap;
-        }
-
-        // ── Phương án 1: Offline DSP Voice Changer & Studio Clean ──
-        if root.data.mode == 3 && root.data.vc-method == 0: VerticalLayout {
-            spacing: 8px;
-
-            if root.narrow: Rectangle {
-                height: 5 * 36px - 6px;
-                property <[string]> short-presets: [
-                    "🎙 Phòng thu",
-                    "🧔 Nam trầm",
-                    "👩 Nữ cao",
-                    "🕵 Ẩn danh",
-                    "🐿 Sóc chuột",
-                    "👹 Khổng lồ",
-                    "🤖 Robot",
-                    "📻 Bộ đàm",
-                    "🏛 Vang vọng",
-                    "🎚 Tùy chỉnh"
-                ];
-
-                for name[idx] in self.short-presets: Rectangle {
-                    x: Math.mod(idx, 2) * ((parent.width - 6px) / 2 + 6px);
-                    y: Math.floor(idx / 2) * 36px;
-                    width: (parent.width - 6px) / 2;
-                    height: 30px;
-                    border-radius: Theme.r-sm;
-                    background: root.data.vc-preset == idx ? Theme.accent-soft : Theme.field;
-                    border-width: 1px;
-                    border-color: root.data.vc-preset == idx ? Theme.accent : Theme.line;
-
-                    Text {
-                        text: name;
-                        color: root.data.vc-preset == idx ? Theme.accent : Theme.fg;
-                        font-size: Theme.fs-sm;
-                        font-weight: root.data.vc-preset == idx ? Theme.weight-title : 400;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
-                        overflow: elide;
-                    }
-
-                    TouchArea {
-                        mouse-cursor: pointer;
-                        clicked => { root.action(43, idx, "", 0); }
-                    }
-                }
-            }
-
-            DialogRow {
-                label: "Kiểu giọng DSP";
-                Select {
-                    options: [
-                        "Phòng thu (Khử ồn + Làm ấm giọng)",
-                        "Nam trầm ấm (Deep Male)",
-                        "Nữ cao / Giọng sáng (Bright Female)",
-                        "Ẩn danh / Phóng sự (Anonymous)",
-                        "Trẻ em / Sóc chuột (Chipmunk)",
-                        "Khổng lồ / Quái vật (Giant)",
-                        "Robot / Cơ khí (Robot)",
-                        "Bộ đàm / Điện thoại (Radio / Phone)",
-                        "Vang vọng / Hội trường (Hall Echo)",
-                        "Tùy chỉnh Cao độ & Tốc độ"
-                    ];
-                    current: root.data.vc-preset;
-                    changed(index) => { root.action(43, index, "", 0); }
-                }
-            }
-
-            DialogRow {
-                label: "Cao độ (Pitch)";
-                HorizontalLayout {
-                    spacing: 10px;
-                    Rail {
-                        value: root.data.vc-pitch;
-                        minimum: -12;
-                        maximum: 12;
-                        step: 0.5;
-                        default-value: 0;
-                        changed(value) => { root.action(44, 0, "", value); }
-                    }
-                    NumberField {
-                        value: root.data.vc-pitch;
-                        minimum: -12;
-                        maximum: 12;
-                        step: 0.5;
-                        precision: 1;
-                        unit: " st";
-                        changed(value) => { root.action(44, 0, "", value); }
-                    }
-                }
-            }
-
-            DialogRow {
-                label: "Tốc độ nói";
-                HorizontalLayout {
-                    spacing: 10px;
-                    Rail {
-                        value: root.data.vc-speed;
-                        minimum: 0.5;
-                        maximum: 2.0;
-                        step: 0.05;
-                        default-value: 1.0;
-                        changed(value) => { root.action(45, 0, "", value); }
-                    }
-                    NumberField {
-                        value: root.data.vc-speed;
-                        minimum: 0.5;
-                        maximum: 2.0;
-                        step: 0.05;
-                        precision: 2;
-                        unit: "×";
-                        changed(value) => { root.action(45, 0, "", value); }
-                    }
-                }
-            }
-
-            DialogRow {
-                label: "Khử ồn nền";
-                Switch {
-                    checked: root.data.vc-denoise;
-                    toggled(on) => { root.action(47, on ? 1 : 0, "", 0); }
-                }
-            }
-
-            Text {
-                text: "Xử lý âm thanh trực tiếp trên máy (Offline DSP) bằng bộ lọc tần số, dịch cao độ (Pitch Shift) và khử tạp âm phòng thu.";
-                color: Theme.fg-muted;
-                font-size: Theme.fs-sm;
-                wrap: word-wrap;
-            }
-
-            Button {
-                label: "Biến đổi giọng nói ngay (Offline DSP)";
-                glyph: Glyph.voice-changer;
-                primary: true;
-                block: true;
-                enabled: root.data.sources.length > 0 && !root.data.recording;
-                clicked => { root.action(48, 0, "", 0); }
-            }
-        }
-
-        // ── TTS / Cloud S2S Provider & Voice Controls ──
-        if root.show-tts-controls: DialogRow {
+        DialogRow {
             label: I18n.t("captions.provider");
             Select {
-                options: ["Local", "Gemini TTS", "ElevenLabs"];
+                options: [
+                    "Local (Ngoại tuyến — Kokoro / Pocket)",
+                    "Gemini TTS (Google AI Cloud — Nhanh & Biểu cảm)",
+                    "ElevenLabs (AI Đa ngữ — Tự nhiên)"
+                ];
                 current: root.data.provider;
                 changed(index) => { root.action(1, index, "", 0); }
             }
         }
-        if root.show-tts-controls && root.data.provider != 0: Button {
-            label: I18n.t("settings.configureApi");
-            ghost: true;
-            clicked => { root.action(2, 0, "", 0); }
-        }
-        if root.show-tts-controls && root.data.provider != 0: DialogRow {
-            label: I18n.t("common.model");
-            Select {
-                options: root.data.provider == 1
-                    ? ["Gemini 3.8 Flash TTS", "Gemini 3.8 Flash-Lite TTS", "Gemini 2.5 Flash Preview TTS", "Gemini 2.5 Pro Preview TTS", I18n.t("dubbing.customModel")]
-                    : ["Eleven v3", "Eleven v4", "Eleven v4 Turbo", "Flash v2.5", "Multilingual v2", I18n.t("dubbing.customModel")];
-                current: root.data.model-choice;
-                changed(index) => { root.action(24, index, "", 0); }
-            }
-        }
-        if root.show-tts-controls && root.data.provider != 0 && root.data.model-choice == (root.data.provider == 1 ? 4 : 5): DialogRow {
-            label: I18n.t("dubbing.modelId");
-            Field { value: root.data.cloud-model; technical: true; edited(text) => { root.action(4, 0, text, 0); } }
-        }
-        if root.show-tts-controls && root.data.provider == 1: DialogRow {
-            label: "Temperature";
-            HorizontalLayout {
-                spacing: 10px;
-                Rail { value: root.data.temperature; minimum: 0; maximum: 2; step: 0.05; default-value: 1; changed(value) => { root.action(32, 0, "", value); } }
-                NumberField { value: root.data.temperature; minimum: 0; maximum: 2; step: 0.05; precision: 2; changed(value) => { root.action(32, 0, "", value); } }
-            }
-        }
-        if root.show-tts-controls && root.data.provider == 1: Text {
-            text: I18n.t("dubbing.temperatureHint"); color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap;
-        }
-        if root.show-tts-controls && root.data.provider == 1 && (root.data.model-choice == 2 || root.data.model-choice == 3): Text {
-            text: root.data.model-choice == 2 ? I18n.t("dubbing.flashFreeTier") : I18n.t("dubbing.proPaidTier"); color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap;
-        }
-        if root.show-tts-controls && root.data.provider != 0: DialogRow {
-            label: I18n.t("dubbing.gender");
-            Select { options: [I18n.t("dubbing.allGenders"), I18n.t("dubbing.male"), I18n.t("dubbing.female")]; current: root.data.voice-gender; changed(index) => { root.action(26, index, "", 0); } }
-        }
-        if root.show-tts-controls && root.data.provider == 2: DialogRow {
-            label: I18n.t("dubbing.showPaid");
-            Switch { checked: root.data.show-paid; toggled(on) => { root.action(27, on ? 1 : 0, "", 0); } }
-        }
-        if root.show-tts-controls && root.data.provider == 2: Button {
-            label: root.data.catalog-loading ? I18n.t("dubbing.loadingVoices") : I18n.t("dubbing.loadVoices");
-            enabled: !root.data.catalog-loading;
-            clicked => { root.action(29, 0, "", 0); }
-        }
-        if root.show-tts-controls && root.data.provider != 0: DialogRow {
-            label: I18n.t("dubbing.chooseVoice");
-            Select { options: root.data.voice-names; current: root.data.voice-choice; changed(index) => { if index > 0 { root.action(28, index - 1, "", 0); } } }
-        }
-        if root.show-tts-controls && root.data.provider == 2: Text {
-            text: I18n.t("dubbing.freeVoiceHint"); color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap;
-        }
-        if root.show-tts-controls && root.data.provider != 0: DialogRow {
-            label: I18n.t("dubbing.accent");
-            Select { options: [I18n.t("dubbing.defaultAccent"), I18n.t("dubbing.north"), I18n.t("dubbing.central"), I18n.t("dubbing.south")]; current: root.data.accent; changed(index) => { root.action(30, index, "", 0); } }
-        }
-        if root.show-tts-controls && (root.data.provider == 1 || (root.data.provider == 2 && root.data.extended-settings)): DialogRow {
-            label: I18n.t("dubbing.deliveryPreset");
-            Select { options: [I18n.t("dubbing.customStyle"), I18n.t("dubbing.conversation"), I18n.t("dubbing.story"), I18n.t("dubbing.news"), I18n.t("dubbing.advertising"), I18n.t("dubbing.gentle"), I18n.t("dubbing.cheerful")]; current: root.data.delivery-preset; changed(index) => { root.action(31, index, "", 0); } }
-        }
-        if root.show-tts-controls && root.data.provider == 1: Text { text: I18n.t("dubbing.accentHint"); color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap; }
-        if root.show-tts-controls && root.data.provider != 0: DialogRow {
-            label: I18n.t("dubbing.voiceId");
-            Field { value: root.data.cloud-voice; technical: true; edited(text) => { root.action(3, 0, text, 0); } }
-        }
-        if root.show-tts-controls && root.data.provider == 1: DialogRow {
-            label: I18n.t("dubbing.delivery");
-            Field { value: root.data.delivery; placeholder: I18n.t("dubbing.deliveryExample"); edited(text) => { root.action(18, 0, text, 0); } }
-        }
-        if root.show-tts-controls && root.data.provider == 2: DialogRow {
-            label: I18n.t("dubbing.stability");
-            if root.data.cloud-model == "eleven_v3": Select {
-                options: [I18n.t("dubbing.creative"), I18n.t("dubbing.natural"), I18n.t("dubbing.robust")];
-                current: Math.round(root.data.stability * 2);
-                changed(index) => { root.action(19, 0, "", index * 0.5); }
-            }
-            if root.data.cloud-model != "eleven_v3": NumberField { value: root.data.stability; minimum: 0; maximum: 1; precision: 2; step: 0.05; changed(value) => { root.action(19, 0, "", value); } }
-        }
-        if root.show-tts-controls && root.data.provider == 2: DialogRow {
-            label: I18n.t("dubbing.similarity");
-            NumberField { value: root.data.similarity; minimum: 0; maximum: 1; precision: 2; step: 0.05; changed(value) => { root.action(20, 0, "", value); } }
-        }
-        if root.show-tts-controls && root.data.provider == 2 && root.data.extended-settings: DialogRow {
-            label: I18n.t("dubbing.style");
-            NumberField { value: root.data.style; minimum: 0; maximum: 1; precision: 2; step: 0.05; changed(value) => { root.action(21, 0, "", value); } }
-        }
-        if root.show-tts-controls && root.data.provider == 2 && root.data.extended-settings: DialogRow {
-            label: I18n.t("common.speed");
-            NumberField { value: root.data.speed; minimum: 0.7; maximum: 1.2; precision: 2; step: 0.05; unit: "×"; changed(value) => { root.action(22, 0, "", value); } }
-        }
-        if root.show-tts-controls && root.data.provider == 2 && root.data.extended-settings: DialogRow {
-            label: I18n.t("dubbing.speakerBoost");
-            Switch { checked: root.data.speaker-boost; toggled(on) => { root.action(23, on ? 1 : 0, "", 0); } }
-        }
-        if root.show-tts-controls && root.data.provider != 0: Button {
-            label: I18n.t("dubbing.resetSettings"); ghost: true;
-            clicked => { root.action(25, 0, "", 0); }
-        }
-        if root.show-tts-controls && root.data.provider == 2 && !root.data.extended-settings: Text {
-            text: I18n.t("dubbing.basicSettingsHint");
-            color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap;
-        }
-        if root.show-tts-controls && root.data.provider != 0: Text {
-            text: I18n.t("dubbing.cloudNotice");
-            color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap;
-        }
-        if root.show-tts-controls && root.data.provider == 0: Text {
-            text: I18n.t("dubbing.localNotice");
-            color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap;
-        }
 
-        // ── Phương án 2: AI Speech-to-Speech (S2S) ──
-        if root.data.mode == 3 && root.data.vc-method == 1: VerticalLayout {
+        // Cấu hình Gemini TTS
+        if root.data.provider == 1: VerticalLayout {
             spacing: 8px;
+
             DialogRow {
-                label: "Khử ồn nền";
-                Switch {
-                    checked: root.data.vc-denoise;
-                    toggled(on) => { root.action(47, on ? 1 : 0, "", 0); }
+                label: I18n.t("common.model");
+                HorizontalLayout {
+                    spacing: 8px;
+                    Select {
+                        horizontal-stretch: 1;
+                        options: [
+                            "Gemini 3.8 Flash Lite TTS (Khuyên dùng — Siêu nhanh)",
+                            "Gemini 3.8 Flash TTS",
+                            "Gemini 3.1 Flash TTS",
+                            "Gemini 2.5 Flash TTS",
+                            "Gemini 3.5 Flash Lite",
+                            "Gemini 2.5 Pro Preview TTS",
+                            I18n.t("dubbing.customModel")
+                        ];
+                        current: root.data.model-choice;
+                        changed(index) => { root.action(24, index, "", 0); }
+                    }
+                    Button {
+                        label: I18n.t("settings.configureApi");
+                        glyph: Glyph.settings;
+                        ghost: true;
+                        clicked => { root.action(2, 0, "", 0); }
+                    }
                 }
             }
-            Text {
-                text: root.data.provider == 2
-                    ? "ElevenLabs Speech-to-Speech (eleven_multilingual_sts_v2): Giữ nguyên nhịp điệu, cảm xúc của giọng thu gốc và biến đổi sang giọng nhân vật đã chọn."
-                    : root.data.provider == 1
-                    ? "Gemini Audio S2S: Phân tích lời nói & sắc thái biểu cảm từ bản thu gốc rồi diễn đạt lại bằng giọng Gemini đã chọn."
-                    : "Hãy chọn nhà cung cấp ElevenLabs hoặc Gemini TTS ở trên để dùng AI Speech-to-Speech.";
-                color: Theme.fg-muted;
-                font-size: Theme.fs-sm;
-                wrap: word-wrap;
+
+            if (root.data.provider == 1 && root.data.model-choice == 6) || (root.data.provider == 2 && root.data.model-choice == 5): DialogRow {
+                label: I18n.t("dubbing.modelId");
+                Field { value: root.data.cloud-model; technical: true; edited(text) => { root.action(4, 0, text, 0); } }
             }
-            Button {
-                label: "Chuyển đổi giọng nói AI (Speech-to-Speech)";
-                glyph: Glyph.voice-changer;
-                primary: true;
-                block: true;
-                enabled: root.data.sources.length > 0 && !root.data.recording && root.data.provider != 0;
-                clicked => { root.action(48, 0, "", 0); }
+
+            DialogRow {
+                label: I18n.t("dubbing.chooseVoice");
+                HorizontalLayout {
+                    spacing: 8px;
+                    Select {
+                        horizontal-stretch: 1;
+                        options: root.data.voice-names;
+                        current: root.data.voice-choice;
+                        changed(index) => { if index > 0 { root.action(28, index - 1, "", 0); } }
+                    }
+                    Select {
+                        width: 110px;
+                        options: [I18n.t("dubbing.allGenders"), I18n.t("dubbing.male"), I18n.t("dubbing.female")];
+                        current: root.data.voice-gender;
+                        changed(index) => { root.action(26, index, "", 0); }
+                    }
+                }
+            }
+
+            DialogRow {
+                label: I18n.t("dubbing.accent");
+                Select {
+                    options: [
+                        I18n.t("dubbing.defaultAccent"),
+                        "Giọng Miền Bắc (Hà Nội)",
+                        "Giọng Miền Trung (Huế / Đà Nẵng)",
+                        "Giọng Miền Nam (Sài Gòn)"
+                    ];
+                    current: root.data.accent;
+                    changed(index) => { root.action(30, index, "", 0); }
+                }
+            }
+
+            DialogRow {
+                label: I18n.t("dubbing.deliveryPreset");
+                Select {
+                    options: [
+                        I18n.t("dubbing.customStyle"),
+                        I18n.t("dubbing.conversation"),
+                        I18n.t("dubbing.story"),
+                        I18n.t("dubbing.news"),
+                        I18n.t("dubbing.advertising"),
+                        I18n.t("dubbing.gentle"),
+                        I18n.t("dubbing.cheerful")
+                    ];
+                    current: root.data.delivery-preset;
+                    changed(index) => { root.action(31, index, "", 0); }
+                }
+            }
+
+            DialogRow {
+                label: I18n.t("dubbing.delivery");
+                Field {
+                    value: root.data.delivery;
+                    placeholder: "Hướng dẫn giọng đọc (ví dụ: đọc vui vẻ, hào hứng, ngắt nghỉ nhẹ)…";
+                    edited(text) => { root.action(18, 0, text, 0); }
+                }
+            }
+
+            DialogRow {
+                label: "Temperature (Độ sáng tạo)";
+                HorizontalLayout {
+                    spacing: 10px;
+                    Rail { value: root.data.temperature; minimum: 0; maximum: 2; step: 0.05; default-value: 1; changed(value) => { root.action(32, 0, "", value); } }
+                    NumberField { value: root.data.temperature; minimum: 0; maximum: 2; step: 0.05; precision: 2; changed(value) => { root.action(32, 0, "", value); } }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 8px;
+                Button {
+                    label: I18n.t("dubbing.resetSettings");
+                    ghost: true;
+                    clicked => { root.action(25, 0, "", 0); }
+                }
+                Button {
+                    label: "Studio Hội thoại 2 nhân vật (Gemini 3.8)…";
+                    glyph: Glyph.audio-studio;
+                    ghost: true;
+                    clicked => { root.action(46, 0, "", 0); }
+                }
             }
         }
 
-        // ── Whisper & Multi-row Dubbing / Phương án 3 (ASR -> TTS) ──
-        if root.data.mode == 1 || root.data.mode == 2 || (root.data.mode == 3 && root.data.vc-method == 2): DialogRow {
-            label: "Whisper";
-            Select { options: root.data.whispers; current: root.data.whisper; placeholder: I18n.t("common.noneInstalled"); changed(index) => { root.action(15, index, "", 0); } }
-        }
-        if root.data.mode == 1: Button {
-            label: I18n.t("dubbing.loadTrack"); enabled: root.data.sources.length > 0;
-            clicked => { root.action(6, 0, "", 0); }
-        }
-        if root.data.mode == 2 || (root.data.mode == 3 && root.data.vc-method == 2): Button {
-            label: I18n.t("dubbing.recognize"); enabled: root.data.sources.length > 0 && root.data.whispers.length > 0 && !root.data.recording;
-            clicked => { root.action(7, 0, "", 0); }
-        }
-        if root.data.mode != 0 && root.data.rows.length > 0 && (root.data.mode != 3 || root.data.vc-method == 2): Button {
-            label: I18n.t("dubbing.generateUnified");
-            primary: true;
-            clicked => { root.action(8, 0, "", 0); }
-        }
-        if root.data.mode == 2 || root.data.mode == 3: DialogRow {
-            label: I18n.t("dubbing.muteOriginal");
-            Switch { checked: root.data.mute-original; toggled(on) => { root.action(17, on ? 1 : 0, "", 0); } }
-        }
-        if root.data.mode == 2: Text {
-            text: I18n.t("dubbing.muteNotice"); color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap;
-        }
-        if (root.data.rows.length > 0 || root.data.has-preview) && !root.narrow: HorizontalLayout {
+        // Cấu hình ElevenLabs TTS
+        if root.data.provider == 2: VerticalLayout {
             spacing: 8px;
-            Button { label: I18n.t("dubbing.listenAll"); enabled: root.data.pending-audio == ""; clicked => { root.action(10, -1, "", 0); } }
-            Button { label: I18n.t("dubbing.stop"); ghost: true; clicked => { root.action(16, 0, "", 0); } }
-            Button { label: "Lưu .WAV…"; enabled: root.data.has-preview; clicked => { root.action(35, 0, "", 0); } }
-            Button { label: I18n.t("dubbing.apply"); primary: true; enabled: root.data.can-apply; clicked => { root.action(11, 0, "", 0); } }
-        }
-        if (root.data.rows.length > 0 || root.data.has-preview) && root.narrow: VerticalLayout {
-            spacing: 6px;
-            HorizontalLayout {
-                spacing: 8px;
-                Button { horizontal-stretch: 1; block: true; label: I18n.t("dubbing.listenAll"); enabled: root.data.pending-audio == ""; clicked => { root.action(10, -1, "", 0); } }
-                Button { horizontal-stretch: 1; block: true; label: I18n.t("dubbing.stop"); ghost: true; clicked => { root.action(16, 0, "", 0); } }
+
+            DialogRow {
+                label: I18n.t("common.model");
+                HorizontalLayout {
+                    spacing: 8px;
+                    Select {
+                        horizontal-stretch: 1;
+                        options: ["Eleven v3", "Eleven v4", "Eleven v4 Turbo", "Flash v2.5", "Multilingual v2", I18n.t("dubbing.customModel")];
+                        current: root.data.model-choice;
+                        changed(index) => { root.action(24, index, "", 0); }
+                    }
+                    Button {
+                        label: I18n.t("settings.configureApi");
+                        glyph: Glyph.settings;
+                        ghost: true;
+                        clicked => { root.action(2, 0, "", 0); }
+                    }
+                }
             }
-            HorizontalLayout {
-                spacing: 8px;
-                Button { horizontal-stretch: 1; block: true; label: "Lưu .WAV…"; enabled: root.data.has-preview; clicked => { root.action(35, 0, "", 0); } }
-                Button { horizontal-stretch: 1; block: true; label: I18n.t("dubbing.apply"); primary: true; enabled: root.data.can-apply; clicked => { root.action(11, 0, "", 0); } }
+
+            if root.data.model-choice == 5: DialogRow {
+                label: I18n.t("dubbing.modelId");
+                Field { value: root.data.cloud-model; technical: true; edited(text) => { root.action(4, 0, text, 0); } }
             }
-        }
-        if root.data.pending-audio != "": Text {
-            text: root.data.pending-audio; color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap;
-        }
-        if root.data.rows.length > 0 || root.data.has-preview: Text {
-            text: I18n.t("dubbing.reviewNotice"); color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap;
+
+            DialogRow {
+                label: I18n.t("dubbing.chooseVoice");
+                HorizontalLayout {
+                    spacing: 8px;
+                    Select {
+                        horizontal-stretch: 1;
+                        options: root.data.voice-names;
+                        current: root.data.voice-choice;
+                        changed(index) => { if index > 0 { root.action(28, index - 1, "", 0); } }
+                    }
+                    Button {
+                        label: root.data.catalog-loading ? I18n.t("dubbing.loadingVoices") : I18n.t("dubbing.loadVoices");
+                        enabled: !root.data.catalog-loading;
+                        clicked => { root.action(29, 0, "", 0); }
+                    }
+                }
+            }
+
+            DialogRow {
+                label: I18n.t("dubbing.stability");
+                NumberField { value: root.data.stability; minimum: 0; maximum: 1; precision: 2; step: 0.05; changed(value) => { root.action(19, 0, "", value); } }
+            }
+
+            DialogRow {
+                label: I18n.t("dubbing.similarity");
+                NumberField { value: root.data.similarity; minimum: 0; maximum: 1; precision: 2; step: 0.05; changed(value) => { root.action(20, 0, "", value); } }
+            }
+
+            if root.data.extended-settings: DialogRow {
+                label: I18n.t("dubbing.style");
+                NumberField { value: root.data.style; minimum: 0; maximum: 1; precision: 2; step: 0.05; changed(value) => { root.action(21, 0, "", value); } }
+            }
+
+            if root.data.extended-settings: DialogRow {
+                label: I18n.t("common.speed");
+                NumberField { value: root.data.speed; minimum: 0.7; maximum: 1.2; precision: 2; step: 0.05; unit: "×"; changed(value) => { root.action(22, 0, "", value); } }
+            }
+
+            if root.data.extended-settings: DialogRow {
+                label: I18n.t("dubbing.speakerBoost");
+                Switch { checked: root.data.speaker-boost; toggled(on) => { root.action(23, on ? 1 : 0, "", 0); } }
+            }
+
+            Button {
+                label: I18n.t("dubbing.resetSettings");
+                ghost: true;
+                clicked => { root.action(25, 0, "", 0); }
+            }
         }
     }
 
+    // ─────────────────────────────────────────────────────────────
+    // CHẾ ĐỘ 3: VOICE CHANGER (BIẾN ĐỔI GIỌNG NÓI AI & DSP)
+    // ─────────────────────────────────────────────────────────────
+    if root.data.mode == 3: VerticalLayout {
+        spacing: 10px;
+
+        // BƯỚC 1: NGUỒN ÂM THANH ĐẦU VÀO
+        DialogSection {
+            title: "1 · Nguồn âm thanh cần đổi giọng";
+
+            DialogRow {
+                label: I18n.t("dubbing.source");
+                HorizontalLayout {
+                    spacing: 8px;
+                    Select {
+                        horizontal-stretch: 1;
+                        options: root.data.sources;
+                        current: root.data.source;
+                        placeholder: I18n.t("dubbing.chooseSource");
+                        changed(index) => { root.action(5, index, "", 0); }
+                    }
+                    Button {
+                        label: "Duyệt tệp…";
+                        glyph: Glyph.folder;
+                        ghost: true;
+                        clicked => { root.action(33, 0, "", 0); }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 8px;
+                Button {
+                    horizontal-stretch: 1;
+                    primary: root.data.recording;
+                    glyph: root.data.recording ? Glyph.stop : Glyph.mic;
+                    label: root.data.recording ? "Dừng thu âm Micro" : "Thu âm trực tiếp từ Micro";
+                    clicked => { root.action(40, 0, "", 0); }
+                }
+                Button {
+                    glyph: Glyph.volume;
+                    label: "Nghe giọng gốc";
+                    ghost: true;
+                    enabled: root.data.sources.length > 0 && !root.data.recording;
+                    clicked => { root.action(41, 0, "", 0); }
+                }
+            }
+
+            if root.data.recording: Text {
+                text: "🔴 Đang thu âm từ Micro… Hãy nói vào micro rồi bấm \"Dừng thu âm Micro\" khi hoàn tất.";
+                color: Theme.accent;
+                font-size: Theme.fs-sm;
+                wrap: word-wrap;
+            }
+        }
+
+        // BƯỚC 2: PHƯƠNG THỨC BIẾN ĐỔI
+        DialogSection {
+            title: "2 · Chọn Phương thức Biến đổi";
+
+            DialogRow {
+                label: "Phương thức";
+                Select {
+                    options: [
+                        "1 · Offline DSP & Lọc âm Phòng thu (Nhanh tức thì, không cần mạng)",
+                        "2 · AI Speech-to-Speech (ElevenLabs / Gemini — Giữ 100% cảm xúc gốc)",
+                        "3 · Nhận diện lời nói (Whisper) → Sửa chữ → Đọc lại TTS"
+                    ];
+                    current: root.data.vc-method;
+                    changed(index) => { root.action(42, index, "", 0); }
+                }
+            }
+
+            // --- PHƯƠNG THỨC 1: OFFLINE DSP ---
+            if root.data.vc-method == 0: VerticalLayout {
+                spacing: 8px;
+
+                Text {
+                    text: "Chọn nhanh kiểu giọng chuyển đổi bằng bộ lọc tần số & dịch cao độ ngoại tuyến (Offline DSP):";
+                    color: Theme.fg-muted;
+                    font-size: Theme.fs-sm;
+                }
+
+                // Lưới 10 preset giọng DSP
+                Rectangle {
+                    height: 5 * 34px + 4 * 4px;
+                    property <[string]> dsp-names: [
+                        "🎙 Phòng thu (Khử ồn)", "🧔 Nam trầm ấm",
+                        "👩 Nữ cao / Giọng sáng", "🕵 Ẩn danh phóng sự",
+                        "🐿 Sóc chuột / Trẻ em", "👹 Khổng lồ quái vật",
+                        "🤖 Robot cơ khí", "📻 Bộ đàm / Điện thoại",
+                        "🏛 Vang vọng hội trường", "🎚 Tùy chỉnh cao độ"
+                    ];
+
+                    for name[idx] in self.dsp-names: Rectangle {
+                        x: Math.mod(idx, 2) * ((parent.width - 8px) / 2 + 8px);
+                        y: Math.floor(idx / 2) * 38px;
+                        width: (parent.width - 8px) / 2;
+                        height: 34px;
+                        border-radius: Theme.r-sm;
+                        background: root.data.vc-preset == idx ? Theme.accent-soft : Theme.field;
+                        border-width: 1px;
+                        border-color: root.data.vc-preset == idx ? Theme.accent : Theme.line;
+
+                        Text {
+                            text: name;
+                            color: root.data.vc-preset == idx ? Theme.accent : Theme.fg;
+                            font-size: Theme.fs-sm;
+                            font-weight: root.data.vc-preset == idx ? Theme.weight-title : 400;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                            overflow: elide;
+                        }
+
+                        TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { root.action(43, idx, "", 0); }
+                        }
+                    }
+                }
+
+                DialogRow {
+                    label: "Cao độ (Pitch Shift)";
+                    HorizontalLayout {
+                        spacing: 10px;
+                        Rail {
+                            value: root.data.vc-pitch;
+                            minimum: -12;
+                            maximum: 12;
+                            step: 0.5;
+                            default-value: 0;
+                            changed(value) => { root.action(44, 0, "", value); }
+                        }
+                        NumberField {
+                            value: root.data.vc-pitch;
+                            minimum: -12;
+                            maximum: 12;
+                            step: 0.5;
+                            precision: 1;
+                            unit: " st";
+                            changed(value) => { root.action(44, 0, "", value); }
+                        }
+                    }
+                }
+
+                DialogRow {
+                    label: "Tốc độ nói (Speed)";
+                    HorizontalLayout {
+                        spacing: 10px;
+                        Rail {
+                            value: root.data.vc-speed;
+                            minimum: 0.5;
+                            maximum: 2.0;
+                            step: 0.05;
+                            default-value: 1.0;
+                            changed(value) => { root.action(45, 0, "", value); }
+                        }
+                        NumberField {
+                            value: root.data.vc-speed;
+                            minimum: 0.5;
+                            maximum: 2.0;
+                            step: 0.05;
+                            precision: 2;
+                            unit: "×";
+                            changed(value) => { root.action(45, 0, "", value); }
+                        }
+                    }
+                }
+
+                DialogRow {
+                    label: "Khử ồn & Làm sạch tạp âm";
+                    Switch {
+                        checked: root.data.vc-denoise;
+                        toggled(on) => { root.action(47, on ? 1 : 0, "", 0); }
+                    }
+                }
+
+                Button {
+                    label: "⚡ Biến đổi giọng nói ngay (Offline DSP)";
+                    glyph: Glyph.voice-changer;
+                    primary: true;
+                    large: true;
+                    block: true;
+                    enabled: root.data.sources.length > 0 && !root.data.recording;
+                    clicked => { root.action(48, 0, "", 0); }
+                }
+            }
+
+            // --- PHƯƠNG THỨC 2: AI SPEECH-TO-SPEECH (ELEVENLABS / GEMINI) ---
+            if root.data.vc-method == 1: VerticalLayout {
+                spacing: 8px;
+
+                DialogRow {
+                    label: I18n.t("captions.provider");
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Select {
+                            horizontal-stretch: 1;
+                            options: [
+                                "Local",
+                                "Gemini Audio S2S",
+                                "ElevenLabs Voice Changer (Khuyên dùng)"
+                            ];
+                            current: root.data.provider;
+                            changed(index) => { root.action(1, index, "", 0); }
+                        }
+                        if root.data.provider != 0: Button {
+                            label: I18n.t("settings.configureApi");
+                            glyph: Glyph.settings;
+                            ghost: true;
+                            clicked => { root.action(2, 0, "", 0); }
+                        }
+                    }
+                }
+
+                DialogRow {
+                    label: I18n.t("common.model");
+                    Select {
+                        options: root.data.provider == 1
+                            ? ["Gemini 2.5 Flash Audio S2S", "Gemini 2.5 Pro Audio S2S", I18n.t("dubbing.customModel")]
+                            : ["Eleven Multilingual STS v2 (Mặc định — Tiếng Việt & Đa ngữ)", "Eleven English STS v2 (Tiếng Anh)", I18n.t("dubbing.customModel")];
+                        current: root.data.model-choice;
+                        changed(index) => { root.action(24, index, "", 0); }
+                    }
+                }
+
+                DialogRow {
+                    label: "Giọng đọc đích";
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Select {
+                            horizontal-stretch: 1;
+                            options: root.data.voice-names;
+                            current: root.data.voice-choice;
+                            changed(index) => { if index > 0 { root.action(28, index - 1, "", 0); } }
+                        }
+                        if root.data.provider == 2: Button {
+                            label: root.data.catalog-loading ? I18n.t("dubbing.loadingVoices") : I18n.t("dubbing.loadVoices");
+                            enabled: !root.data.catalog-loading;
+                            clicked => { root.action(29, 0, "", 0); }
+                        }
+                    }
+                }
+
+                DialogRow {
+                    label: "Khử ồn nguồn trước khi đổi giọng";
+                    Switch {
+                        checked: root.data.vc-denoise;
+                        toggled(on) => { root.action(47, on ? 1 : 0, "", 0); }
+                    }
+                }
+
+                Text {
+                    text: root.data.provider == 2
+                        ? "✨ ElevenLabs STS v2: Chuyển đổi sang chất giọng nhân vật mục tiêu nhưng giữ nguyên 100% cảm xúc, nhịp điệu, ngắt nghỉ và ngữ điệu tự nhiên của giọng nói gốc."
+                        : root.data.provider == 1
+                        ? "Gemini Audio S2S: Phân tích biểu cảm từ giọng gốc rồi tái hiện bằng giọng Gemini đã chọn."
+                        : "Vui lòng chọn ElevenLabs Voice Changer hoặc Gemini Audio S2S để sử dụng AI Speech-to-Speech.";
+                    color: Theme.fg-muted;
+                    font-size: Theme.fs-sm;
+                    wrap: word-wrap;
+                }
+
+                Button {
+                    label: "🎭 Chuyển đổi giọng nói ngay (AI Voice Changer)";
+                    glyph: Glyph.voice-changer;
+                    primary: true;
+                    large: true;
+                    block: true;
+                    enabled: root.data.sources.length > 0 && !root.data.recording && root.data.provider != 0;
+                    clicked => { root.action(48, 0, "", 0); }
+                }
+            }
+
+            // --- PHƯƠNG THỨC 3: WHISPER ASR -> SỬA CHỮ -> TTS ---
+            if root.data.vc-method == 2: VerticalLayout {
+                spacing: 8px;
+
+                DialogRow {
+                    label: "Whisper Model";
+                    Select {
+                        options: root.data.whispers;
+                        current: root.data.whisper;
+                        placeholder: I18n.t("common.noneInstalled");
+                        changed(index) => { root.action(15, index, "", 0); }
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: 8px;
+                    Button {
+                        horizontal-stretch: 1;
+                        label: "🎙️ Nhận diện giọng nói gốc (Whisper)";
+                        enabled: root.data.sources.length > 0 && root.data.whispers.length > 0 && !root.data.recording;
+                        clicked => { root.action(7, 0, "", 0); }
+                    }
+                    if root.data.rows.length > 0: Button {
+                        label: "✨ Gemini ngắt câu thông minh";
+                        ghost: true;
+                        clicked => { root.action(37, 0, "", 0); }
+                    }
+                }
+
+                if root.data.rows.length > 0: Button {
+                    label: "🚀 " + I18n.t("dubbing.generateUnified");
+                    primary: true;
+                    large: true;
+                    block: true;
+                    clicked => { root.action(8, 0, "", 0); }
+                }
+            }
+        }
+
+        // BƯỚC 3: KẾT QUẢ ĐÃ BIẾN ĐỔI & ÁP DỤNG VÀO TIMELINE
+        if root.data.has-preview || root.data.rows.length > 0: DialogSection {
+            title: "3 · Kết quả sau khi biến đổi";
+
+            DialogRow {
+                label: I18n.t("dubbing.muteOriginal");
+                Switch {
+                    checked: root.data.mute-original;
+                    toggled(on) => { root.action(17, on ? 1 : 0, "", 0); }
+                }
+            }
+
+            Text {
+                text: "Bật tùy chọn này để tự động tắt tiếng clip gốc trên Timeline khi áp dụng giọng mới.";
+                color: Theme.fg-muted;
+                font-size: Theme.fs-sm;
+            }
+
+            HorizontalLayout {
+                spacing: 8px;
+                Button {
+                    horizontal-stretch: 1;
+                    label: "▶ " + I18n.t("dubbing.listenAll");
+                    enabled: true;
+                    clicked => { root.action(10, -1, "", 0); }
+                }
+                Button {
+                    label: "⏹ " + I18n.t("dubbing.stop");
+                    ghost: true;
+                    clicked => { root.action(16, 0, "", 0); }
+                }
+                Button {
+                    label: "💾 Lưu .WAV…";
+                    enabled: root.data.has-preview;
+                    clicked => { root.action(35, 0, "", 0); }
+                }
+                Button {
+                    horizontal-stretch: 1;
+                    label: "➕ " + I18n.t("dubbing.apply");
+                    primary: true;
+                    enabled: root.data.can-apply;
+                    clicked => { root.action(11, 0, "", 0); }
+                }
+            }
+
+            if root.data.pending-audio != "": Text {
+                text: root.data.pending-audio;
+                color: Theme.accent;
+                font-size: Theme.fs-sm;
+                wrap: word-wrap;
+            }
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // CHẾ ĐỘ 2 & 1: LỒNG TIẾNG VIDEO & TRACK PHỤ ĐỀ
+    // ─────────────────────────────────────────────────────────────
+    if root.data.mode == 1 || root.data.mode == 2: VerticalLayout {
+        spacing: 10px;
+
+        DialogSection {
+            title: root.data.mode == 1 ? "Nguồn track chữ / Phụ đề cần lồng tiếng" : "Nguồn video / audio";
+
+            DialogRow {
+                label: I18n.t("dubbing.source");
+                HorizontalLayout {
+                    spacing: 8px;
+                    Select {
+                        horizontal-stretch: 1;
+                        options: root.data.sources;
+                        current: root.data.source;
+                        placeholder: I18n.t("dubbing.chooseSource");
+                        changed(index) => { root.action(5, index, "", 0); }
+                    }
+                    Button {
+                        label: "Duyệt…";
+                        glyph: Glyph.folder;
+                        ghost: true;
+                        clicked => { root.action(33, 0, "", 0); }
+                    }
+                }
+            }
+
+            if root.data.mode == 1: Button {
+                label: I18n.t("dubbing.loadTrack");
+                enabled: root.data.sources.length > 0;
+                clicked => { root.action(6, 0, "", 0); }
+            }
+
+            if root.data.mode == 2: VerticalLayout {
+                spacing: 8px;
+                DialogRow {
+                    label: "Whisper";
+                    Select {
+                        options: root.data.whispers;
+                        current: root.data.whisper;
+                        placeholder: I18n.t("common.noneInstalled");
+                        changed(index) => { root.action(15, index, "", 0); }
+                    }
+                }
+                Button {
+                    label: I18n.t("dubbing.recognize");
+                    enabled: root.data.sources.length > 0 && root.data.whispers.length > 0 && !root.data.recording;
+                    clicked => { root.action(7, 0, "", 0); }
+                }
+            }
+        }
+
+        // Bảng câu thoại của mode 1 & 2
+        if root.data.rows.length > 0: VerticalLayout {
+            spacing: 8px;
+            HorizontalLayout {
+                spacing: 8px;
+                Button {
+                    horizontal-stretch: 1;
+                    label: I18n.t("dubbing.generateUnified");
+                    primary: true;
+                    clicked => { root.action(8, 0, "", 0); }
+                }
+                Button {
+                    label: "✨ Gemini ngắt câu thông minh";
+                    ghost: true;
+                    clicked => { root.action(37, 0, "", 0); }
+                }
+            }
+
+            DialogRow {
+                label: I18n.t("dubbing.muteOriginal");
+                Switch { checked: root.data.mute-original; toggled(on) => { root.action(17, on ? 1 : 0, "", 0); } }
+            }
+
+            if root.data.pending-audio != "": Text {
+                text: "⚠️ " + root.data.pending-audio;
+                color: Theme.accent;
+                font-size: Theme.fs-sm;
+                wrap: word-wrap;
+            }
+            if root.data.message != "" && root.data.pending-audio == "": Text {
+                text: "ℹ️ " + root.data.message;
+                color: Theme.accent;
+                font-size: Theme.fs-sm;
+                wrap: word-wrap;
+            }
+
+            HorizontalLayout {
+                spacing: 8px;
+                Button { label: I18n.t("dubbing.listenAll"); enabled: true; clicked => { root.action(10, -1, "", 0); } }
+                Button { label: I18n.t("dubbing.stop"); ghost: true; clicked => { root.action(16, 0, "", 0); } }
+                Button { label: "Lưu .WAV…"; enabled: root.data.has-preview; clicked => { root.action(35, 0, "", 0); } }
+                Button { label: I18n.t("dubbing.apply"); primary: true; enabled: root.data.can-apply; clicked => { root.action(11, 0, "", 0); } }
+            }
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // DANH SÁCH CÂU THOẠI (DÀNH CHO MODE 1, 2 HOẶC VOICE CHANGER PHƯƠNG THỨC 3)
+    // ─────────────────────────────────────────────────────────────
     if root.data.mode != 0 && root.data.rows.length > 0 && (root.data.mode != 3 || root.data.vc-method == 2): Flickable {
         height: 280px;
         content-height: root.data.rows.length * (root.data.expressions ? 174px : 136px);

@@ -54,6 +54,7 @@ pub enum StartMsg {
     SearchEdited(String),
     /// How the projects are ordered: [`SORT_RECENT`] or [`SORT_NAME`].
     Sort(i32),
+    ProjectTab(i32),
     /// One of the learn-and-community cards, or the version line, by the
     /// name [`link`] knows it by.
     Link(String),
@@ -145,6 +146,7 @@ pub struct StartPane {
     pub query: String,
     /// [`SORT_RECENT`] or [`SORT_NAME`].
     pub sort: i32,
+    pub project_tab: i32,
     /// Media dropped on the launch screen, waiting for the project the
     /// sheet is about to make: imported into it once it opens, and let go
     /// if the sheet is put down instead.
@@ -169,6 +171,7 @@ impl Default for StartPane {
             error: String::new(),
             query: String::new(),
             sort: SORT_RECENT,
+            project_tab: 0,
             dropped: Vec::new(),
         }
     }
@@ -313,9 +316,14 @@ impl StartPane {
             // does: the sheet is down while a card is pressed, and a notice
             // inside it would go unseen.
             StartMsg::OpenRecent(path) => {
+                let p = Path::new(&path);
+                if crate::capcut_hub::is_capcut_draft(p) {
+                    crate::capcut_import::import_capcut_draft_path(studio, p);
+                    return;
+                }
                 // A folder that has gone says so in words, not as the
                 // manifest file it could not read.
-                if !projects::is_project(Path::new(&path)) {
+                if !projects::is_project(p) {
                     studio.notify(&tf("start.folderMissing", &[&path]), true);
                     studio.recents = projects::recents(&studio.host.dirs.config);
                     return;
@@ -326,6 +334,10 @@ impl StartPane {
                 }
             }
             StartMsg::ForgetRecent(path) => {
+                if self.project_tab == 1 {
+                    studio.capcut_drafts.retain(|d| d.path != path);
+                    return;
+                }
                 if let Err(error) = projects::forget(&studio.host.dirs.config, &path) {
                     studio.notify(&error, true);
                 }
@@ -343,6 +355,12 @@ impl StartPane {
                 } else {
                     SORT_RECENT
                 };
+            }
+            StartMsg::ProjectTab(tab) => {
+                self.project_tab = tab;
+                if tab == 1 && studio.capcut_drafts.is_empty() {
+                    studio.refresh_capcut_drafts();
+                }
             }
             StartMsg::Link(name) => {
                 match name.as_str() {
@@ -397,6 +415,12 @@ impl StartPane {
                     "tool-voice-changer" => {
                         use crate::panes::speech::SpeechMsg;
                         studio.speech.dub.mode = 3;
+                        studio.speech.dub.vc_method = 1;
+                        if !studio.prefs.eleven_api_key.expose().trim().is_empty() {
+                            studio.speech.dub.provider = 2;
+                        } else if !studio.prefs.gemini_api_key.expose().trim().is_empty() {
+                            studio.speech.dub.provider = 1;
+                        }
                         studio.speech.dub.mute_original = true;
                         studio.handle(crate::panes::Msg::Speech(SpeechMsg::Open));
                         return;
@@ -630,6 +654,7 @@ impl StartPane {
             dropped: self.dropped.len() as i32,
             query: self.query.as_str().into(),
             sort: self.sort,
+            project_tab: self.project_tab,
         }
     }
 }

@@ -949,6 +949,52 @@ mod tests {
     }
 
     #[test]
+    fn a_group_of_touching_titles_dragged_past_zero_lands_at_zero_without_colliding() {
+        let mut editor = Editor::new();
+        let t1 = text_at(&mut editor, 1.0, 2.0);
+        let track_id = editor
+            .project()
+            .active()
+            .clip(&t1)
+            .expect("t1")
+            .track_id
+            .clone();
+        let t2 = editor
+            .apply(Command::AddTextClip {
+                track_id: Some(track_id.clone()),
+                above: false,
+                start: 3.0,
+                style: None,
+                duration: Some(2.0),
+                offset_y: None,
+            })
+            .expect("t2")
+            .created_id
+            .expect("id");
+        // Dragging both left by 2.5s puts t1 at -1.5s and t2 at 0.5s;
+        // the group must stop together at 0.0s and 2.0s.
+        let outcome = editor
+            .apply(Command::MoveClips {
+                moves: vec![
+                    ClipMove {
+                        clip_id: t1.clone(),
+                        start: -1.5,
+                        track_id: track_id.clone(),
+                    },
+                    ClipMove {
+                        clip_id: t2.clone(),
+                        start: 0.5,
+                        track_id,
+                    },
+                ],
+            })
+            .expect("moves");
+        assert!(outcome.applied);
+        assert_eq!(start_of(&editor, &t1), 0.0);
+        assert_eq!(start_of(&editor, &t2), 2.0);
+    }
+
+    #[test]
     fn a_move_whose_clips_would_cover_each_other_stays_put() {
         let (mut editor, media_id, _first) = fixture();
         let tracks = editor.project().active().tracks.clone();

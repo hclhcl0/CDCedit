@@ -60,7 +60,7 @@ export component TranslationDialog inherits Modal {
                     title:"2. Dịch sang tiếng Việt";
                     DialogRow{label:"Kiểu dịch";Select{options:["Sát nghĩa","Tự nhiên để lồng tiếng"];current:root.data.natural?1:0;changed(i)=>{root.action(7,i,"",0);}}}
                     Field{value:root.data.glossary;max-length:4000;placeholder:"Tên riêng, thuật ngữ, cách xưng hô…";edited(text)=>{root.action(8,0,text,0);}}
-                    Select{options:["Chọn mô hình dịch…","Gemini 3.6 Flash","Gemini 3.5 Flash-Lite","Gemini 2.5 Flash"];current:0;changed(i)=>{if(i>0){root.action(9,0,["","gemini-3.6-flash","gemini-3.5-flash-lite","gemini-2.5-flash"][i],0);}}}
+                    Select{options:["Chọn mô hình dịch…","Gemini 3.5 Flash Lite","Gemini 3.1 Flash Lite","Gemini 3.8 Flash (Mới nhất)","Gemini 3.8 Flash-Lite","Gemini 3.6 Flash","Gemini 2.5 Flash"];current:0;changed(i)=>{if(i>0){root.action(9,0,["","gemini-3.5-flash-lite","gemini-3.1-flash-lite","gemini-3.8-flash","gemini-3.8-flash-lite","gemini-3.6-flash","gemini-2.5-flash"][i],0);}}}
                     DialogRow{label:"Model ID";Field{value:root.data.model;max-length:120;edited(text)=>{root.action(9,0,text,0);}}}
                     Text{text:"Dùng Gemini và danh sách key chung trong Cài đặt. Chỉ gửi văn bản phụ đề và thuật ngữ, không gửi video/audio ở bước dịch. Có thể phát sinh phí.";color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
                     Button{label:"Dịch toàn bộ sang tiếng Việt";primary:true;block:true;enabled:root.data.total>0 && root.data.ready;clicked=>{root.action(11,0,"",0);}}
