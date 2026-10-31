@@ -574,11 +574,7 @@ pub fn import_capcut_draft_path(studio: &mut Studio, input_path: &Path) {
         .last_project_location
         .clone()
         .filter(|l| !l.is_empty() && Path::new(l).is_dir())
-        .unwrap_or_else(|| {
-            dirs::desktop_dir()
-                .map(|d| d.to_string_lossy().into_owned())
-                .unwrap_or_else(|| ".".into())
-        });
+        .unwrap_or_else(|| crate::studio::home_folder("Desktop"));
 
     let info = match concat_host::projects::create(
         &location,
@@ -618,3 +614,4 @@ pub fn import_capcut_draft_path(studio: &mut Studio, input_path: &Path) {
         }
     }
 }
+
