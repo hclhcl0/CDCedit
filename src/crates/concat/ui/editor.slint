@@ -147,6 +147,8 @@ export global Editor {
     /// a package written or dropped in while the app runs shows up without
     /// a restart, and one that will not load says why.
     callback library-reload-packages();
+    callback open-in-capcut();
+    callback smart-silence-cut();
 
     // ── the inspector ──
     in-out property <SelectedClipData> selected-clip;

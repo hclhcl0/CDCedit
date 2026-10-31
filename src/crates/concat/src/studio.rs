@@ -9671,6 +9671,143 @@ impl Studio {
         crate::capcut_export::export_studio_to_capcut(self, true);
     }
 
+    pub fn smart_silence_cut(&mut self) {
+        let timeline = self.timeline().clone();
+        if timeline.clips.is_empty() {
+            self.notify("Timeline chưa có clip để cắt khoảng lặng!", true);
+            return;
+        }
+
+        // Find candidate clips with audio
+        let target_clips: Vec<_> = if !self.selection.is_empty() {
+            timeline
+                .clips
+                .iter()
+                .filter(|c| self.selection.contains(&c.id))
+                .cloned()
+                .collect()
+        } else {
+            // Pick all video or audio clips
+            timeline
+                .clips
+                .iter()
+                .filter(|c| matches!(c.kind, model::ClipKind::Video | model::ClipKind::Audio))
+                .cloned()
+                .collect()
+        };
+
+        if target_clips.is_empty() {
+            self.notify("Vui lòng chọn clip có âm thanh trên timeline để cắt khoảng lặng.", true);
+            return;
+        }
+
+        let mut total_removed_spans = 0;
+        let mut total_saved_sec = 0.0;
+
+        for clip in target_clips {
+            let Some(peaks_arc) = self.peaks.get(&clip.media_id) else {
+                continue;
+            };
+            let peaks = peaks_arc.finest();
+            if peaks.min.is_empty() || peaks.max.is_empty() || peaks.buckets_per_second <= 0.0 {
+                continue;
+            }
+
+            let bps = peaks.buckets_per_second as f64;
+            let duration = clip.duration;
+            let speed = clip.speed.max(0.01);
+            let source_start = clip.source_start;
+
+            let total_steps = (duration * 50.0).round() as usize;
+            if total_steps < 10 {
+                continue;
+            }
+
+            let threshold: f32 = 0.025; // ~ -32dB
+            let mut silence_spans: Vec<(f64, f64)> = Vec::new();
+            let mut current_silence_start: Option<f64> = None;
+
+            for step in 0..=total_steps {
+                let t = (step as f64) / 50.0;
+                let s = source_start + t * speed;
+                let b = (s * bps).round() as usize;
+
+                let is_silent = if b < peaks.min.len() && b < peaks.max.len() {
+                    let amp = peaks.max[b].max(-peaks.min[b]);
+                    amp < threshold
+                } else {
+                    false
+                };
+
+                if is_silent {
+                    if current_silence_start.is_none() {
+                        current_silence_start = Some(t);
+                    }
+                } else if let Some(start_t) = current_silence_start.take() {
+                    let span_len = t - start_t;
+                    if span_len >= 0.50 {
+                        let cut_start = start_t + 0.10;
+                        let cut_end = t - 0.10;
+                        if cut_end - cut_start >= 0.25 {
+                            silence_spans.push((cut_start, cut_end));
+                        }
+                    }
+                }
+            }
+
+            if silence_spans.is_empty() {
+                continue;
+            }
+
+            silence_spans.reverse();
+            for (cut_start, cut_end) in silence_spans {
+                let abs_start = clip.start + cut_start;
+                let abs_end = clip.start + cut_end;
+                let cut_dur = cut_end - cut_start;
+
+                let _ = self.apply(Command::SplitClips {
+                    clip_ids: vec![clip.id.clone()],
+                    time: abs_end,
+                });
+                let _ = self.apply(Command::SplitClips {
+                    clip_ids: vec![clip.id.clone()],
+                    time: abs_start,
+                });
+
+                let tl = self.timeline().clone();
+                let middle_clips: Vec<String> = tl
+                    .clips
+                    .iter()
+                    .filter(|c| c.start >= abs_start - 0.05 && c.start + c.duration <= abs_end + 0.05)
+                    .map(|c| c.id.clone())
+                    .collect();
+
+                if !middle_clips.is_empty() {
+                    let _ = self.apply(Command::RemoveClips {
+                        clip_ids: middle_clips,
+                        ripple: true,
+                    });
+                    total_removed_spans += 1;
+                    total_saved_sec += cut_dur;
+                }
+            }
+        }
+
+        if total_removed_spans > 0 {
+            self.notify(
+                &format!(
+                    "✂️ AI Smart Cut: Đã cắt bỏ {total_removed_spans} đoạn khoảng lặng, rút gọn {total_saved_sec:.1}s video!"
+                ),
+                false,
+            );
+        } else {
+            self.notify(
+                "Không phát hiện đoạn khoảng lặng kéo dài (>0.5s) nào trong clip đã chọn.",
+                false,
+            );
+        }
+    }
+
     pub fn import_capcut_project(&mut self) {
         crate::capcut_import::import_capcut_dialog(self);
     }

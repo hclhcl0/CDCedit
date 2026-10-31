@@ -443,6 +443,21 @@ export component TimelineTray inherits Rectangle {
             value: root.record-level;
         }
 
+        Divider { }
+
+        TrayButton {
+            glyph: Glyph.razor;
+            label: "AI Smart Cut (Tự động cắt bỏ khoảng lặng)";
+            icon-size: 16px;
+            clicked => { Editor.smart-silence-cut(); }
+        }
+        TrayButton {
+            glyph: Glyph.sparkle;
+            label: "Mở trong CapCut PC";
+            icon-size: 16px;
+            clicked => { Editor.open-in-capcut(); }
+        }
+
         Rectangle { horizontal-stretch: 1; }
 
         // The preview axis: the monitor shows the frame under the pointer

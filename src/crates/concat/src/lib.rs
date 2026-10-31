@@ -1982,6 +1982,22 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
             });
         }
     });
+
+    editor.on_open_in_capcut({
+        move || {
+            Shell::with(|shell, _| {
+                shell.studio.borrow_mut().export_capcut_project_and_launch();
+            });
+        }
+    });
+
+    editor.on_smart_silence_cut({
+        move || {
+            Shell::with(|shell, _| {
+                shell.studio.borrow_mut().smart_silence_cut();
+            });
+        }
+    });
     app.on_open_settings(on_window!(|state| {
         state.handle(Msg::Settings(SettingsMsg::Open));
     }));
