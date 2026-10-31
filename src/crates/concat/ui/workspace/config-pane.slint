@@ -466,33 +466,51 @@ export component ConfigPane inherits Rectangle {
         }
 
         if !root.has-selection && !root.on-transition: PaneBody {
-            padding: 0px;
-            spacing: 0px;
+            padding: 16px;
 
-            PaneScroll {
-                VerticalLayout {
-                    padding-top: 4px;
-                    // No gap: the rows carry their own height and a spacing on
-                    // top of it opens the table back up.
-                    spacing: 0px;
+            VerticalLayout {
+                spacing: 12px;
+                alignment: center;
 
-                    FactHeading { title: I18n.t("configPane.project"); }
-                    FactRow { label: I18n.t("common.name"); value: root.project-name; }
-                    FactRow { label: I18n.t("configPane.folder"); value: root.project-folder; }
+                HorizontalLayout {
+                    alignment: center;
+                    Icon {
+                        glyph: Glyph.sparkle;
+                        size: 28px;
+                        tint: Theme.accent;
+                    }
+                }
 
-                    // The frame is a timeline's, not the project's: two cuts
-                    // of one edit can be two shapes, and these rows say which
-                    // one they are describing.
-                    FactHeading { title: I18n.t("configPane.timeline"); }
-                    FactRow { label: I18n.t("common.name"); value: root.timeline-name; }
-                    FactRow { label: I18n.t("common.frame"); value: root.project-output; }
-                    FactRow { label: I18n.t("common.rate"); value: root.project-rate; }
-                    FactRow { label: I18n.t("common.duration"); value: root.project-duration; }
+                Text {
+                    text: "Bảng Thuộc Tính Tinh Gọn";
+                    color: Theme.fg;
+                    font-size: Theme.fs-lg;
+                    font-weight: Theme.weight-title;
+                    horizontal-alignment: center;
+                }
 
-                    FactHeading { title: I18n.t("configPane.contents"); }
-                    FactRow { label: I18n.t("common.media"); value: "\{root.count-media}"; }
-                    FactRow { label: I18n.t("configPane.tracks"); value: "\{root.count-tracks}"; }
-                    FactRow { label: I18n.t("configPane.clips"); value: "\{root.count-clips}"; }
+                Text {
+                    text: "Chọn một đoạn clip trên timeline để điều chỉnh âm lượng, tốc độ hoặc nội dung văn bản.";
+                    color: Theme.fg-muted;
+                    font-size: Theme.fs;
+                    horizontal-alignment: center;
+                    wrap: word-wrap;
+                }
+
+                Rectangle { height: 12px; }
+
+                Rectangle {
+                    border-radius: Theme.r;
+                    background: Theme.well;
+
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 4px;
+
+                        FactRow { label: "Khung hình"; value: root.project-output; }
+                        FactRow { label: "Tốc độ"; value: root.project-rate; }
+                        FactRow { label: "Thời lượng"; value: root.project-duration; }
+                    }
                 }
             }
         }

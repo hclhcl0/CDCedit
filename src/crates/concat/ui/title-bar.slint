@@ -281,26 +281,29 @@ export component TitleBar inherits Rectangle {
             padding-left: 4px;
 
             capcut-button := Rectangle {
-                width: capcut-label.width + capcut-icon.width + 24px;
-                height: 24px;
+                width: capcut-label.width + capcut-icon.width + 26px;
+                height: 25px;
                 border-radius: Theme.r-sm;
-                background: capcut-touch.has-hover ? #00c4b4 : #00a896;
+                background: capcut-touch.has-hover ? #0e4c48 : #0c3835;
+                border-width: 1px;
+                border-color: capcut-touch.has-hover ? #2dd4bf : #14b8a6.with-alpha(0.8);
 
                 animate background { duration: 100ms; easing: cubic-bezier(0.4, 0, 0.2, 1); }
+                animate border-color { duration: 100ms; }
 
                 capcut-icon := Icon {
-                    x: 8px;
+                    x: 9px;
                     y: (parent.height - self.height) / 2;
                     glyph: Glyph.sparkle;
                     size: 13px;
-                    tint: Colors.white;
+                    tint: #2dd4bf;
                 }
 
                 capcut-label := Text {
-                    x: capcut-icon.x + capcut-icon.width + 5px;
+                    x: capcut-icon.x + capcut-icon.width + 6px;
                     y: (parent.height - self.height) / 2;
                     text: "Mở trong CapCut";
-                    color: Colors.white;
+                    color: #ccfbf1;
                     font-size: Theme.fs;
                     font-weight: Theme.weight-title;
                 }
