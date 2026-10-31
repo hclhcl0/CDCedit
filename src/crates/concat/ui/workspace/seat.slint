@@ -232,6 +232,7 @@ export component Seat inherits Rectangle {
             pane-seat: root.index;
             pane-removable: Editor.seats.length > 1;
             pane-removed => { root.removed(); }
+            open-in-capcut => { Editor.open-in-capcut(); }
 
             video-effects: Editor.video-effects;
             audio-effects: Editor.audio-effects;

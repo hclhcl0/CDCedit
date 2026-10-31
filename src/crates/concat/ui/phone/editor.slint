@@ -1123,20 +1123,6 @@ export component PhoneEditor inherits Rectangle {
                 current: root.sheet == "clip-mask";
                 clicked => { root.show("clip-mask", true); }
             }
-            if root.is-picture: ToolItem {
-                glyph: Glyph.sun;
-                label: I18n.t("common.adjust");
-                current: root.sheet == "clip-adjust";
-                clicked => { root.show("clip-adjust", true); }
-            }
-            // The desk's Video > Enhance, on a sheet of its own: the same
-            // panel, settings, preview and all.
-            if root.is-picture: ToolItem {
-                glyph: Glyph.maximize;
-                label: I18n.t("common.enhance");
-                current: root.sheet == "clip-enhance";
-                clicked => { root.show("clip-enhance", true); }
-            }
             if root.is-picture || root.is-text: ToolItem {
                 glyph: Glyph.sparkle;
                 label: I18n.t("common.effects");
