@@ -1780,11 +1780,26 @@ component WideHome inherits Rectangle {
                         spacing: 16px;
                         alignment: start;
 
-                        Image {
-                            width: 56px;
-                            height: 56px;
-                            source: @image-url("assets/app-logo.png");
-                            image-fit: contain;
+                        // App Logo: Hình vuông, nền trắng nhẹ, bo góc
+                        Rectangle {
+                            width: 54px;
+                            height: 54px;
+                            border-radius: 13px;
+                            background: #ffffff;
+                            border-width: 1px;
+                            border-color: #ffffff.with-alpha(0.8);
+                            drop-shadow-blur: 8px;
+                            drop-shadow-offset-y: 2px;
+                            drop-shadow-color: #00000033;
+
+                            Image {
+                                x: (parent.width - self.width) / 2;
+                                y: (parent.height - self.height) / 2;
+                                width: 44px;
+                                height: 44px;
+                                source: @image-url("assets/app-logo.png");
+                                image-fit: contain;
+                            }
                         }
 
                         VerticalLayout {
@@ -2427,11 +2442,25 @@ component NarrowHome inherits Rectangle {
             HorizontalLayout {
                 spacing: 12px;
 
-                Image {
+                Rectangle {
                     width: 44px;
                     height: 44px;
-                    source: @image-url("assets/app-logo.png");
-                    image-fit: contain;
+                    border-radius: 11px;
+                    background: #ffffff;
+                    border-width: 1px;
+                    border-color: #ffffff.with-alpha(0.8);
+                    drop-shadow-blur: 6px;
+                    drop-shadow-offset-y: 2px;
+                    drop-shadow-color: #00000033;
+
+                    Image {
+                        x: (parent.width - self.width) / 2;
+                        y: (parent.height - self.height) / 2;
+                        width: 36px;
+                        height: 36px;
+                        source: @image-url("assets/app-logo.png");
+                        image-fit: contain;
+                    }
                 }
 
                 Text {
