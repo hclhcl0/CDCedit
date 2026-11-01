@@ -1616,57 +1616,91 @@ export component AiToolThumbCard inherits Rectangle {
         clicked => { root.clicked(); }
     }
 
-    HorizontalLayout {
-        padding: 10px;
-        spacing: 10px;
-        alignment: start;
+    VerticalLayout {
+        padding: 6px;
+        spacing: 6px;
 
-        Rectangle {
-            width: 40px;
-            height: 40px;
+        // Poster hình vuông / chữ nhật 16:10
+        poster := Rectangle {
+            height: self.width * 0.58;
             border-radius: Theme.r;
-            background: root.accent.with-alpha(0.15);
+            background: root.active 
+                ? root.accent.with-alpha(0.2) 
+                : (touch.has-hover ? #222b3d : #131722);
             border-width: 1px;
-            border-color: root.accent.with-alpha(0.3);
+            border-color: root.active ? root.accent.with-alpha(0.6) : Theme.line;
+            clip: true;
 
+            // Background glow accent
+            Rectangle {
+                x: parent.width * 0.25;
+                y: -parent.height * 0.3;
+                width: parent.width * 0.7;
+                height: parent.height * 1.5;
+                border-radius: self.width / 2;
+                background: root.accent.with-alpha(root.active ? 0.32 : (touch.has-hover ? 0.18 : 0.08));
+            }
+
+            // Big Centered Icon
             Icon {
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                glyph: root.glyph;
+                size: 28px;
+                tint: root.active ? root.accent : (touch.has-hover ? Colors.white : Theme.fg-muted);
+            }
+
+            // Bottom-right badge
+            if root.badge != "": Rectangle {
+                x: parent.width - self.width - 6px;
+                y: parent.height - self.height - 6px;
+                width: badge-txt.preferred-width + 10px;
+                height: 18px;
+                border-radius: 4px;
+                background: root.active ? root.accent : #090d16.with-alpha(0.85);
+
+                badge-txt := Text {
+                    text: root.badge;
+                    color: root.active ? Colors.white : #cbd5e1;
+                    font-size: Theme.fs-xs;
+                    font-weight: 700;
+                    vertical-alignment: center;
+                    horizontal-alignment: center;
+                }
+            }
+
+            // Top-left active checkmark
+            if root.active: Rectangle {
+                x: 6px;
+                y: 6px;
                 width: 20px;
                 height: 20px;
-                glyph: root.glyph;
-                tint: root.accent;
+                border-radius: 10px;
+                background: root.accent;
+
+                Icon {
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    glyph: Glyph.check;
+                    size: 11px;
+                    tint: Colors.white;
+                }
             }
         }
 
+        // Title and notes
         VerticalLayout {
-            alignment: center;
+            padding-left: 4px;
+            padding-right: 4px;
+            padding-bottom: 4px;
             spacing: 2px;
-            horizontal-stretch: 1;
 
-            HorizontalLayout {
-                spacing: 6px;
-                Text {
-                    text: root.title;
-                    color: root.active ? Colors.white : Theme.fg;
-                    font-size: Theme.fs;
-                    font-weight: 700;
-                    overflow: elide;
-                }
-                if root.badge != "": Rectangle {
-                    height: 18px;
-                    border-radius: 9px;
-                    background: root.accent.with-alpha(0.2);
-                    HorizontalLayout {
-                        padding-left: 6px;
-                        padding-right: 6px;
-                        Text {
-                            text: root.badge;
-                            color: root.accent;
-                            font-size: 10px;
-                            font-weight: 600;
-                            vertical-alignment: center;
-                        }
-                    }
-                }
+            Text {
+                text: root.title;
+                color: root.active ? Colors.white : Theme.fg;
+                font-size: Theme.fs;
+                font-weight: 700;
+                overflow: elide;
             }
 
             Text {
@@ -1932,70 +1966,85 @@ component WideHome inherits Rectangle {
                 HorizontalLayout {
                     spacing: 16px;
 
-                    // ── CỘT 1: DANH SÁCH TIỆN ÍCH AI (Trái) ──
+                    // ── CỘT 1: DANH SÁCH TIỆN ÍCH AI (Thumb hình vuông, 3 trên 2 dưới) ──
                     VerticalLayout {
-                        horizontal-stretch: 44;
-                        spacing: 10px;
+                        horizontal-stretch: 50;
+                        spacing: 12px;
 
-                        AiToolThumbCard {
-                            name: "tool-captions";
-                            title: "Tạo Phụ Đề AI (.SRT)";
-                            note: "PhoWhisper ONNX & Gemini 2.5 Flash";
-                            glyph: Glyph.subtitles;
-                            badge: "Phụ đề AI";
-                            accent: #38bdf8;
-                            active: (root.active-ai-tool == "" || root.active-ai-tool == self.name);
-                            clicked => { root.active-ai-tool = self.name; }
+                        // Hàng 1: 3 tiện ích vuông
+                        HorizontalLayout {
+                            spacing: 12px;
+
+                            AiToolThumbCard {
+                                horizontal-stretch: 1;
+                                name: "tool-captions";
+                                title: "Tạo Phụ Đề AI (.SRT)";
+                                note: "Nhận diện giọng nói PhoWhisper";
+                                glyph: Glyph.subtitles;
+                                badge: "AI Whisper";
+                                accent: #38bdf8;
+                                active: (root.active-ai-tool == "" || root.active-ai-tool == self.name);
+                                clicked => { root.active-ai-tool = self.name; }
+                            }
+
+                            AiToolThumbCard {
+                                horizontal-stretch: 1;
+                                name: "tool-translation";
+                                title: "Dịch Thuật & Lồng Tiếng";
+                                note: "Dịch phụ đề SRT song ngữ";
+                                glyph: Glyph.translate;
+                                badge: "Song ngữ";
+                                accent: #3b82f6;
+                                active: root.active-ai-tool == self.name;
+                                clicked => { root.active-ai-tool = self.name; }
+                            }
+
+                            AiToolThumbCard {
+                                horizontal-stretch: 1;
+                                name: "tool-audio-studio";
+                                title: "Phòng Thu Âm & TTS";
+                                note: "Đọc văn bản & Studio hội thoại";
+                                glyph: Glyph.audio-studio;
+                                badge: "Studio TTS";
+                                accent: #10b981;
+                                active: root.active-ai-tool == self.name;
+                                clicked => { root.active-ai-tool = self.name; }
+                            }
                         }
 
-                        AiToolThumbCard {
-                            name: "tool-audio-studio";
-                            title: "Phòng Thu Âm & TTS";
-                            note: "Đọc văn bản & Studio hội thoại đa vai";
-                            glyph: Glyph.audio-studio;
-                            badge: "Studio TTS";
-                            accent: #10b981;
-                            active: root.active-ai-tool == self.name;
-                            clicked => { root.active-ai-tool = self.name; }
-                        }
+                        // Hàng 2: 2 tiện ích vuông
+                        HorizontalLayout {
+                            spacing: 12px;
 
-                        AiToolThumbCard {
-                            name: "tool-voice-changer";
-                            title: "Voice Changer (Đổi Giọng)";
-                            note: "ElevenLabs AI & Bộ lọc DSP";
-                            glyph: Glyph.voice-changer;
-                            badge: "Voice AI";
-                            accent: #f59e0b;
-                            active: root.active-ai-tool == self.name;
-                            clicked => { root.active-ai-tool = self.name; }
-                        }
+                            AiToolThumbCard {
+                                horizontal-stretch: 1;
+                                name: "tool-voice-changer";
+                                title: "Voice Changer (Biến Đổi Giọng)";
+                                note: "ElevenLabs AI & Bộ lọc DSP";
+                                glyph: Glyph.voice-changer;
+                                badge: "Voice AI";
+                                accent: #f59e0b;
+                                active: root.active-ai-tool == self.name;
+                                clicked => { root.active-ai-tool = self.name; }
+                            }
 
-                        AiToolThumbCard {
-                            name: "tool-translation";
-                            title: "Dịch Thuật & Lồng Tiếng";
-                            note: "Dịch SRT/video song ngữ & thuyết minh";
-                            glyph: Glyph.translate;
-                            badge: "Song ngữ";
-                            accent: #3b82f6;
-                            active: root.active-ai-tool == self.name;
-                            clicked => { root.active-ai-tool = self.name; }
-                        }
-
-                        AiToolThumbCard {
-                            name: "tool-links";
-                            title: "Tải Video & Nhạc Từ Link";
-                            note: "YouTube, TikTok, Facebook, Drive…";
-                            glyph: Glyph.cloud-download;
-                            badge: "1080p / MP3";
-                            accent: #a855f7;
-                            active: root.active-ai-tool == self.name;
-                            clicked => { root.active-ai-tool = self.name; }
+                            AiToolThumbCard {
+                                horizontal-stretch: 1;
+                                name: "tool-links";
+                                title: "Tải Video & Nhạc Từ Link";
+                                note: "YouTube, TikTok, Facebook, Drive";
+                                glyph: Glyph.cloud-download;
+                                badge: "1080p / MP3";
+                                accent: #a855f7;
+                                active: root.active-ai-tool == self.name;
+                                clicked => { root.active-ai-tool = self.name; }
+                            }
                         }
                     }
 
                     // ── CỘT 2: PANEL NGUYÊN BẢN ĐẦY ĐỦ TÍNH NĂNG (Phải) ──
                     Rectangle {
-                        horizontal-stretch: 56;
+                        horizontal-stretch: 50;
                         min-height: 540px;
                         max-height: 620px;
                         border-radius: Theme.r-lg;
