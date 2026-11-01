@@ -1472,21 +1472,21 @@ export component ConfigPane inherits Rectangle {
                         FilterChip {
                             horizontal-stretch: 1;
                             glyph: Glyph.audio-studio;
-                            label: "Lồng tiếng Gemini";
+                            label: "Lồng tiếng";
                             current: root.voice-sub-mode == 0;
                             clicked => { root.voice-sub-mode = 0; }
                         }
                         FilterChip {
                             horizontal-stretch: 1;
                             glyph: Glyph.translate;
-                            label: "Dịch & Thuyết minh";
+                            label: "Dịch thuật";
                             current: root.voice-sub-mode == 1;
                             clicked => { root.voice-sub-mode = 1; }
                         }
                         FilterChip {
                             horizontal-stretch: 1;
                             glyph: Glyph.mic;
-                            label: "Thu âm trực tiếp";
+                            label: "Thu âm";
                             current: root.voice-sub-mode == 2;
                             clicked => { root.voice-sub-mode = 2; }
                         }
