@@ -1606,7 +1606,11 @@ export component AiToolThumbCard inherits Rectangle {
     callback clicked();
 
     border-radius: Theme.r-lg;
-    background: root.active ? #1b2434 : (touch.has-hover ? #171d2b : Theme.launch-panel);
+    background: root.active 
+        ? (Theme.dark ? #1b2434 : #ffffff) 
+        : (touch.has-hover 
+            ? (Theme.dark ? #171d2b : Theme.launch-field) 
+            : Theme.launch-panel);
     border-width: root.active ? 2px : 1px;
     border-color: root.active ? root.accent : (touch.has-hover ? Theme.line-strong : Theme.line);
     animate background, border-color { duration: 120ms; }
@@ -1625,8 +1629,10 @@ export component AiToolThumbCard inherits Rectangle {
             height: self.width * 0.58;
             border-radius: Theme.r;
             background: root.active 
-                ? root.accent.with-alpha(0.2) 
-                : (touch.has-hover ? #222b3d : #131722);
+                ? root.accent.with-alpha(Theme.dark ? 0.2 : 0.12) 
+                : (touch.has-hover 
+                    ? (Theme.dark ? #222b3d : Theme.launch-field-active) 
+                    : (Theme.dark ? #131722 : Theme.launch-well));
             border-width: 1px;
             border-color: root.active ? root.accent.with-alpha(0.6) : Theme.line;
             clip: true;
@@ -1638,7 +1644,7 @@ export component AiToolThumbCard inherits Rectangle {
                 width: parent.width * 0.7;
                 height: parent.height * 1.5;
                 border-radius: self.width / 2;
-                background: root.accent.with-alpha(root.active ? 0.32 : (touch.has-hover ? 0.18 : 0.08));
+                background: root.accent.with-alpha(root.active ? (Theme.dark ? 0.32 : 0.22) : (touch.has-hover ? (Theme.dark ? 0.18 : 0.14) : (Theme.dark ? 0.08 : 0.06)));
             }
 
             // Big Centered Icon
@@ -1647,7 +1653,11 @@ export component AiToolThumbCard inherits Rectangle {
                 y: (parent.height - self.height) / 2;
                 glyph: root.glyph;
                 size: 28px;
-                tint: root.active ? root.accent : (touch.has-hover ? Colors.white : Theme.fg-muted);
+                tint: root.active 
+                    ? root.accent 
+                    : (touch.has-hover 
+                        ? (Theme.dark ? Colors.white : root.accent) 
+                        : (Theme.dark ? Theme.fg-muted : root.accent.with-alpha(0.85)));
             }
 
             // Bottom-right badge
@@ -1657,11 +1667,17 @@ export component AiToolThumbCard inherits Rectangle {
                 width: badge-txt.preferred-width + 10px;
                 height: 18px;
                 border-radius: 4px;
-                background: root.active ? root.accent : #090d16.with-alpha(0.85);
+                background: root.active 
+                    ? root.accent 
+                    : (Theme.dark ? #090d16.with-alpha(0.85) : #ffffff.with-alpha(0.92));
+                border-width: (root.active || Theme.dark) ? 0px : 1px;
+                border-color: Theme.line;
 
                 badge-txt := Text {
                     text: root.badge;
-                    color: root.active ? Colors.white : #cbd5e1;
+                    color: root.active 
+                        ? (Theme.dark ? Colors.white : #ffffff) 
+                        : (Theme.dark ? #cbd5e1 : Theme.fg);
                     font-size: Theme.fs-xs;
                     font-weight: 700;
                     vertical-alignment: center;
@@ -1697,7 +1713,9 @@ export component AiToolThumbCard inherits Rectangle {
 
             Text {
                 text: root.title;
-                color: root.active ? Colors.white : Theme.fg;
+                color: root.active 
+                    ? (Theme.dark ? Colors.white : root.accent) 
+                    : Theme.fg;
                 font-size: Theme.fs;
                 font-weight: 700;
                 overflow: elide;
@@ -1787,10 +1805,10 @@ component WideHome inherits Rectangle {
                             border-radius: 13px;
                             background: #ffffff;
                             border-width: 1px;
-                            border-color: #ffffff.with-alpha(0.8);
+                            border-color: Theme.dark ? #ffffff.with-alpha(0.8) : #00000014;
                             drop-shadow-blur: 8px;
                             drop-shadow-offset-y: 2px;
-                            drop-shadow-color: #00000033;
+                            drop-shadow-color: Theme.dark ? #00000033 : #00000010;
 
                             Image {
                                 x: (parent.width - self.width) / 2;
@@ -1879,7 +1897,9 @@ component WideHome inherits Rectangle {
                             width: 120px;
                             height: 60px;
                             border-radius: Theme.r;
-                            background: open-touch.has-hover ? #222b3d : Theme.launch-panel;
+                            background: open-touch.has-hover 
+                                ? (Theme.dark ? #222b3d : Theme.launch-field-active) 
+                                : Theme.launch-panel;
                             border-width: 1px;
                             border-color: open-touch.has-hover ? Theme.line-strong : Theme.line;
                             animate background, border-color { duration: 120ms; }
@@ -1894,12 +1914,16 @@ component WideHome inherits Rectangle {
                                     glyph: Glyph.folder;
                                     size: 26px;
                                     weight: 2.5;
-                                    tint: open-touch.has-hover ? Colors.white : Theme.fg;
+                                    tint: open-touch.has-hover 
+                                        ? (Theme.dark ? Colors.white : Theme.fg-hot) 
+                                        : Theme.fg;
                                 }
 
                                 Text {
                                     text: I18n.t("start.openProject");
-                                    color: open-touch.has-hover ? Colors.white : Theme.fg-muted;
+                                    color: open-touch.has-hover 
+                                        ? (Theme.dark ? Colors.white : Theme.fg-hot) 
+                                        : Theme.fg-muted;
                                     font-size: Theme.fs;
                                     font-weight: 600;
                                     vertical-alignment: center;
@@ -1919,9 +1943,13 @@ component WideHome inherits Rectangle {
                             width: 120px;
                             height: 60px;
                             border-radius: Theme.r;
-                            background: settings-touch.has-hover ? #28243c : #181528;
+                            background: Theme.dark 
+                                ? (settings-touch.has-hover ? #28243c : #181528) 
+                                : (settings-touch.has-hover ? #f3e8ff : #faf5ff);
                             border-width: 1px;
-                            border-color: settings-touch.has-hover ? #a855f7 : #8b5cf6.with-alpha(0.4);
+                            border-color: Theme.dark
+                                ? (settings-touch.has-hover ? #a855f7 : #8b5cf6.with-alpha(0.4))
+                                : (settings-touch.has-hover ? #9333ea : #d8b4fe);
                             animate background, border-color { duration: 120ms; }
 
                             HorizontalLayout {
@@ -1934,7 +1962,9 @@ component WideHome inherits Rectangle {
                                     glyph: Glyph.settings;
                                     size: 26px;
                                     weight: 2.2;
-                                    tint: settings-touch.has-hover ? #e9d5ff : #c084fc;
+                                    tint: Theme.dark 
+                                        ? (settings-touch.has-hover ? #e9d5ff : #c084fc) 
+                                        : (settings-touch.has-hover ? #7e22ce : #9333ea);
                                 }
 
                                 VerticalLayout {
@@ -1943,7 +1973,9 @@ component WideHome inherits Rectangle {
 
                                     Text {
                                         text: "Cài đặt API";
-                                        color: settings-touch.has-hover ? Colors.white : Theme.fg;
+                                        color: Theme.dark 
+                                            ? (settings-touch.has-hover ? Colors.white : Theme.fg) 
+                                            : (settings-touch.has-hover ? #6b21a8 : Theme.fg);
                                         font-size: Theme.fs;
                                         font-weight: 700;
                                         vertical-alignment: center;
@@ -1952,7 +1984,7 @@ component WideHome inherits Rectangle {
 
                                     Text {
                                         text: "Gemini / Eleven";
-                                        color: #a855f7;
+                                        color: Theme.dark ? #a855f7 : #7e22ce;
                                         font-size: 10px;
                                         font-weight: 500;
                                         overflow: elide;
@@ -2064,7 +2096,7 @@ component WideHome inherits Rectangle {
                         width: root.ai-panel-w;
                         height: root.ai-panel-h;
                         border-radius: Theme.r-lg;
-                        background: Theme.panel;
+                        background: Theme.dark ? Theme.panel : #ffffff;
                         border-width: 1px;
                         border-color: Theme.line;
                         clip: true;
@@ -2073,7 +2105,7 @@ component WideHome inherits Rectangle {
                             // Header của panel
                             Rectangle {
                                 height: 44px;
-                                background: Theme.field;
+                                background: Theme.dark ? Theme.field : #f8fafc;
                                 Rectangle {
                                     y: parent.height - 1px;
                                     width: 100%;
@@ -2798,7 +2830,7 @@ export component StartScreen inherits Rectangle {
         height: 100%;
         source: @image-url("assets/welcome-bg.png");
         image-fit: cover;
-        opacity: 0.35;
+        opacity: Theme.dark ? 0.35 : 0.04;
     }
 
     if !root.narrow: WideHome {

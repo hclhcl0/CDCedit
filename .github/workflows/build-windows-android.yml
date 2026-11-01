@@ -1,6 +1,8 @@
 name: Build CDCedit EXE and APK
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       target:
@@ -27,7 +29,7 @@ jobs:
       - run: python3 scripts/ci/check-bundled-assets.py
 
   windows:
-    if: ${{ inputs.target != 'android' }}
+    if: ${{ github.event_name == 'push' || inputs.target != 'android' }}
     name: Windows EXE
     needs: validate
     uses: ./.github/workflows/build-app.yml
@@ -37,7 +39,7 @@ jobs:
     secrets: inherit
 
   android:
-    if: ${{ inputs.target != 'windows' }}
+    if: ${{ github.event_name == 'push' || inputs.target != 'windows' }}
     name: Android APK
     needs: validate
     uses: ./.github/workflows/mobile.yml
