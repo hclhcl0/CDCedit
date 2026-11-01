@@ -409,22 +409,42 @@ export component TimelineTray inherits Rectangle {
             glyph: Glyph.subtitles;
             label: "Phụ đề AI (PhoWhisper)";
             icon-size: 16px;
-            checked: Editor.captions-open;
-            clicked => { root.captions(); }
+            checked: Editor.captions-open || Editor.inspector-mode == 1;
+            clicked => {
+                if (Editor.inspector-mode == 1) {
+                    Editor.inspector-mode = 0;
+                } else {
+                    Editor.inspector-mode = 1;
+                }
+            }
         }
         TrayButton {
             glyph: Glyph.audio-studio;
             label: "Phòng Thu & Lồng Tiếng AI (Gemini / TTS)";
             icon-size: 16px;
-            checked: Editor.speech-open && !Editor.voice-changer-open;
-            clicked => { root.speak(); }
+            checked: (Editor.speech-open && !Editor.voice-changer-open) || (Editor.inspector-mode == 2 && Editor.speech-data.dubbing.mode != 3);
+            clicked => {
+                if (Editor.inspector-mode == 2 && Editor.speech-data.dubbing.mode != 3) {
+                    Editor.inspector-mode = 0;
+                } else {
+                    Editor.speech-data.dubbing.mode = 0;
+                    Editor.inspector-mode = 2;
+                }
+            }
         }
         TrayButton {
             glyph: Glyph.voice-changer;
             label: "Voice Changer (ElevenLabs / Đổi giọng)";
             icon-size: 16px;
-            checked: Editor.voice-changer-open;
-            clicked => { Editor.voice-changer(); }
+            checked: Editor.voice-changer-open || (Editor.inspector-mode == 2 && Editor.speech-data.dubbing.mode == 3);
+            clicked => {
+                if (Editor.inspector-mode == 2 && Editor.speech-data.dubbing.mode == 3) {
+                    Editor.inspector-mode = 0;
+                } else {
+                    Editor.speech-data.dubbing.mode = 3;
+                    Editor.inspector-mode = 2;
+                }
+            }
         }
         // A voiceover: the picture rolls from the playhead and the words go
         // onto a lane under it. The same button stops the take.

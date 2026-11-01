@@ -1,3 +1,6 @@
+import { CaptionsForm } from "../dialogs/captions.slint";
+import { SpeechForm } from "../dialogs/speech.slint";
+import { Editor } from "../editor.slint";
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Jareer Abdullah and Concat contributors
 
@@ -74,22 +77,51 @@ component FactRow inherits HorizontalLayout {
     }
 }
 
-// "PROJECT", "CONTENTS" — the muted caps that break the facts into groups.
-component FactHeading inherits HorizontalLayout {
-    in property <string> title;
 
-    padding-left: Theme.pad;
-    padding-right: Theme.pad;
-    // The air belongs between the groups, not between the lines inside one.
-    padding-top: 12px;
-    padding-bottom: 3px;
+component InspectorModeTab inherits Rectangle {
+    in property <string> label;
+    in property <Glyph> glyph;
+    in property <bool> current;
+    callback clicked();
 
-    Text {
-        text: root.title;
-        color: Theme.fg-dim;
-        font-size: Theme.fs-sm;
-        font-weight: Theme.weight-title;
-        letter-spacing: 1px;
+    horizontal-stretch: 1;
+    height: 32px;
+    border-radius: Theme.r-sm;
+    background: root.current ? #1e293b : (touch.has-hover ? Theme.field.with-alpha(0.5) : Colors.transparent);
+    border-width: 1px;
+    border-color: root.current ? #38bdf8.with-alpha(0.4) : Colors.transparent;
+
+    animate background { duration: 120ms; }
+    animate border-color { duration: 120ms; }
+
+    HorizontalLayout {
+        padding-left: 6px;
+        padding-right: 6px;
+        spacing: 5px;
+        alignment: center;
+
+        VerticalLayout {
+            alignment: center;
+            Icon {
+                glyph: root.glyph;
+                size: 13px;
+                tint: root.current ? #38bdf8 : (touch.has-hover ? Theme.fg : Theme.fg-muted);
+            }
+        }
+
+        Text {
+            text: root.label;
+            color: root.current ? #ffffff : (touch.has-hover ? Theme.fg : Theme.fg-muted);
+            font-size: Theme.fs-xs;
+            font-weight: root.current ? Theme.weight-title : 400;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
     }
 }
 
@@ -416,8 +448,61 @@ export component ConfigPane inherits Rectangle {
     }
 
     Pane {
+        // ── TOP INSPECTOR MODE TABS ──
+        Rectangle {
+            height: 44px;
+            background: Theme.panel;
+
+            Rectangle {
+                x: 0;
+                y: parent.height - 1px;
+                width: parent.width;
+                height: 1px;
+                background: Theme.line;
+            }
+
+            HorizontalLayout {
+                padding-left: 6px;
+                padding-right: 6px;
+                padding-top: 6px;
+                padding-bottom: 6px;
+                spacing: 4px;
+
+                InspectorModeTab {
+                    glyph: Glyph.sliders;
+                    label: "Thuộc tính";
+                    current: Editor.inspector-mode == 0;
+                    clicked => { Editor.inspector-mode = 0; }
+                }
+
+                InspectorModeTab {
+                    glyph: Glyph.subtitles;
+                    label: "Phụ đề AI";
+                    current: Editor.inspector-mode == 1;
+                    clicked => { Editor.inspector-mode = 1; }
+                }
+
+                InspectorModeTab {
+                    glyph: Glyph.audio-studio;
+                    label: "Lồng tiếng AI";
+                    current: Editor.inspector-mode == 2;
+                    clicked => { Editor.inspector-mode = 2; }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    PaneSwitcher {
+                        kind: PaneKind.inspector;
+                        seat: root.pane-seat;
+                        removable: root.pane-removable;
+                        picked(kind) => { root.pane-picked(kind); }
+                        removed => { root.pane-removed(); }
+                    }
+                }
+            }
+        }
         // ── details ──────────────────────────────────────────────────────
-        if !root.has-selection && !root.on-transition: Rectangle {
+        if Editor.inspector-mode == 0 && !root.has-selection && !root.on-transition: Rectangle {
             // The same 52px as the panes either side of it; see PaneHeader.
             height: 52px;
 
@@ -465,7 +550,7 @@ export component ConfigPane inherits Rectangle {
             }
         }
 
-        if !root.has-selection && !root.on-transition: PaneBody {
+        if Editor.inspector-mode == 0 && !root.has-selection && !root.on-transition: PaneBody {
             padding: 16px;
 
             VerticalLayout {
@@ -515,7 +600,7 @@ export component ConfigPane inherits Rectangle {
             }
         }
 
-        if !root.has-selection && !root.on-transition: Rectangle {
+        if Editor.inspector-mode == 0 && !root.has-selection && !root.on-transition: Rectangle {
             height: 49px;
 
             Rectangle {
@@ -558,7 +643,7 @@ export component ConfigPane inherits Rectangle {
         }
 
         // ── a transition ─────────────────────────────────────────────────
-        if root.on-transition: Rectangle {
+        if Editor.inspector-mode == 0 && root.on-transition: Rectangle {
             height: 52px;
 
             Rectangle {
@@ -598,7 +683,7 @@ export component ConfigPane inherits Rectangle {
             }
         }
 
-        if root.on-transition: PaneBody {
+        if Editor.inspector-mode == 0 && root.on-transition: PaneBody {
             padding: 0px;
             spacing: 0px;
 
@@ -615,7 +700,7 @@ export component ConfigPane inherits Rectangle {
         }
 
         // ── the clip inspector ───────────────────────────────────────────
-        if root.has-selection: Rectangle {
+        if Editor.inspector-mode == 0 && root.has-selection: Rectangle {
             // Matched to the Details bar above, or the top of the column
             // would jump by four pixels every time a clip was selected.
             height: 52px;
@@ -714,7 +799,7 @@ export component ConfigPane inherits Rectangle {
             }
         }
 
-        if root.has-selection: PaneBody {
+        if Editor.inspector-mode == 0 && root.has-selection: PaneBody {
             // No padding: the inspector rows carry their own 14px inset, and
             // sections run edge to edge so their hairlines reach both sides.
             padding: 0px;
@@ -858,6 +943,82 @@ export component ConfigPane inherits Rectangle {
                         }
                         commit => { root.clip-commit(); }
                     }
+                }
+            }
+        }
+
+        // ── MODE 1: FULL PHỤ ĐỀ AI STUDIO (PhoWhisper + Gemini) ──
+        if Editor.inspector-mode == 1: PaneBody {
+            padding: 0px;
+            PaneScroll {
+                CaptionsForm {
+                    width: parent.width;
+                    data: Editor.captions-data;
+                    models: Editor.caption-models;
+                    is-pane: true;
+
+                    voice-toggled(on) => { Editor.captions-voice-toggled(on); }
+                    source-changed(idx) => { Editor.captions-source-changed(idx); }
+                    text-edited(txt) => { Editor.captions-text-edited(txt); }
+                    model-changed(idx) => { Editor.captions-model-changed(idx); }
+                    provider-changed(idx) => { Editor.captions-provider-changed(idx); }
+                    configure-api => { Editor.captions-configure-api(); }
+                    gemini-language-changed(idx) => { Editor.captions-gemini-language-changed(idx); }
+                    gemini-proofread-toggled(on) => { Editor.captions-gemini-proofread-toggled(on); }
+                    gemini-smart-split-toggled(on) => { Editor.captions-gemini-smart-split-toggled(on); }
+                    gemini-two-speakers-toggled(on) => { Editor.captions-gemini-two-speakers-toggled(on); }
+                    speaker2-color-changed(c) => { Editor.captions-speaker2-color-changed(c); }
+                    glossary-edited(txt) => { Editor.captions-glossary-edited(txt); }
+                    review-choice(idx, c) => { Editor.captions-review-choice(idx, c); }
+                    review-apply(u) => { Editor.captions-review-apply(u); }
+                    placement-changed(idx) => { Editor.captions-placement-changed(idx); }
+                    size-changed(idx) => { Editor.captions-size-changed(idx); }
+                    text-color-changed(c) => { Editor.captions-text-color-changed(c); }
+                    stroke-choice-changed(idx) => { Editor.captions-stroke-choice-changed(idx); }
+                    stroke-color-changed(c) => { Editor.captions-stroke-color-changed(c); }
+                    begin => { Editor.captions-begin(); }
+                    cancel => { Editor.captions-cancel(); }
+                    import-srt => { Editor.captions-import-srt(); }
+                    export-srt => { Editor.captions-export-srt(); }
+                    wrap-existing => { Editor.captions-wrap-existing(); }
+                }
+            }
+        }
+
+        // ── MODE 2: FULL LỒNG TIẾNG & PHÒNG THU AI STUDIO (TTS + Dubbing + Voice Changer) ──
+        if Editor.inspector-mode == 2: PaneBody {
+            padding: 0px;
+            PaneScroll {
+                SpeechForm {
+                    width: parent.width;
+                    data: Editor.speech-data;
+                    models: Editor.speech-models;
+                    model-details: Editor.speech-model-details;
+                    voices: Editor.speech-voices;
+                    voice-details: Editor.speech-voice-details;
+                    voice-avatars: Editor.speech-voice-avatars;
+                    samples: Editor.speech-samples;
+                    sample-waves: Editor.speech-sample-waves;
+                    sample-details: Editor.speech-sample-details;
+                    is-pane: true;
+
+                    text-edited(txt) => { Editor.speech-text-edited(txt); }
+                    voice-changed(idx) => { Editor.speech-voice-changed(idx); }
+                    model-changed(idx) => { Editor.speech-model-changed(idx); }
+                    speed-changed(v) => { Editor.speech-speed-changed(v); }
+                    quality-changed(idx) => { Editor.speech-quality-changed(idx); }
+                    pauses-changed(v) => { Editor.speech-pauses-changed(v); }
+                    reference-start-changed(s) => { Editor.speech-reference-start-changed(s); }
+                    use-sample-changed(on) => { Editor.speech-use-sample-changed(on); }
+                    sample-changed(idx) => { Editor.speech-sample-changed(idx); }
+                    insert-tag(text, tag, at) => { return Editor.speech-insert-tag(text, tag, at); }
+                    dubbing-action(a, i, t, v) => { Editor.speech-dubbing-action(a, i, t, v); }
+                    begin => { Editor.speech-begin(); }
+                    cancel => { Editor.speech-cancel(); }
+                    save-name-edited(n) => { Editor.speech-save-name-edited(n); }
+                    pick-picture => { Editor.speech-pick-picture(); }
+                    save-voice => { Editor.speech-save-voice(); }
+                    clear-style => { Editor.speech-clear-style(); }
                 }
             }
         }

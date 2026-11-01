@@ -12195,6 +12195,16 @@ impl Studio {
         editor.set_gemini_studio_data(self.gemini_studio.data(self));
         editor.set_translation_data(self.translation.data(self));
         editor.set_captions_data(self.captions.data(self));
+        editor.set_caption_models(ModelRc::from(models.caption_models.clone()));
+        editor.set_speech_data(self.speech.data(self));
+        editor.set_speech_models(ModelRc::from(models.speech_models.clone()));
+        editor.set_speech_model_details(ModelRc::from(models.speech_model_details.clone()));
+        editor.set_speech_voices(ModelRc::from(models.speakers.clone()));
+        editor.set_speech_voice_details(ModelRc::from(models.speaker_details.clone()));
+        editor.set_speech_voice_avatars(ModelRc::from(models.speaker_avatars.clone()));
+        editor.set_speech_samples(ModelRc::from(models.speech_samples.clone()));
+        editor.set_speech_sample_waves(ModelRc::from(models.speech_sample_waves.clone()));
+        editor.set_speech_sample_details(ModelRc::from(models.speech_sample_details.clone()));
         let voices = installed(&self.settings.voices);
         sync(
             &models.speech_models,

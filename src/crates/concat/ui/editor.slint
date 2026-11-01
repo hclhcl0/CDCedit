@@ -18,6 +18,8 @@ import {
     TrackSize,
 } from "timeline/model.slint";
 import { CaptionsSheetData, CaptionReviewRow } from "dialogs/captions.slint";
+import { SpeechSheetData } from "dialogs/speech.slint";
+import { AvatarData } from "primitives/avatar.slint";
 import { GeminiStudioData, GeminiTurnData, GeminiVoiceData } from "dialogs/gemini-studio.slint";
 import { TranslationData, TranslationRowData } from "dialogs/translation.slint";
 
@@ -543,19 +545,34 @@ export global Editor {
     in-out property <string> keys-preview-axis;
 
     // ── AI Studio & Inspector Mode ──
-    in-out property <int> inspector-mode: 3; // 0 = Clip Properties, 1 = Captions Studio, 2 = Voice & Dubbing Studio, 3 = Media Library (Default)
+    in-out property <int> inspector-mode: 0; // 0 = Clip Properties, 1 = Captions Studio, 2 = Voice & Dubbing Studio, 3 = Media Library
     in-out property <int> voice-sub-mode: 0; // 0 = Gemini Studio, 1 = Video Dubbing & Translation, 2 = Live Voiceover
     in-out property <CaptionsSheetData> captions-data;
+    in-out property <[string]> caption-models;
+    in-out property <SpeechSheetData> speech-data;
+    in-out property <[string]> speech-models;
+    in-out property <[string]> speech-model-details;
+    in-out property <[string]> speech-voices;
+    in-out property <[string]> speech-voice-details;
+    in-out property <[AvatarData]> speech-voice-avatars;
+    in-out property <[string]> speech-samples;
+    in-out property <[string]> speech-sample-waves;
+    in-out property <[string]> speech-sample-details;
     in-out property <GeminiStudioData> gemini-studio-data;
     in-out property <TranslationData> translation-data;
 
-    callback captions-begin();
-    callback captions-cancel();
+    callback captions-voice-toggled(bool);
+    callback captions-source-changed(int);
+    callback captions-text-edited(string);
     callback captions-model-changed(int);
     callback captions-provider-changed(int);
+    callback captions-configure-api();
     callback captions-gemini-language-changed(int);
+    callback captions-gemini-proofread-toggled(bool);
     callback captions-gemini-smart-split-toggled(bool);
     callback captions-gemini-two-speakers-toggled(bool);
+    callback captions-speaker2-color-changed(color);
+    callback captions-glossary-edited(string);
     callback captions-review-choice(int, int);
     callback captions-review-apply(bool);
     callback captions-placement-changed(int);
@@ -563,8 +580,29 @@ export global Editor {
     callback captions-text-color-changed(color);
     callback captions-stroke-choice-changed(int);
     callback captions-stroke-color-changed(color);
-    callback captions-export-srt();
+    callback captions-begin();
+    callback captions-cancel();
     callback captions-import-srt();
+    callback captions-export-srt();
+    callback captions-wrap-existing();
+
+    callback speech-text-edited(string);
+    callback speech-voice-changed(int);
+    callback speech-model-changed(int);
+    callback speech-speed-changed(float);
+    callback speech-quality-changed(int);
+    callback speech-pauses-changed(float);
+    callback speech-reference-start-changed(float);
+    callback speech-use-sample-changed(bool);
+    callback speech-sample-changed(int);
+    pure callback speech-insert-tag(string, string, int) -> string;
+    callback speech-dubbing-action(int, int, string, float);
+    callback speech-begin();
+    callback speech-cancel();
+    callback speech-save-name-edited(string);
+    callback speech-pick-picture();
+    callback speech-save-voice();
+    callback speech-clear-style();
 
     callback gemini-studio-action(int, int, string, float);
     callback translation-action(int, int, string, float);

@@ -2494,6 +2494,103 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
     editor.on_captions_import_srt(on_window!(|state| {
         state.handle(Msg::Captions(CaptionsMsg::ImportSrt));
     }));
+    editor.on_captions_voice_toggled(on_window!(|state, on: bool| {
+        state.handle(Msg::Captions(CaptionsMsg::VoiceToggled(on)));
+    }));
+    editor.on_captions_source_changed(on_window!(|state, index: i32| {
+        state.handle(Msg::Captions(CaptionsMsg::SourceChanged(index)));
+    }));
+    editor.on_captions_text_edited(on_window!(|state, text: SharedString| {
+        state.handle(Msg::Captions(CaptionsMsg::TextEdited(text.to_string())));
+    }));
+    editor.on_captions_configure_api(on_window!(|state| {
+        state.handle(Msg::Settings(SettingsMsg::PageChanged(0)));
+        state.handle(Msg::Settings(SettingsMsg::Open));
+    }));
+    editor.on_captions_gemini_proofread_toggled(on_window!(|state, on: bool| {
+        state.handle(Msg::Captions(CaptionsMsg::GeminiProofreadToggled(on)));
+    }));
+    editor.on_captions_speaker2_color_changed(on_window!(|state, color: slint::Color| {
+        state.handle(Msg::Captions(CaptionsMsg::Speaker2ColorChanged(
+            crate::format::hex_of(color),
+        )));
+    }));
+    editor.on_captions_glossary_edited(on_window!(|state, text: SharedString| {
+        state.handle(Msg::Captions(CaptionsMsg::GlossaryEdited(text.to_string())));
+    }));
+    editor.on_captions_wrap_existing(on_window!(|state| {
+        state.handle(Msg::Captions(CaptionsMsg::WrapExisting));
+    }));
+
+    editor.on_speech_text_edited(on_window!(|state, text: SharedString| {
+        state.handle(Msg::Speech(SpeechMsg::TextEdited(text.to_string())));
+    }));
+    editor.on_speech_voice_changed(on_window!(|state, index: i32| {
+        state.handle(Msg::Speech(SpeechMsg::VoiceChanged(index)));
+    }));
+    editor.on_speech_model_changed(on_window!(|state, index: i32| {
+        state.handle(Msg::Speech(SpeechMsg::ModelChanged(index)));
+    }));
+    editor.on_speech_speed_changed(on_window!(|state, value: f32| {
+        state.handle(Msg::Speech(SpeechMsg::SpeedChanged(value)));
+    }));
+    editor.on_speech_quality_changed(on_window!(|state, index: i32| {
+        state.handle(Msg::Speech(SpeechMsg::QualityChanged(index)));
+    }));
+    editor.on_speech_pauses_changed(on_window!(|state, value: f32| {
+        state.handle(Msg::Speech(SpeechMsg::PausesChanged(value)));
+    }));
+    editor.on_speech_reference_start_changed(on_window!(|state, seconds: f32| {
+        state.handle(Msg::Speech(SpeechMsg::ReferenceStartChanged(seconds)));
+    }));
+    editor.on_speech_use_sample_changed(on_window!(|state, on: bool| {
+        state.handle(Msg::Speech(SpeechMsg::UseSampleChanged(on)));
+    }));
+    editor.on_speech_sample_changed(on_window!(|state, index: i32| {
+        state.handle(Msg::Speech(SpeechMsg::SampleChanged(index)));
+    }));
+    editor.on_speech_insert_tag(|text: SharedString, tag: SharedString, at: i32| {
+        panes::speech::insert_tag(text.as_str(), tag.as_str(), at.max(0) as usize).into()
+    });
+    editor.on_speech_dubbing_action(on_window!(
+        |state, action: i32, index: i32, text: SharedString, value: f32| {
+            state.handle(Msg::Speech(SpeechMsg::DubbingAction(
+                action,
+                index,
+                text.to_string(),
+                value,
+            )));
+        }
+    ));
+    editor.on_speech_begin(on_window!(|state| {
+        state.handle(Msg::Speech(SpeechMsg::Begin));
+    }));
+    editor.on_speech_cancel(on_window!(|state| {
+        state.handle(Msg::Speech(SpeechMsg::Cancel));
+    }));
+    editor.on_speech_save_name_edited(on_window!(|state, text: SharedString| {
+        state.handle(Msg::Speech(SpeechMsg::SaveNameEdited(text.to_string())));
+    }));
+    editor.on_speech_pick_picture(|| {
+        host::pick_files_then(
+            i18n::t("speech.picture"),
+            Some((
+                i18n::t("speech.picture"),
+                &concat_host::voices::PICTURE_EXTENSIONS,
+            )),
+            |studio, _, _, paths| {
+                if let Some(path) = paths.into_iter().next() {
+                    studio.handle(Msg::Speech(SpeechMsg::PicturePicked(path)));
+                }
+            },
+        );
+    });
+    editor.on_speech_save_voice(on_window!(|state| {
+        state.handle(Msg::Speech(SpeechMsg::SaveVoice));
+    }));
+    editor.on_speech_clear_style(on_window!(|state| {
+        state.handle(Msg::Speech(SpeechMsg::ClearStyle));
+    }));
     editor.on_gemini_studio_action(on_window!(|state, action: i32, index: i32, text: SharedString, value: f32| {
         state.handle(Msg::Gemini(crate::panes::gemini_studio::GeminiMsg::Action(
             action, index, text.to_string(), value,
