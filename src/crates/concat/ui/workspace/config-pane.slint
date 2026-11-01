@@ -106,31 +106,30 @@ component InspectorModeTab inherits Rectangle {
     horizontal-stretch: 1;
     height: 32px;
     border-radius: Theme.r-sm;
-    background: root.current ? Theme.field : (touch.has-hover ? Theme.field.with-alpha(0.5) : Colors.transparent);
+    background: root.current ? #1e293b : (touch.has-hover ? Theme.field.with-alpha(0.5) : Colors.transparent);
     border-width: 1px;
-    border-color: root.current ? Theme.accent.with-alpha(0.4) : Colors.transparent;
+    border-color: root.current ? #38bdf8.with-alpha(0.4) : Colors.transparent;
 
-    animate background { duration: 100ms; }
-
-    property <brush> tint: root.current ? Theme.accent : (touch.has-hover ? Theme.fg : Theme.fg-muted);
+    animate background { duration: 120ms; }
+    animate border-color { duration: 120ms; }
 
     HorizontalLayout {
         padding-left: 6px;
         padding-right: 6px;
-        spacing: 4px;
+        spacing: 5px;
         alignment: center;
 
         Icon {
             y: (parent.height - self.height) / 2;
             glyph: root.glyph;
             size: 13px;
-            tint: root.tint;
+            tint: root.current ? #38bdf8 : (touch.has-hover ? Theme.fg : Theme.fg-muted);
         }
 
         Text {
             y: (parent.height - self.height) / 2;
             text: root.label;
-            color: root.tint;
+            color: root.current ? #ffffff : (touch.has-hover ? Theme.fg : Theme.fg-muted);
             font-size: Theme.fs-sm;
             font-weight: root.current ? Theme.weight-title : 400;
             overflow: elide;
@@ -152,12 +151,12 @@ component ModelPill inherits Rectangle {
     horizontal-stretch: 1;
     height: 48px;
     border-radius: Theme.r-sm;
-    background: root.current ? Theme.accent.with-alpha(0.15) : (touch.has-hover ? Theme.field-hover : Theme.field);
+    background: root.current ? #1e1b4b : (touch.has-hover ? Theme.field-hover : Theme.field);
     border-width: 1px;
-    border-color: root.current ? Theme.accent : Theme.line;
+    border-color: root.current ? #8b5cf6.with-alpha(0.7) : Theme.line;
 
-    animate background { duration: 100ms; }
-    animate border-color { duration: 100ms; }
+    animate background { duration: 120ms; }
+    animate border-color { duration: 120ms; }
 
     VerticalLayout {
         padding: 6px;
@@ -166,14 +165,14 @@ component ModelPill inherits Rectangle {
 
         Text {
             text: root.label;
-            color: root.current ? Theme.fg : Theme.fg-muted;
+            color: root.current ? #ffffff : Theme.fg-muted;
             font-size: Theme.fs-sm;
             font-weight: root.current ? Theme.weight-title : 400;
             horizontal-alignment: center;
         }
         Text {
             text: root.desc;
-            color: root.current ? Theme.accent : Theme.fg-dim;
+            color: root.current ? #c4b5fd : Theme.fg-dim;
             font-size: Theme.fs-xs;
             horizontal-alignment: center;
         }
@@ -187,29 +186,37 @@ component ModelPill inherits Rectangle {
 
 component FilterChip inherits Rectangle {
     in property <string> label;
+    in property <Glyph> glyph: Glyph.none;
     in property <int> count: -1;
     in property <bool> current: false;
     callback clicked();
 
-    height: 24px;
+    height: 26px;
     border-radius: Theme.r-sm;
-    background: root.current ? Theme.accent.with-alpha(0.2) : (touch.has-hover ? Theme.field-hover : Theme.field);
+    background: root.current ? #1e293b : (touch.has-hover ? Theme.field-hover : Theme.field);
     border-width: 1px;
-    border-color: root.current ? Theme.accent : Colors.transparent;
+    border-color: root.current ? #38bdf8.with-alpha(0.5) : Theme.line;
 
-    animate background { duration: 100ms; }
-    animate border-color { duration: 100ms; }
+    animate background { duration: 120ms; }
+    animate border-color { duration: 120ms; }
 
     HorizontalLayout {
-        padding-left: 8px;
-        padding-right: 8px;
-        spacing: 4px;
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 5px;
         alignment: center;
+
+        if root.glyph != Glyph.none: Icon {
+            y: (parent.height - self.height) / 2;
+            glyph: root.glyph;
+            size: 12px;
+            tint: root.current ? #38bdf8 : Theme.fg-muted;
+        }
 
         Text {
             y: (parent.height - self.height) / 2;
             text: root.label;
-            color: root.current ? Theme.fg : (touch.has-hover ? Theme.fg : Theme.fg-muted);
+            color: root.current ? #ffffff : (touch.has-hover ? Theme.fg : Theme.fg-muted);
             font-size: Theme.fs-sm;
             font-weight: root.current ? Theme.weight-title : 400;
         }
@@ -217,7 +224,7 @@ component FilterChip inherits Rectangle {
         if root.count >= 0: Text {
             y: (parent.height - self.height) / 2;
             text: "\{root.count}";
-            color: root.current ? Theme.accent : Theme.fg-dim;
+            color: root.current ? #38bdf8 : Theme.fg-dim;
             font-size: Theme.fs-xs;
             font-weight: Theme.weight-title;
         }
@@ -1084,15 +1091,15 @@ export component ConfigPane inherits Rectangle {
                                 spacing: 6px;
 
                                 ModelPill {
-                                    label: "⚡ PhoWhisper ONNX";
-                                    desc: "Chuẩn tiếng Việt";
+                                    label: "PhoWhisper ONNX";
+                                    desc: "Tiếng Việt chuẩn (Offline)";
                                     current: Editor.captions-data.provider == 0;
                                     clicked => { Editor.captions-provider-changed(0); }
                                 }
 
                                 ModelPill {
-                                    label: "✨ Gemini 2.5 AI";
-                                    desc: "Tự ngắt câu";
+                                    label: "Gemini 2.5 AI";
+                                    desc: "Tự ngắt câu thông minh";
                                     current: Editor.captions-data.provider == 1;
                                     clicked => { Editor.captions-provider-changed(1); }
                                 }
@@ -1350,7 +1357,7 @@ export component ConfigPane inherits Rectangle {
                             }
                             Text {
                                 y: (parent.height - self.height) / 2;
-                                text: "⚡ Bắt đầu tạo phụ đề";
+                                text: "Bắt đầu tạo phụ đề";
                                 font-size: Theme.fs;
                                 font-weight: Theme.weight-title;
                                 color: Colors.white;
@@ -1421,12 +1428,14 @@ export component ConfigPane inherits Rectangle {
                     HorizontalLayout {
                         spacing: 6px;
                         FilterChip {
-                            label: "🎙️ Lồng tiếng Đa vai Gemini";
+                            glyph: Glyph.waveform;
+                            label: "Lồng tiếng Đa vai Gemini";
                             current: root.voice-sub-mode == 0;
                             clicked => { root.voice-sub-mode = 0; }
                         }
                         FilterChip {
-                            label: "🌐 Dịch & Thuyết minh";
+                            glyph: Glyph.text-mark;
+                            label: "Dịch & Thuyết minh";
                             current: root.voice-sub-mode == 1;
                             clicked => { root.voice-sub-mode = 1; }
                         }
@@ -1598,6 +1607,7 @@ export component ConfigPane inherits Rectangle {
                                     }
 
                                     StudioText {
+                                        height: 60px;
                                         value: turn.text;
                                         placeholder: "Nhập lời thoại nhân vật...";
                                         edited(text) => { Editor.gemini-studio-action(23, idx, text, 0.0); }
@@ -1609,9 +1619,12 @@ export component ConfigPane inherits Rectangle {
                         // Generate Button
                         Rectangle {
                             height: 36px;
-                            border-radius: Theme.r;
-                            background: gemini-btn-touch.has-hover ? #0f766e : #0d9488;
-                            animate background { duration: 100ms; }
+                            border-radius: Theme.r-sm;
+                            background: gemini-btn-touch.has-hover ? #0f766e : #115e59;
+                            border-width: 1px;
+                            border-color: gemini-btn-touch.has-hover ? #2dd4bf : #14b8a6.with-alpha(0.6);
+                            animate background { duration: 120ms; }
+                            animate border-color { duration: 120ms; }
 
                             HorizontalLayout {
                                 spacing: 6px;
@@ -1625,7 +1638,7 @@ export component ConfigPane inherits Rectangle {
                                 }
                                 Text {
                                     y: (parent.height - self.height) / 2;
-                                    text: Editor.gemini-studio-data.busy ? "Đang tạo giọng..." : "🎙️ Tạo toàn bộ hội thoại";
+                                    text: Editor.gemini-studio-data.busy ? "Đang tạo giọng..." : "Tạo toàn bộ hội thoại";
                                     font-size: Theme.fs;
                                     font-weight: Theme.weight-title;
                                     color: Colors.white;
