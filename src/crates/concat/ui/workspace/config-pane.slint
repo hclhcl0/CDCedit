@@ -204,33 +204,33 @@ component FilterChip inherits Rectangle {
     in property <bool> current: false;
     callback clicked();
 
-    height: 28px;
+    height: 30px;
     border-radius: Theme.r-sm;
-    background: root.current ? #1e293b : (touch.has-hover ? Theme.field-hover : Theme.field);
+    background: root.current ? #1e293b : (touch.has-hover ? #242938 : #181c26);
     border-width: 1px;
-    border-color: root.current ? #38bdf8.with-alpha(0.5) : Theme.line;
+    border-color: root.current ? #38bdf8.with-alpha(0.6) : (touch.has-hover ? #374151 : Theme.line);
 
     animate background { duration: 120ms; }
     animate border-color { duration: 120ms; }
 
     HorizontalLayout {
-        padding-left: 8px;
-        padding-right: 8px;
-        spacing: 5px;
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 6px;
         alignment: center;
 
         if root.glyph != Glyph.none: VerticalLayout {
             alignment: center;
             Icon {
                 glyph: root.glyph;
-                size: 12px;
-                tint: root.current ? #38bdf8 : Theme.fg-muted;
+                size: 13px;
+                tint: root.current ? #38bdf8 : (touch.has-hover ? #e2e8f0 : Theme.fg-muted);
             }
         }
 
         Text {
             text: root.label;
-            color: root.current ? #ffffff : (touch.has-hover ? Theme.fg : Theme.fg-muted);
+            color: root.current ? #ffffff : (touch.has-hover ? #f1f5f9 : Theme.fg-muted);
             font-size: Theme.fs-sm;
             font-weight: root.current ? Theme.weight-title : 400;
             vertical-alignment: center;
@@ -1713,20 +1713,34 @@ export component ConfigPane inherits Rectangle {
 
                         // Listen & Save Controls
                         if Editor.gemini-studio-data.has-preview: HorizontalLayout {
-                            spacing: 6px;
+                            spacing: 8px;
 
                             Rectangle {
                                 horizontal-stretch: 1;
-                                height: 30px;
-                                border-radius: Theme.r-xs;
-                                background: Theme.field;
+                                height: 32px;
+                                border-radius: Theme.r-sm;
+                                background: prev-touch.has-hover ? #2a3142 : #1e2433;
+                                border-width: 1px;
+                                border-color: prev-touch.has-hover ? #4b5563 : #374151;
+                                animate background { duration: 120ms; }
+
                                 HorizontalLayout {
                                     alignment: center;
-                                    spacing: 4px;
-                                    Icon { glyph: Glyph.film; size: 12px; tint: Theme.accent; }
-                                    Text { text: "Nghe thử"; color: Theme.fg; font-size: Theme.fs-sm; }
+                                    spacing: 6px;
+                                    VerticalLayout {
+                                        alignment: center;
+                                        Icon { glyph: Glyph.film; size: 13px; tint: #38bdf8; }
+                                    }
+                                    Text {
+                                        text: "Nghe thử";
+                                        color: Colors.white;
+                                        font-size: Theme.fs-sm;
+                                        font-weight: Theme.weight-title;
+                                        vertical-alignment: center;
+                                        wrap: no-wrap;
+                                    }
                                 }
-                                TouchArea {
+                                prev-touch := TouchArea {
                                     mouse-cursor: pointer;
                                     clicked => { Editor.gemini-studio-action(32, 0, "", 0.0); }
                                 }
@@ -1734,16 +1748,30 @@ export component ConfigPane inherits Rectangle {
 
                             Rectangle {
                                 horizontal-stretch: 1;
-                                height: 30px;
-                                border-radius: Theme.r-xs;
-                                background: #15803d;
+                                height: 32px;
+                                border-radius: Theme.r-sm;
+                                background: save-touch.has-hover ? #16a34a : #15803d;
+                                border-width: 1px;
+                                border-color: save-touch.has-hover ? #4ade80 : #22c55e;
+                                animate background { duration: 120ms; }
+
                                 HorizontalLayout {
                                     alignment: center;
-                                    spacing: 4px;
-                                    Icon { glyph: Glyph.check; size: 12px; tint: Colors.white; }
-                                    Text { text: "Lưu / Chèn Timeline"; color: Colors.white; font-size: Theme.fs-sm; font-weight: Theme.weight-title; }
+                                    spacing: 6px;
+                                    VerticalLayout {
+                                        alignment: center;
+                                        Icon { glyph: Glyph.check; size: 13px; tint: Colors.white; }
+                                    }
+                                    Text {
+                                        text: "Lưu / Chèn Timeline";
+                                        color: Colors.white;
+                                        font-size: Theme.fs-sm;
+                                        font-weight: Theme.weight-title;
+                                        vertical-alignment: center;
+                                        wrap: no-wrap;
+                                    }
                                 }
-                                TouchArea {
+                                save-touch := TouchArea {
                                     mouse-cursor: pointer;
                                     clicked => { Editor.gemini-studio-action(33, 0, "", 0.0); }
                                 }
@@ -1783,36 +1811,66 @@ export component ConfigPane inherits Rectangle {
                                 }
 
                                 HorizontalLayout {
-                                    spacing: 6px;
-                                    Rectangle {
+                                    spacing: 8px;
+                                    file-btn := Rectangle {
                                         horizontal-stretch: 1;
-                                        height: 28px;
-                                        border-radius: Theme.r-xs;
-                                        background: Theme.field;
+                                        height: 32px;
+                                        border-radius: Theme.r-sm;
+                                        background: file-touch.has-hover ? #2a3142 : #1e2433;
+                                        border-width: 1px;
+                                        border-color: file-touch.has-hover ? #4b5563 : #374151;
+                                        animate background { duration: 120ms; }
+                                        animate border-color { duration: 120ms; }
+
                                         HorizontalLayout {
                                             alignment: center;
-                                            spacing: 4px;
-                                            Icon { glyph: Glyph.folder; size: 12px; tint: Theme.fg-muted; }
-                                            Text { text: "Chọn file nguồn"; color: Theme.fg-muted; font-size: Theme.fs-sm; }
+                                            spacing: 6px;
+                                            VerticalLayout {
+                                                alignment: center;
+                                                Icon { glyph: Glyph.folder; size: 13px; tint: file-touch.has-hover ? #ffffff : #cbd5e1; }
+                                            }
+                                            Text {
+                                                text: "Chọn file nguồn";
+                                                color: file-touch.has-hover ? #ffffff : #cbd5e1;
+                                                font-size: Theme.fs-sm;
+                                                font-weight: Theme.weight-title;
+                                                vertical-alignment: center;
+                                                wrap: no-wrap;
+                                            }
                                         }
-                                        TouchArea {
+                                        file-touch := TouchArea {
                                             mouse-cursor: pointer;
                                             clicked => { Editor.translation-action(3, 0, "", 0.0); }
                                         }
                                     }
 
-                                    Rectangle {
+                                    trans-btn := Rectangle {
                                         horizontal-stretch: 1;
-                                        height: 28px;
-                                        border-radius: Theme.r-xs;
-                                        background: #2563eb;
+                                        height: 32px;
+                                        border-radius: Theme.r-sm;
+                                        background: trans-touch.has-hover ? #1d4ed8 : #2563eb;
+                                        border-width: 1px;
+                                        border-color: trans-touch.has-hover ? #60a5fa : #3b82f6;
+                                        animate background { duration: 120ms; }
+                                        animate border-color { duration: 120ms; }
+
                                         HorizontalLayout {
                                             alignment: center;
-                                            spacing: 4px;
-                                            Icon { glyph: Glyph.sparkle; size: 12px; tint: Colors.white; }
-                                            Text { text: "Dịch sang tiếng Việt"; color: Colors.white; font-size: Theme.fs-sm; font-weight: Theme.weight-title; }
+                                            spacing: 6px;
+                                            VerticalLayout {
+                                                alignment: center;
+                                                Icon { glyph: Glyph.sparkle; size: 13px; tint: Colors.white; }
+                                            }
+                                            Text {
+                                                text: "Dịch sang tiếng Việt";
+                                                color: Colors.white;
+                                                font-size: Theme.fs-sm;
+                                                font-weight: Theme.weight-title;
+                                                vertical-alignment: center;
+                                                wrap: no-wrap;
+                                            }
                                         }
-                                        TouchArea {
+                                        trans-touch := TouchArea {
                                             mouse-cursor: pointer;
                                             clicked => { Editor.translation-action(11, 0, "", 0.0); }
                                         }

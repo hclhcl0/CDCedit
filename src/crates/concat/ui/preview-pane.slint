@@ -1,0 +1,20 @@
+import { ConfigPane } from "workspace/config-pane.slint";
+import { Theme } from "theme/theme.slint";
+import { Editor } from "editor.slint";
+
+export component PreviewWindow inherits Window {
+    title: "CDCedit - Slint Live Preview (<1s)";
+    width: 440px;
+    height: 800px;
+    background: #18191c;
+
+    init => {
+        Editor.inspector-mode = 2;
+        Editor.voice-sub-mode = 1;
+    }
+
+    ConfigPane {
+        width: 100%;
+        height: 100%;
+    }
+}
