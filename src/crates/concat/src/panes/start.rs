@@ -376,6 +376,11 @@ impl StartPane {
                         use crate::panes::captions::CaptionsMsg;
                         studio.handle(crate::panes::Msg::Captions(CaptionsMsg::Open));
                         studio.captions.from_voice = true;
+                        if studio.captions.standalone_file.is_none() {
+                            studio.handle(crate::panes::Msg::Captions(CaptionsMsg::SourceChanged(
+                                -2,
+                            )));
+                        }
                         return;
                     }
                     "tool-translation" => {

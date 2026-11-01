@@ -2273,9 +2273,6 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
             CaptionsMsg::Open
         };
         state.handle(Msg::Captions(msg));
-        Shell::with(|_, app| {
-            app.global::<Editor>().set_inspector_mode(1);
-        });
     }));
     editor.on_record_voiceover(on_window!(|state| {
         state.handle(Msg::Voiceover(VoiceoverMsg::Toggle));
@@ -2331,35 +2328,33 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
     app.on_voiceover_prompt_speed_changed(on_window!(|state, index: i32| {
         state.handle(Msg::Voiceover(VoiceoverMsg::PromptSpeed(index)));
     }));
-    editor.on_speak(on_window!(|_state| {
-        Shell::with(|_, app| {
-            app.global::<Editor>().set_inspector_mode(2);
-            app.global::<Editor>().set_voice_sub_mode(1);
-        });
+    editor.on_speak(on_window!(|state| {
+        let msg = if state.speech.open && state.speech.dub.mode != 3 {
+            SpeechMsg::Close
+        } else {
+            state.speech.dub.mode = 0;
+            SpeechMsg::Open
+        };
+        state.handle(Msg::Speech(msg));
     }));
-    editor.on_voice_changer(on_window!(|_state| {
-        Shell::with(|_, app| {
-            app.global::<Editor>().set_inspector_mode(2);
-            app.global::<Editor>().set_voice_sub_mode(0);
-        });
+    editor.on_voice_changer(on_window!(|state| {
+        let msg = if state.speech.open && state.speech.dub.mode == 3 {
+            SpeechMsg::Close
+        } else {
+            state.speech.dub.mode = 3;
+            SpeechMsg::Open
+        };
+        state.handle(Msg::Speech(msg));
     }));
     editor.on_translate(on_window!(|state| {
         state.handle(Msg::Translation(
             crate::panes::translation::TranslationMsg::Action(0, 0, String::new(), 0.0),
         ));
-        Shell::with(|_, app| {
-            app.global::<Editor>().set_inspector_mode(2);
-            app.global::<Editor>().set_voice_sub_mode(1);
-        });
     }));
     editor.on_gemini_studio(on_window!(|state| {
         state.handle(Msg::Gemini(
             crate::panes::gemini_studio::GeminiMsg::Action(0, 0, String::new(), 0.0),
         ));
-        Shell::with(|_, app| {
-            app.global::<Editor>().set_inspector_mode(2);
-            app.global::<Editor>().set_voice_sub_mode(0);
-        });
     }));
 
     app.on_captions_closed(on_window!(|state| {

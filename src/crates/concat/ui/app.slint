@@ -880,12 +880,12 @@ export component App inherits Window {
         y: 0;
         width: root.width;
         height: root.height;
-        z: root.sheets-fill ? 1 : 0;
+        z: (root.captions.open || root.speech.open) ? 10 : (root.sheets-fill ? 1 : 0);
 
         CaptionsDialog {
             
             fill: root.sheets-fill;
-            floating: !root.sheets-fill && !root.on-start;
+            floating: !root.sheets-fill;
             z: root.front-tool == "captions" ? 1 : 0;
             raised => { root.front-tool = "captions"; }
             inset-top: root.safe-area-insets.top;
@@ -929,7 +929,7 @@ export component App inherits Window {
         SpeechDialog {
             
             fill: root.sheets-fill;
-            floating: !root.sheets-fill && !root.on-start;
+            floating: !root.sheets-fill;
             // Its own home, a step in from the captions card's, so the two
             // do not open exactly on top of each other.
             home-right: 44px;
