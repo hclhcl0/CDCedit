@@ -797,12 +797,13 @@ impl CaptionsPane {
     /// taken. Otherwise the chosen clip while it is still on the timeline
     /// with sound, and none - nothing to run - when it is not.
     fn subject_clip(&self, studio: &Studio, sources: &[Source]) -> Option<String> {
-        follow_selection(
+        let picked = follow_selection(
             studio.sole_selection(),
             self.chosen_with.as_deref(),
             self.clip.as_deref(),
             |id| sources.iter().any(|source| source.id == id),
-        )
+        );
+        picked.or_else(|| sources.first().map(|source| source.id.clone()))
     }
 
     /// A caption's look, by the sheet's rows: where it sits and its size.
@@ -1148,18 +1149,16 @@ impl CaptionsPane {
 
     /// The sheet as Slint shows it.
     pub fn data(&self, studio: &Studio) -> CaptionsSheetData {
-        let sources = if self.open {
-            self.all_sources(studio)
-        } else {
-            Vec::new()
-        };
-        let source = self
-            .subject_clip(studio, &sources)
-            .and_then(|id| sources.iter().position(|source| source.id == id))
+        let sources = self.all_sources(studio);
+        let chosen_clip = self.subject_clip(studio, &sources);
+        let source = chosen_clip
+            .as_ref()
+            .and_then(|id| sources.iter().position(|source| &source.id == id))
+            .or_else(|| (!sources.is_empty()).then_some(0))
             .map_or(-1, |index| index as i32);
         let labels: Vec<slint::SharedString> = sources
-            .into_iter()
-            .map(|source| source.label.into())
+            .iter()
+            .map(|source| source.label.as_str().into())
             .collect();
         CaptionsSheetData {
             open: self.open,
@@ -1361,7 +1360,11 @@ fn sources(studio: &Studio) -> Vec<Source> {
         .timeline()
         .clips
         .iter()
-        .filter(|clip| studio.clip_has_sound(clip))
+        .filter(|clip| {
+            clip.kind == ClipKind::Audio
+                || clip.kind == ClipKind::Video
+                || studio.clip_has_sound(clip)
+        })
         .map(|clip| {
             let name = project
                 .media_by_id(&clip.media_id)

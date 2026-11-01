@@ -169,10 +169,11 @@ impl SpeechPane {
                     .iter()
                     .filter(|c| c.kind == ClipKind::Video || c.kind == ClipKind::Audio)
                     .filter(|c| {
-                        studio
-                            .project()
-                            .media_by_id(&c.media_id)
-                            .is_some_and(|m| m.has_audio)
+                        c.kind == ClipKind::Audio
+                            || studio
+                                .project()
+                                .media_by_id(&c.media_id)
+                                .map_or(true, |m| m.has_audio)
                     })
                     .map(|c| (c.id.clone(), format!("{} · {:.2}s", c.name, c.start))),
             );

@@ -13,6 +13,11 @@ import { NumberField } from "primitives/number-field.slint";
 import { Select } from "primitives/select.slint";
 import { CanvasPicker } from "dialogs/canvas-picker.slint";
 import { SegmentedControl } from "primitives/segmented-control.slint";
+import { Button } from "primitives/modal.slint";
+import { CaptionsForm } from "dialogs/captions.slint";
+import { SpeechForm } from "dialogs/speech.slint";
+import { Editor } from "editor.slint";
+import { PaneScroll } from "workspace/pane.slint";
 
 // The launch screen: the app's home, and the window's own ground under all
 // of it — no card around the whole thing, no shadow. A setup screen is not
@@ -1590,6 +1595,90 @@ component LearnGrid inherits Rectangle {
 
 // ── the screen ───────────────────────────────────────────────────────────
 
+export component AiToolThumbCard inherits Rectangle {
+    in property <string> name;
+    in property <string> title;
+    in property <string> note;
+    in property <Glyph> glyph;
+    in property <string> badge;
+    in property <color> accent: #38bdf8;
+    in property <bool> active: false;
+    callback clicked();
+
+    border-radius: Theme.r-lg;
+    background: root.active ? #1b2434 : (touch.has-hover ? #171d2b : Theme.launch-panel);
+    border-width: root.active ? 2px : 1px;
+    border-color: root.active ? root.accent : (touch.has-hover ? Theme.line-strong : Theme.line);
+    animate background, border-color { duration: 120ms; }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+
+    HorizontalLayout {
+        padding: 10px;
+        spacing: 10px;
+        alignment: start;
+
+        Rectangle {
+            width: 40px;
+            height: 40px;
+            border-radius: Theme.r;
+            background: root.accent.with-alpha(0.15);
+            border-width: 1px;
+            border-color: root.accent.with-alpha(0.3);
+
+            Icon {
+                width: 20px;
+                height: 20px;
+                glyph: root.glyph;
+                tint: root.accent;
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+            spacing: 2px;
+            horizontal-stretch: 1;
+
+            HorizontalLayout {
+                spacing: 6px;
+                Text {
+                    text: root.title;
+                    color: root.active ? Colors.white : Theme.fg;
+                    font-size: Theme.fs;
+                    font-weight: 700;
+                    overflow: elide;
+                }
+                if root.badge != "": Rectangle {
+                    height: 18px;
+                    border-radius: 9px;
+                    background: root.accent.with-alpha(0.2);
+                    HorizontalLayout {
+                        padding-left: 6px;
+                        padding-right: 6px;
+                        Text {
+                            text: root.badge;
+                            color: root.accent;
+                            font-size: 10px;
+                            font-weight: 600;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+            }
+
+            Text {
+                text: root.note;
+                color: Theme.fg-muted;
+                font-size: 11px;
+                overflow: elide;
+            }
+        }
+    }
+}
+
 // The wide page: a desk's window, from 680px across to a 4K screen.
 //
 // One column, centred, no wider than reads well: a greeting, the create
@@ -1622,6 +1711,7 @@ component WideHome inherits Rectangle {
     property <length> pad-top: Math.max(28px, Math.min(72px, root.height / 12));
     property <length> content-w: Math.min(root.width - 2 * root.pad, 1360px);
     property <length> main-w: root.content-w;
+    in-out property <string> active-ai-tool: "tool-captions";
     property <bool> searchable: root.recents-total > 8;
 
     flick := Flickable {
@@ -1830,18 +1920,237 @@ component WideHome inherits Rectangle {
 
                 Rectangle { height: 28px; }
 
-                // ── standalone AI tools ──────────────────────────────
+                // ── standalone AI tools ── 2 COLUMNS ──────────────────────────
                 SectionHead {
                     height: 34px;
-                    text: "Công cụ & Tiện ích AI (Chạy độc lập)";
+                    text: "Công cụ & Tiện ích AI Studio";
                     count: "\{AiTools.all.length}";
                 }
 
                 Rectangle { height: 12px; }
 
-                LearnGrid {
-                    items: AiTools.all;
-                    link(name) => { root.link(name); }
+                HorizontalLayout {
+                    spacing: 16px;
+
+                    // ── CỘT 1: DANH SÁCH TIỆN ÍCH AI (Trái) ──
+                    VerticalLayout {
+                        horizontal-stretch: 44;
+                        spacing: 10px;
+
+                        AiToolThumbCard {
+                            name: "tool-captions";
+                            title: "Tạo Phụ Đề AI (.SRT)";
+                            note: "PhoWhisper ONNX & Gemini 2.5 Flash";
+                            glyph: Glyph.subtitles;
+                            badge: "Phụ đề AI";
+                            accent: #38bdf8;
+                            active: (root.active-ai-tool == "" || root.active-ai-tool == self.name);
+                            clicked => { root.active-ai-tool = self.name; }
+                        }
+
+                        AiToolThumbCard {
+                            name: "tool-audio-studio";
+                            title: "Phòng Thu Âm & TTS";
+                            note: "Đọc văn bản & Studio hội thoại đa vai";
+                            glyph: Glyph.audio-studio;
+                            badge: "Studio TTS";
+                            accent: #10b981;
+                            active: root.active-ai-tool == self.name;
+                            clicked => { root.active-ai-tool = self.name; }
+                        }
+
+                        AiToolThumbCard {
+                            name: "tool-voice-changer";
+                            title: "Voice Changer (Đổi Giọng)";
+                            note: "ElevenLabs AI & Bộ lọc DSP";
+                            glyph: Glyph.voice-changer;
+                            badge: "Voice AI";
+                            accent: #f59e0b;
+                            active: root.active-ai-tool == self.name;
+                            clicked => { root.active-ai-tool = self.name; }
+                        }
+
+                        AiToolThumbCard {
+                            name: "tool-translation";
+                            title: "Dịch Thuật & Lồng Tiếng";
+                            note: "Dịch SRT/video song ngữ & thuyết minh";
+                            glyph: Glyph.translate;
+                            badge: "Song ngữ";
+                            accent: #3b82f6;
+                            active: root.active-ai-tool == self.name;
+                            clicked => { root.active-ai-tool = self.name; }
+                        }
+
+                        AiToolThumbCard {
+                            name: "tool-links";
+                            title: "Tải Video & Nhạc Từ Link";
+                            note: "YouTube, TikTok, Facebook, Drive…";
+                            glyph: Glyph.cloud-download;
+                            badge: "1080p / MP3";
+                            accent: #a855f7;
+                            active: root.active-ai-tool == self.name;
+                            clicked => { root.active-ai-tool = self.name; }
+                        }
+                    }
+
+                    // ── CỘT 2: PANEL NGUYÊN BẢN ĐẦY ĐỦ TÍNH NĂNG (Phải) ──
+                    Rectangle {
+                        horizontal-stretch: 56;
+                        min-height: 540px;
+                        max-height: 620px;
+                        border-radius: Theme.r-lg;
+                        background: Theme.panel;
+                        border-width: 1px;
+                        border-color: Theme.line;
+                        clip: true;
+
+                        VerticalLayout {
+                            // Header của panel
+                            Rectangle {
+                                height: 44px;
+                                background: Theme.field;
+                                Rectangle {
+                                    y: parent.height - 1px;
+                                    width: 100%;
+                                    height: 1px;
+                                    background: Theme.line;
+                                }
+
+                                HorizontalLayout {
+                                    padding-left: 14px;
+                                    padding-right: 14px;
+                                    spacing: 10px;
+
+                                    VerticalLayout {
+                                        alignment: center;
+                                        Icon {
+                                            glyph: (root.active-ai-tool == "tool-audio-studio" || root.active-ai-tool == "tool-translation") ? Glyph.audio-studio : (root.active-ai-tool == "tool-voice-changer" ? Glyph.voice-changer : (root.active-ai-tool == "tool-links" ? Glyph.cloud-download : Glyph.subtitles));
+                                            tint: Theme.accent;
+                                            size: 18px;
+                                        }
+                                    }
+
+                                    Text {
+                                        text: (root.active-ai-tool == "tool-audio-studio") ? "Phòng Thu Âm & Giọng Nói AI (TTS)" : (root.active-ai-tool == "tool-translation" ? "Dịch Thuật & Lồng Tiếng Song Ngữ" : (root.active-ai-tool == "tool-voice-changer" ? "Voice Changer — Biến Đổi Giọng Nói" : (root.active-ai-tool == "tool-links" ? "Tải Video & Nhạc Từ Link" : "Studio Tạo Phụ Đề AI (.SRT)")));
+                                        color: Theme.fg;
+                                        font-size: Theme.fs;
+                                        font-weight: 700;
+                                        vertical-alignment: center;
+                                    }
+
+                                    Rectangle { horizontal-stretch: 1; }
+
+                                    // Badge
+                                    Rectangle {
+                                        height: 22px;
+                                        border-radius: 11px;
+                                        background: Theme.accent.with-alpha(0.15);
+                                        border-width: 1px;
+                                        border-color: Theme.accent.with-alpha(0.4);
+                                        HorizontalLayout {
+                                            padding-left: 8px;
+                                            padding-right: 8px;
+                                            Text {
+                                                text: "100% Nguyên bản";
+                                                color: Theme.accent;
+                                                font-size: 11px;
+                                                vertical-alignment: center;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Body chứa Form nguyên bản
+                            PaneScroll {
+                                vertical-stretch: 1;
+
+                                if (root.active-ai-tool == "" || root.active-ai-tool == "tool-captions"): CaptionsForm {
+                                    width: parent.width;
+                                    data: Editor.captions-data;
+                                    models: Editor.caption-models;
+                                    is-pane: true;
+
+                                    voice-toggled(on) => { Editor.captions-voice-toggled(on); }
+                                    source-changed(idx) => { Editor.captions-source-changed(idx); }
+                                    text-edited(txt) => { Editor.captions-text-edited(txt); }
+                                    model-changed(idx) => { Editor.captions-model-changed(idx); }
+                                    provider-changed(idx) => { Editor.captions-provider-changed(idx); }
+                                    configure-api => { Editor.captions-configure-api(); }
+                                    gemini-language-changed(idx) => { Editor.captions-gemini-language-changed(idx); }
+                                    gemini-proofread-toggled(on) => { Editor.captions-gemini-proofread-toggled(on); }
+                                    gemini-smart-split-toggled(on) => { Editor.captions-gemini-smart-split-toggled(on); }
+                                    gemini-two-speakers-toggled(on) => { Editor.captions-gemini-two-speakers-toggled(on); }
+                                    speaker2-color-changed(c) => { Editor.captions-speaker2-color-changed(c); }
+                                    glossary-edited(txt) => { Editor.captions-glossary-edited(txt); }
+                                    review-choice(idx, c) => { Editor.captions-review-choice(idx, c); }
+                                    review-apply(u) => { Editor.captions-review-apply(u); }
+                                    placement-changed(idx) => { Editor.captions-placement-changed(idx); }
+                                    size-changed(idx) => { Editor.captions-size-changed(idx); }
+                                    text-color-changed(c) => { Editor.captions-text-color-changed(c); }
+                                    stroke-choice-changed(idx) => { Editor.captions-stroke-choice-changed(idx); }
+                                    stroke-color-changed(c) => { Editor.captions-stroke-color-changed(c); }
+                                    begin => { Editor.captions-begin(); }
+                                    cancel => { Editor.captions-cancel(); }
+                                    import-srt => { Editor.captions-import-srt(); }
+                                    export-srt => { Editor.captions-export-srt(); }
+                                    wrap-existing => { Editor.captions-wrap-existing(); }
+                                }
+
+                                if (root.active-ai-tool == "tool-audio-studio" || root.active-ai-tool == "tool-translation" || root.active-ai-tool == "tool-voice-changer"): SpeechForm {
+                                    width: parent.width;
+                                    data: Editor.speech-data;
+                                    models: Editor.speech-models;
+                                    model-details: Editor.speech-model-details;
+                                    voices: Editor.speech-voices;
+                                    voice-details: Editor.speech-voice-details;
+                                    voice-avatars: Editor.speech-voice-avatars;
+                                    samples: Editor.speech-samples;
+                                    sample-waves: Editor.speech-sample-waves;
+                                    sample-details: Editor.speech-sample-details;
+                                    is-pane: true;
+
+                                    text-edited(txt) => { Editor.speech-text-edited(txt); }
+                                    voice-changed(idx) => { Editor.speech-voice-changed(idx); }
+                                    model-changed(idx) => { Editor.speech-model-changed(idx); }
+                                    speed-changed(v) => { Editor.speech-speed-changed(v); }
+                                    quality-changed(idx) => { Editor.speech-quality-changed(idx); }
+                                    pauses-changed(v) => { Editor.speech-pauses-changed(v); }
+                                    reference-start-changed(s) => { Editor.speech-reference-start-changed(s); }
+                                    use-sample-changed(on) => { Editor.speech-use-sample-changed(on); }
+                                    sample-changed(idx) => { Editor.speech-sample-changed(idx); }
+                                    insert-tag(text, tag, at) => { return Editor.speech-insert-tag(text, tag, at); }
+                                    dubbing-action(a, i, t, v) => { Editor.speech-dubbing-action(a, i, t, v); }
+                                    begin => { Editor.speech-begin(); }
+                                    cancel => { Editor.speech-cancel(); }
+                                    save-name-edited(n) => { Editor.speech-save-name-edited(n); }
+                                    pick-picture => { Editor.speech-pick-picture(); }
+                                }
+
+                                if (root.active-ai-tool == "tool-links"): VerticalLayout {
+                                    padding: 24px;
+                                    spacing: 16px;
+                                    Text {
+                                        text: "Tải Video & Nhạc từ YouTube, TikTok, Facebook...";
+                                        color: Theme.fg;
+                                        font-size: Theme.fs;
+                                        font-weight: 700;
+                                    }
+                                    Text {
+                                        text: "Dán đường dẫn (URL) video để tự động tải về, tách nhạc hoặc tạo phụ đề trực tiếp.";
+                                        color: Theme.fg-muted;
+                                        font-size: Theme.fs-sm;
+                                        wrap: word-wrap;
+                                    }
+                                    Button {
+                                        label: "Mở Hộp thoại Tải Link";
+                                        primary: true;
+                                        clicked => { root.link("tool-links"); }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
 
                 Rectangle { height: 36px; }
@@ -2035,6 +2344,7 @@ component NarrowHome inherits Rectangle {
     /// own folder, which the page already lists. See platform::pick_folder.
     /// https://github.com/jub0t/Concat/issues/222
     in property <bool> phone;
+    in-out property <string> active-ai-tool: "tool-captions";
 
     callback compose();
     callback open();
@@ -2381,6 +2691,7 @@ export component StartScreen inherits Rectangle {
     /// A file can be dragged in from the system here.
     in property <bool> can-drop;
     in property <bool> phone;
+    in-out property <string> active-ai-tool: "tool-captions";
 
 
     /// Put up the sheet a new project is described on.
@@ -2420,6 +2731,7 @@ export component StartScreen inherits Rectangle {
         sort: root.sort;
         project-tab: root.project-tab;
         busy: root.busy;
+        active-ai-tool <=> root.active-ai-tool;
         version: root.version;
         can-drop: root.can-drop;
         compose => { root.compose(); }
