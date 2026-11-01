@@ -1745,6 +1745,8 @@ component WideHome inherits Rectangle {
     property <length> pad-top: Math.max(28px, Math.min(72px, root.height / 12));
     property <length> content-w: Math.min(root.width - 2 * root.pad, 1360px);
     property <length> main-w: root.content-w;
+    property <length> ai-panel-w: Math.clamp(root.content-w * 0.42, 420px, 520px);
+    property <length> ai-panel-h: 520px;
     in-out property <string> active-ai-tool: "tool-captions";
     property <bool> searchable: root.recents-total > 8;
 
@@ -1968,7 +1970,7 @@ component WideHome inherits Rectangle {
 
                     // ── CỘT 1: DANH SÁCH TIỆN ÍCH AI (Thumb hình vuông, 3 trên 2 dưới) ──
                     VerticalLayout {
-                        horizontal-stretch: 50;
+                        width: root.content-w - 16px - root.ai-panel-w;
                         spacing: 12px;
 
                         // Hàng 1: 3 tiện ích vuông
@@ -2044,9 +2046,8 @@ component WideHome inherits Rectangle {
 
                     // ── CỘT 2: PANEL NGUYÊN BẢN ĐẦY ĐỦ TÍNH NĂNG (Phải) ──
                     Rectangle {
-                        horizontal-stretch: 50;
-                        min-height: 540px;
-                        max-height: 620px;
+                        width: root.ai-panel-w;
+                        height: root.ai-panel-h;
                         border-radius: Theme.r-lg;
                         background: Theme.panel;
                         border-width: 1px;
