@@ -17,6 +17,9 @@ import {
     StageGuideData, StageItemData, TimelineTabData, TimelineTool, TrackData,
     TrackSize,
 } from "timeline/model.slint";
+import { CaptionsSheetData, CaptionReviewRow } from "dialogs/captions.slint";
+import { GeminiStudioData, GeminiTurnData, GeminiVoiceData } from "dialogs/gemini-studio.slint";
+import { TranslationData, TranslationRowData } from "dialogs/translation.slint";
 
 // Everything the four editor views read and everything they report, in one
 // place that is not a parent.
@@ -538,4 +541,30 @@ export global Editor {
     in-out property <string> keys-delete-right;
     in-out property <string> keys-pan;
     in-out property <string> keys-preview-axis;
+
+    // ── AI Studio & Inspector Mode ──
+    in-out property <int> inspector-mode: 0; // 0 = Clip Properties, 1 = Captions Studio, 2 = Voice & Dubbing Studio
+    in-out property <CaptionsSheetData> captions-data;
+    in-out property <GeminiStudioData> gemini-studio-data;
+    in-out property <TranslationData> translation-data;
+
+    callback captions-begin();
+    callback captions-cancel();
+    callback captions-model-changed(int);
+    callback captions-provider-changed(int);
+    callback captions-gemini-language-changed(int);
+    callback captions-gemini-smart-split-toggled(bool);
+    callback captions-gemini-two-speakers-toggled(bool);
+    callback captions-review-choice(int, int);
+    callback captions-review-apply(bool);
+    callback captions-placement-changed(int);
+    callback captions-size-changed(int);
+    callback captions-text-color-changed(color);
+    callback captions-stroke-choice-changed(int);
+    callback captions-stroke-color-changed(color);
+    callback captions-export-srt();
+    callback captions-import-srt();
+
+    callback gemini-studio-action(int, int, string, float);
+    callback translation-action(int, int, string, float);
 }

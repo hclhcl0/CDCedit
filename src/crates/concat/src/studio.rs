@@ -12191,6 +12191,10 @@ impl Studio {
         app.set_gemini_studio(self.gemini_studio.data(self));
         app.set_translation(self.translation.data(self));
         app.set_captions(self.captions.data(self));
+        let editor = app.global::<Editor>();
+        editor.set_gemini_studio_data(self.gemini_studio.data(self));
+        editor.set_translation_data(self.translation.data(self));
+        editor.set_captions_data(self.captions.data(self));
         let voices = installed(&self.settings.voices);
         sync(
             &models.speech_models,

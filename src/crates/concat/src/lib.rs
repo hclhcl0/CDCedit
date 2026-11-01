@@ -2273,6 +2273,9 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
             CaptionsMsg::Open
         };
         state.handle(Msg::Captions(msg));
+        Shell::with(|_, app| {
+            app.global::<Editor>().set_inspector_mode(1);
+        });
     }));
     editor.on_record_voiceover(on_window!(|state| {
         state.handle(Msg::Voiceover(VoiceoverMsg::Toggle));
@@ -2340,11 +2343,17 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
         state.handle(Msg::Translation(
             crate::panes::translation::TranslationMsg::Action(0, 0, String::new(), 0.0),
         ));
+        Shell::with(|_, app| {
+            app.global::<Editor>().set_inspector_mode(2);
+        });
     }));
     editor.on_gemini_studio(on_window!(|state| {
         state.handle(Msg::Gemini(
             crate::panes::gemini_studio::GeminiMsg::Action(0, 0, String::new(), 0.0),
         ));
+        Shell::with(|_, app| {
+            app.global::<Editor>().set_inspector_mode(2);
+        });
     }));
 
     app.on_captions_closed(on_window!(|state| {
@@ -2429,6 +2438,70 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
     }));
     app.on_captions_export_srt(on_window!(|state| {
         state.handle(Msg::Captions(CaptionsMsg::ExportSrt));
+    }));
+
+    // ── Editor AI Callbacks (for Right Inspector Panel) ──
+    editor.on_captions_begin(on_window!(|state| {
+        state.handle(Msg::Captions(CaptionsMsg::Begin));
+    }));
+    editor.on_captions_cancel(on_window!(|state| {
+        state.handle(Msg::Captions(CaptionsMsg::Cancel));
+    }));
+    editor.on_captions_model_changed(on_window!(|state, index: i32| {
+        state.handle(Msg::Captions(CaptionsMsg::ModelChanged(index)));
+    }));
+    editor.on_captions_provider_changed(on_window!(|state, index: i32| {
+        state.handle(Msg::Captions(CaptionsMsg::ProviderChanged(index)));
+    }));
+    editor.on_captions_gemini_language_changed(on_window!(|state, index: i32| {
+        state.handle(Msg::Captions(CaptionsMsg::GeminiLanguageChanged(index)));
+    }));
+    editor.on_captions_gemini_smart_split_toggled(on_window!(|state, on: bool| {
+        state.handle(Msg::Captions(CaptionsMsg::GeminiSmartSplitToggled(on)));
+    }));
+    editor.on_captions_gemini_two_speakers_toggled(on_window!(|state, on: bool| {
+        state.handle(Msg::Captions(CaptionsMsg::GeminiTwoSpeakersToggled(on)));
+    }));
+    editor.on_captions_review_choice(on_window!(|state, index: i32, choice: i32| {
+        state.handle(Msg::Captions(CaptionsMsg::ReviewChoice(index, choice)));
+    }));
+    editor.on_captions_review_apply(on_window!(|state, use_choices: bool| {
+        state.handle(Msg::Captions(CaptionsMsg::ReviewApply(use_choices)));
+    }));
+    editor.on_captions_placement_changed(on_window!(|state, index: i32| {
+        state.handle(Msg::Captions(CaptionsMsg::PlacementChanged(index)));
+    }));
+    editor.on_captions_size_changed(on_window!(|state, index: i32| {
+        state.handle(Msg::Captions(CaptionsMsg::SizeChanged(index)));
+    }));
+    editor.on_captions_text_color_changed(on_window!(|state, color: slint::Color| {
+        state.handle(Msg::Captions(CaptionsMsg::TextColorChanged(
+            crate::format::hex_of(color),
+        )));
+    }));
+    editor.on_captions_stroke_choice_changed(on_window!(|state, index: i32| {
+        state.handle(Msg::Captions(CaptionsMsg::StrokeChoiceChanged(index)));
+    }));
+    editor.on_captions_stroke_color_changed(on_window!(|state, color: slint::Color| {
+        state.handle(Msg::Captions(CaptionsMsg::StrokeColorChanged(
+            crate::format::hex_of(color),
+        )));
+    }));
+    editor.on_captions_export_srt(on_window!(|state| {
+        state.handle(Msg::Captions(CaptionsMsg::ExportSrt));
+    }));
+    editor.on_captions_import_srt(on_window!(|state| {
+        state.handle(Msg::Captions(CaptionsMsg::ImportSrt));
+    }));
+    editor.on_gemini_studio_action(on_window!(|state, action: i32, index: i32, text: SharedString, value: f32| {
+        state.handle(Msg::Gemini(crate::panes::gemini_studio::GeminiMsg::Action(
+            action, index, text.to_string(), value,
+        )));
+    }));
+    editor.on_translation_action(on_window!(|state, action: i32, index: i32, text: SharedString, value: f32| {
+        state.handle(Msg::Translation(crate::panes::translation::TranslationMsg::Action(
+            action, index, text.to_string(), value,
+        )));
     }));
     app.on_speech_closed(on_window!(|state| {
         state.handle(Msg::Speech(SpeechMsg::Close));
