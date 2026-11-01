@@ -171,6 +171,7 @@ export component ConfigPane inherits Rectangle {
     callback pane-picked(kind: PaneKind);
     /// Which seat this pane is in. It travels no further than the corner
     /// button, whose drag payload has to say where it is being taken from.
+    in-out property <int> mode: Editor.inspector-mode;
     in property <int> pane-seat;
     /// False when this is the last panel on screen. Travels the same way, and
     /// only greys the one row that would close it.
@@ -471,22 +472,22 @@ export component ConfigPane inherits Rectangle {
                 InspectorModeTab {
                     glyph: Glyph.sliders;
                     label: "Thuộc tính";
-                    current: Editor.inspector-mode == 0;
-                    clicked => { Editor.inspector-mode = 0; }
+                    current: root.mode == 0;
+                    clicked => { Editor.inspector-mode = 0; root.mode = 0; }
                 }
 
                 InspectorModeTab {
                     glyph: Glyph.subtitles;
                     label: "Phụ đề AI";
-                    current: Editor.inspector-mode == 1;
-                    clicked => { Editor.inspector-mode = 1; }
+                    current: root.mode == 1;
+                    clicked => { Editor.inspector-mode = 1; root.mode = 1; }
                 }
 
                 InspectorModeTab {
                     glyph: Glyph.audio-studio;
                     label: "Lồng tiếng AI";
-                    current: Editor.inspector-mode == 2;
-                    clicked => { Editor.inspector-mode = 2; }
+                    current: root.mode == 2;
+                    clicked => { Editor.inspector-mode = 2; root.mode = 2; }
                 }
 
                 VerticalLayout {
@@ -502,7 +503,7 @@ export component ConfigPane inherits Rectangle {
             }
         }
         // ── details ──────────────────────────────────────────────────────
-        if Editor.inspector-mode == 0 && !root.has-selection && !root.on-transition: Rectangle {
+        if root.mode == 0 && !root.has-selection && !root.on-transition: Rectangle {
             // The same 52px as the panes either side of it; see PaneHeader.
             height: 52px;
 
@@ -550,7 +551,7 @@ export component ConfigPane inherits Rectangle {
             }
         }
 
-        if Editor.inspector-mode == 0 && !root.has-selection && !root.on-transition: PaneBody {
+        if root.mode == 0 && !root.has-selection && !root.on-transition: PaneBody {
             padding: 16px;
 
             VerticalLayout {
@@ -600,7 +601,7 @@ export component ConfigPane inherits Rectangle {
             }
         }
 
-        if Editor.inspector-mode == 0 && !root.has-selection && !root.on-transition: Rectangle {
+        if root.mode == 0 && !root.has-selection && !root.on-transition: Rectangle {
             height: 49px;
 
             Rectangle {
@@ -643,7 +644,7 @@ export component ConfigPane inherits Rectangle {
         }
 
         // ── a transition ─────────────────────────────────────────────────
-        if Editor.inspector-mode == 0 && root.on-transition: Rectangle {
+        if root.mode == 0 && root.on-transition: Rectangle {
             height: 52px;
 
             Rectangle {
@@ -683,7 +684,7 @@ export component ConfigPane inherits Rectangle {
             }
         }
 
-        if Editor.inspector-mode == 0 && root.on-transition: PaneBody {
+        if root.mode == 0 && root.on-transition: PaneBody {
             padding: 0px;
             spacing: 0px;
 
@@ -700,7 +701,7 @@ export component ConfigPane inherits Rectangle {
         }
 
         // ── the clip inspector ───────────────────────────────────────────
-        if Editor.inspector-mode == 0 && root.has-selection: Rectangle {
+        if root.mode == 0 && root.has-selection: Rectangle {
             // Matched to the Details bar above, or the top of the column
             // would jump by four pixels every time a clip was selected.
             height: 52px;
@@ -765,7 +766,7 @@ export component ConfigPane inherits Rectangle {
         // tabs: on the panel itself, so it reads as a place inside the tab
         // and not a second row of tabs. One section needs no strip: the tab
         // already says where you are.
-        if root.has-selection && root.sections.length > 1: Rectangle {
+        if root.mode == 0 && root.has-selection && root.sections.length > 1: Rectangle {
             height: 40px;
             background: Theme.panel;
 
@@ -799,7 +800,7 @@ export component ConfigPane inherits Rectangle {
             }
         }
 
-        if Editor.inspector-mode == 0 && root.has-selection: PaneBody {
+        if root.mode == 0 && root.has-selection: PaneBody {
             // No padding: the inspector rows carry their own 14px inset, and
             // sections run edge to edge so their hairlines reach both sides.
             padding: 0px;
@@ -948,7 +949,7 @@ export component ConfigPane inherits Rectangle {
         }
 
         // ── MODE 1: FULL PHỤ ĐỀ AI STUDIO (PhoWhisper + Gemini) ──
-        if Editor.inspector-mode == 1: PaneBody {
+        if root.mode == 1: PaneBody {
             padding: 0px;
             PaneScroll {
                 CaptionsForm {
@@ -986,7 +987,7 @@ export component ConfigPane inherits Rectangle {
         }
 
         // ── MODE 2: FULL LỒNG TIẾNG & PHÒNG THU AI STUDIO (TTS + Dubbing + Voice Changer) ──
-        if Editor.inspector-mode == 2: PaneBody {
+        if root.mode == 2: PaneBody {
             padding: 0px;
             PaneScroll {
                 SpeechForm {
