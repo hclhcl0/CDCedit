@@ -3,14 +3,14 @@ import { Theme } from "theme/theme.slint";
 import { Editor } from "editor.slint";
 
 export component PreviewWindow inherits Window {
-    title: "CDCedit - Slint Live Preview (<1s)";
+    title: "CDCedit - Slint Live Preview";
     width: 440px;
     height: 800px;
     background: #18191c;
 
     init => {
-        Editor.inspector-mode = 2;
-        Editor.voice-sub-mode = 1;
+        Editor.inspector-mode = 3;
+        Editor.voice-sub-mode = 0;
     }
 
     ConfigPane {

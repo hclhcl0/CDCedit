@@ -82,56 +82,7 @@ export struct MediaItemData {
     pick: int,
 }
 
-// ── the page strip ───────────────────────────────────────────────────────────
 
-component LibraryTab inherits Rectangle {
-    in property <string> label;
-    in property <Glyph> glyph;
-    in property <bool> current;
-
-    callback clicked();
-
-    horizontal-stretch: 1;
-    height: 32px;
-    border-radius: Theme.r-sm;
-    background: root.current ? #1e293b : (touch.has-hover ? Theme.field.with-alpha(0.5) : Colors.transparent);
-    border-width: 1px;
-    border-color: root.current ? #38bdf8.with-alpha(0.4) : Colors.transparent;
-
-    animate background { duration: 120ms; }
-    animate border-color { duration: 120ms; }
-
-    HorizontalLayout {
-        padding-left: 6px;
-        padding-right: 6px;
-        spacing: 5px;
-        alignment: center;
-
-        VerticalLayout {
-            alignment: center;
-            Icon {
-                glyph: root.glyph;
-                size: 13px;
-                tint: root.current ? #38bdf8 : (touch.has-hover ? Theme.fg : Theme.fg-muted);
-            }
-        }
-
-        Text {
-            text: root.label;
-            color: root.current ? #ffffff : (touch.has-hover ? Theme.fg : Theme.fg-muted);
-            font-size: Theme.fs-sm;
-            font-weight: root.current ? Theme.weight-title : 400;
-            vertical-alignment: center;
-            wrap: no-wrap;
-            overflow: elide;
-        }
-    }
-
-    touch := TouchArea {
-        mouse-cursor: pointer;
-        clicked => { root.clicked(); }
-    }
-}
 
 component FilterChip inherits Rectangle {
     in property <string> label;
@@ -150,16 +101,16 @@ component FilterChip inherits Rectangle {
     animate border-color { duration: 120ms; }
 
     HorizontalLayout {
-        padding-left: 8px;
-        padding-right: 8px;
-        spacing: 5px;
+        padding-left: 6px;
+        padding-right: 6px;
+        spacing: 4px;
         alignment: center;
 
         if root.glyph != Glyph.none: VerticalLayout {
             alignment: center;
             Icon {
                 glyph: root.glyph;
-                size: 12px;
+                size: 11px;
                 tint: root.current ? #38bdf8 : Theme.fg-muted;
             }
         }
@@ -167,7 +118,7 @@ component FilterChip inherits Rectangle {
         Text {
             text: root.label;
             color: root.current ? #ffffff : (touch.has-hover ? Theme.fg : Theme.fg-muted);
-            font-size: Theme.fs-sm;
+            font-size: Theme.fs-xs;
             font-weight: root.current ? Theme.weight-title : 400;
             vertical-alignment: center;
             wrap: no-wrap;
@@ -1569,6 +1520,186 @@ component Empty inherits VerticalLayout {
     }
 }
 
+export component MediaLibraryView inherits Rectangle {
+    in property <[MediaItemData]> items;
+    in property <int> count-all;
+    in property <int> count-video;
+    in property <int> count-audio;
+    in property <int> count-images;
+    in property <int> count-speech;
+    in property <int> count-processed;
+    in property <int> selected-count;
+    in property <bool> importing;
+    in property <MediaFilter> filter: MediaFilter.all;
+
+    in property <[MenuItemData]> menu-items;
+    in property <length> menu-height;
+    in property <int> menu-token;
+
+    callback import-media();
+    callback import-link();
+    callback sort-changed(int);
+    callback narrow(MediaFilter);
+    callback remove-selected();
+    callback select(int, bool);
+    callback activate(int);
+    callback remove(int);
+    callback context(int);
+    callback menu-selected(string);
+    callback floor-pressed();
+    callback band-selected(int, int, int, int, int, bool);
+
+    PaneScroll {
+        x: 0;
+        y: 0;
+        width: parent.width;
+        height: parent.height;
+
+        VerticalLayout {
+            padding: 8px;
+            spacing: 8px;
+
+            // Row 1: Actions & Sort
+            HorizontalLayout {
+                spacing: 6px;
+                ImportButton {
+                    label: "Nhập tệp";
+                    height: Theme.h;
+                    horizontal-stretch: 0;
+                    busy: root.importing;
+                    clicked => { root.import-media(); }
+                }
+                Button {
+                    label: "Nhập Link (URL)";
+                    ghost: true;
+                    clicked => { root.import-link(); }
+                }
+                Rectangle { horizontal-stretch: 1; }
+                Select {
+                    horizontal-stretch: 0;
+                    width: self.natural-width;
+                    options: ["Mới thêm", "Theo tên", "Loại tệp"];
+                    icons: [Glyph.clock, Glyph.text-mark, Glyph.tag];
+                    current: 0;
+                    changed(index) => { root.sort-changed(index); }
+                }
+            }
+
+            // Row 2: Filter chips
+            HorizontalLayout {
+                spacing: 4px;
+                FilterChip {
+                    label: "Tất cả";
+                    count: root.count-all;
+                    current: root.filter == MediaFilter.all;
+                    clicked => { root.narrow(MediaFilter.all); }
+                }
+                FilterChip {
+                    label: "Video";
+                    count: root.count-video;
+                    current: root.filter == MediaFilter.video;
+                    clicked => { root.narrow(MediaFilter.video); }
+                }
+                FilterChip {
+                    label: "Âm thanh";
+                    count: root.count-audio;
+                    current: root.filter == MediaFilter.audio;
+                    clicked => { root.narrow(MediaFilter.audio); }
+                }
+                FilterChip {
+                    label: "Hình ảnh";
+                    count: root.count-images;
+                    current: root.filter == MediaFilter.images;
+                    clicked => { root.narrow(MediaFilter.images); }
+                }
+                FilterChip {
+                    label: "AI tạo";
+                    count: root.count-speech + root.count-processed;
+                    current: root.filter == MediaFilter.speech || root.filter == MediaFilter.processed;
+                    clicked => { root.narrow(MediaFilter.speech); }
+                }
+                Rectangle { horizontal-stretch: 1; }
+            }
+
+            // Multiple selection banner
+            if root.selected-count > 1: Rectangle {
+                height: 28px;
+                background: Theme.well;
+                border-radius: Theme.r;
+
+                HorizontalLayout {
+                    padding-left: 10px;
+                    padding-right: 4px;
+                    spacing: 8px;
+
+                    Text {
+                        horizontal-stretch: 1;
+                        text: "\{root.selected-count} selected";
+                        color: Theme.fg-muted;
+                        font-size: Theme.fs-sm;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
+
+                    VerticalLayout {
+                        alignment: center;
+                        Rectangle {
+                            width: wipe.width + 16px;
+                            height: 20px;
+                            border-radius: Theme.r-xs;
+                            background: bin.has-hover ? Theme.danger-soft : Colors.transparent;
+
+                            wipe := Text {
+                                x: (parent.width - self.width) / 2;
+                                y: (parent.height - self.height) / 2;
+                                text: I18n.t("common.delete");
+                                color: Theme.danger;
+                                font-size: Theme.fs-sm;
+                            }
+
+                            bin := TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => { root.remove-selected(); }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if root.items.length == 0: Empty {
+                glyph: Glyph.film;
+                text: root.filter == MediaFilter.speech
+                    ? I18n.t("mediaPane.nothingReadAloudYet")
+                    : root.filter == MediaFilter.processed
+                    ? I18n.t("mediaPane.nothingRenderedYetRight")
+                    : root.count-all > 0
+                    ? I18n.t("mediaPane.nothingKindProject")
+                    : "Kéo thả video, âm thanh vào đây hoặc bấm Nhập tệp / Nhập link";
+            }
+
+            if root.items.length > 0: MediaGrid {
+                horizontal-stretch: 1;
+                items: root.items;
+                page-floor: Math.max(0px, root.height - 120px);
+                menu-items: root.menu-items;
+                menu-height: root.menu-height;
+                menu-token: root.menu-token;
+
+                pressed => { root.floor-pressed(); }
+                clicked(id, additive) => { root.select(id, additive); }
+                activated(id) => { root.activate(id); }
+                removed(id) => { root.remove(id); }
+                context(id) => { root.context(id); }
+                menu-selected(id) => { root.menu-selected(id); }
+                band-selected(columns, from-col, to-col, from-row, to-row, additive) => {
+                    root.band-selected(columns, from-col, to-col,
+                        from-row, to-row, additive);
+                }
+            }
+        }
+    }
+}
+
 export component MediaPane inherits Rectangle {
     /// The bin, already narrowed to `filter`. Filtering happens on the Rust
     /// side because a Slint model cannot be filtered in the language, and
@@ -1737,9 +1868,9 @@ export component MediaPane inherits Rectangle {
     }
 
     Pane {
-        // Minimalist AI Studio Page Strip
+        // Minimalist Header without tabs
         Rectangle {
-            height: 48px;
+            height: 38px;
 
             Rectangle {
                 y: parent.height - 1px;
@@ -1748,30 +1879,21 @@ export component MediaPane inherits Rectangle {
             }
 
             HorizontalLayout {
-                padding-top: 6px;
-                padding-bottom: 6px;
-                padding-left: 8px;
+                padding-left: 12px;
                 padding-right: 8px;
-                spacing: 6px;
 
-                LibraryTab {
-                    glyph: Glyph.film;
-                    label: "Kho tệp";
-                    current: root.tab == 0;
-                    clicked => { root.tab = 0; }
+                VerticalLayout {
+                    alignment: center;
+                    Text {
+                        text: "KHO MEDIA";
+                        color: Theme.fg-muted;
+                        font-size: Theme.fs-xs;
+                        font-weight: Theme.weight-title;
+                        letter-spacing: 0.5px;
+                    }
                 }
-                LibraryTab {
-                    glyph: Glyph.sparkle;
-                    label: "Phụ đề";
-                    current: root.tab == 1;
-                    clicked => { root.tab = 1; }
-                }
-                LibraryTab {
-                    glyph: Glyph.waveform;
-                    label: "Lồng tiếng";
-                    current: root.tab == 8;
-                    clicked => { root.tab = 8; }
-                }
+
+                Rectangle { horizontal-stretch: 1; }
 
                 VerticalLayout {
                     alignment: center;
@@ -1789,472 +1911,37 @@ export component MediaPane inherits Rectangle {
         body := Rectangle {
             vertical-stretch: 1;
 
-            pages := PaneScroll {
-                x: 0;
-                y: 0;
-                width: parent.width;
-                height: parent.height;
+            MediaLibraryView {
+                width: 100%;
+                height: 100%;
+                items: root.items;
+                count-all: root.count-all;
+                count-video: root.count-video;
+                count-audio: root.count-audio;
+                count-images: root.count-images;
+                count-speech: root.count-speech;
+                count-processed: root.count-processed;
+                selected-count: root.selected-count;
+                importing: root.importing;
+                filter: root.filter;
+                menu-items: root.menu-items;
+                menu-height: root.menu-height;
+                menu-token: root.menu-token;
 
-                // ─────────────────────────────────────────────────────────────
-                // TAB 0: TỆP NGUỒN & LINK (MEDIA & LINKS)
-                // ─────────────────────────────────────────────────────────────
-                if root.tab == 0: VerticalLayout {
-                    padding: 8px;
-                    spacing: 8px;
-
-                    // Row 1: Actions & Sort
-                    HorizontalLayout {
-                        spacing: 6px;
-                        ImportButton {
-                            height: Theme.h;
-                            horizontal-stretch: 0;
-                            busy: root.importing;
-                            clicked => { root.import-media(); }
-                        }
-                        Button {
-                            label: "Nhập Link (URL)";
-                            ghost: true;
-                            clicked => { root.import-link(); }
-                        }
-                        Rectangle { horizontal-stretch: 1; }
-                        Select {
-                            horizontal-stretch: 0;
-                            width: self.natural-width;
-                            options: [I18n.t("mediaPane.sortAdded"), I18n.t("mediaPane.sortName"),
-                                I18n.t("mediaPane.sortType")];
-                            icons: [Glyph.clock, Glyph.text-mark, Glyph.tag];
-                            current: 0;
-                            changed(index) => { root.sort-changed(index); }
-                        }
-                    }
-
-                    // Row 2: Filter chips
-                    HorizontalLayout {
-                        spacing: 4px;
-                        FilterChip {
-                            label: "Tất cả";
-                            count: root.count-all;
-                            current: root.filter == MediaFilter.all;
-                            clicked => { root.narrow(MediaFilter.all); }
-                        }
-                        FilterChip {
-                            label: "Video";
-                            count: root.count-video;
-                            current: root.filter == MediaFilter.video;
-                            clicked => { root.narrow(MediaFilter.video); }
-                        }
-                        FilterChip {
-                            label: "Âm thanh";
-                            count: root.count-audio;
-                            current: root.filter == MediaFilter.audio;
-                            clicked => { root.narrow(MediaFilter.audio); }
-                        }
-                        FilterChip {
-                            label: "Hình ảnh";
-                            count: root.count-images;
-                            current: root.filter == MediaFilter.images;
-                            clicked => { root.narrow(MediaFilter.images); }
-                        }
-                        FilterChip {
-                            label: "AI tạo";
-                            count: root.count-speech + root.count-processed;
-                            current: root.filter == MediaFilter.speech || root.filter == MediaFilter.processed;
-                            clicked => { root.narrow(MediaFilter.speech); }
-                        }
-                        Rectangle { horizontal-stretch: 1; }
-                    }
-
-                    // Multiple selection banner
-                    if root.selected-count > 1: Rectangle {
-                        height: 28px;
-                        background: Theme.well;
-                        border-radius: Theme.r;
-
-                        HorizontalLayout {
-                            padding-left: 10px;
-                            padding-right: 4px;
-                            spacing: 8px;
-
-                            Text {
-                                horizontal-stretch: 1;
-                                text: "\{root.selected-count} selected";
-                                color: Theme.fg-muted;
-                                font-size: Theme.fs-sm;
-                                vertical-alignment: center;
-                                overflow: elide;
-                            }
-
-                            VerticalLayout {
-                                alignment: center;
-                                Rectangle {
-                                    width: wipe.width + 16px;
-                                    height: 20px;
-                                    border-radius: Theme.r-xs;
-                                    background: bin.has-hover ? Theme.danger-soft : Colors.transparent;
-
-                                    wipe := Text {
-                                        x: (parent.width - self.width) / 2;
-                                        y: (parent.height - self.height) / 2;
-                                        text: I18n.t("common.delete");
-                                        color: Theme.danger;
-                                        font-size: Theme.fs-sm;
-                                    }
-
-                                    bin := TouchArea {
-                                        mouse-cursor: pointer;
-                                        clicked => { root.remove-selected(); }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    if root.items.length == 0: Empty {
-                        glyph: Glyph.film;
-                        text: root.filter == MediaFilter.speech
-                            ? I18n.t("mediaPane.nothingReadAloudYet")
-                            : root.filter == MediaFilter.processed
-                            ? I18n.t("mediaPane.nothingRenderedYetRight")
-                            : root.count-all > 0
-                            ? I18n.t("mediaPane.nothingKindProject")
-                            : "Kéo thả video, âm thanh vào đây hoặc bấm Nhập tệp / Nhập link";
-                    }
-
-                    if root.items.length > 0: MediaGrid {
-                        horizontal-stretch: 1;
-                        items: root.items;
-                        page-floor: Math.max(0px, pages.height - 80px);
-                        menu-items: root.menu-items;
-                        menu-height: root.menu-height;
-                        menu-token: root.menu-token;
-
-                        pressed => { root.floor-pressed(); }
-                        clicked(id, additive) => { root.select(id, additive); }
-                        activated(id) => { root.activate(id); }
-                        removed(id) => { root.remove(id); }
-                        context(id) => { root.context(id); }
-                        menu-selected(id) => { root.menu-selected(id); }
-                        band-selected(columns, from-col, to-col, from-row, to-row, additive) => {
-                            root.band-selected(columns, from-col, to-col,
-                                from-row, to-row, additive);
-                        }
-                    }
-                }
-
-                // ─────────────────────────────────────────────────────────────
-                // TAB 1: PHỤ ĐỀ AI (PHOWHISPER CAPTIONS STUDIO)
-                // ─────────────────────────────────────────────────────────────
-                if root.tab == 1: VerticalLayout {
-                    padding: 8px;
-                    spacing: 10px;
-
-                    // Hero Action Box for PhoWhisper
-                    Rectangle {
-                        border-radius: Theme.r;
-                        background: #171026;
-                        border-width: 1px;
-                        border-color: #8b5cf6.with-alpha(0.6);
-
-                        VerticalLayout {
-                            padding: 12px;
-                            spacing: 8px;
-
-                            HorizontalLayout {
-                                spacing: 8px;
-                                Icon {
-                                    glyph: Glyph.sparkle;
-                                    size: 20px;
-                                    tint: #a78bfa;
-                                }
-                                Text {
-                                    text: "Tạo Phụ đề tự động (PhoWhisper AI)";
-                                    font-size: Theme.fs-lg;
-                                    font-weight: Theme.weight-title;
-                                    color: #f3e8ff;
-                                    vertical-alignment: center;
-                                }
-                            }
-
-                            Text {
-                                text: "Tự động nhận diện giọng nói tiếng Việt chuẩn xác từng giây, tạo khối phụ đề khớp thời gian và đưa thẳng lên timeline.";
-                                font-size: Theme.fs-sm;
-                                color: #c4b5fd;
-                                wrap: word-wrap;
-                            }
-
-                            HorizontalLayout {
-                                Rectangle {
-                                    height: 32px;
-                                    border-radius: Theme.r-sm;
-                                    background: caption-btn.has-hover ? #7c3aed : #6d28d9;
-
-                                    animate background { duration: 100ms; }
-
-                                    HorizontalLayout {
-                                        padding-left: 14px;
-                                        padding-right: 14px;
-                                        spacing: 6px;
-                                        alignment: center;
-                                        Icon {
-                                            y: (parent.height - self.height) / 2;
-                                            glyph: Glyph.sparkle;
-                                            size: 13px;
-                                            tint: Colors.white;
-                                        }
-                                        Text {
-                                            y: (parent.height - self.height) / 2;
-                                            text: "Bắt đầu quét tạo phụ đề";
-                                            font-size: Theme.fs;
-                                            font-weight: Theme.weight-title;
-                                            color: Colors.white;
-                                        }
-                                    }
-
-                                    caption-btn := TouchArea {
-                                        mouse-cursor: pointer;
-                                        clicked => { root.open-captions(); }
-                                    }
-                                }
-                                Rectangle { horizontal-stretch: 1; }
-                            }
-                        }
-                    }
-
-                    // Style Presets Section
-                    HorizontalLayout {
-                        spacing: 6px;
-                        Text {
-                            text: "MẪU KIỂU CHỮ PHỤ ĐỀ";
-                            color: Theme.fg-muted;
-                            font-size: Theme.fs-xs;
-                            font-weight: Theme.weight-title;
-                            letter-spacing: 0.5px;
-                            vertical-alignment: center;
-                        }
-                        Rectangle { horizontal-stretch: 1; }
-                        FilterChip {
-                            label: "Kiểu dáng";
-                            current: root.text-category == 0;
-                            clicked => { root.text-category = 0; }
-                        }
-                        FilterChip {
-                            label: "Đa ngôn ngữ";
-                            current: root.text-category == 1;
-                            clicked => { root.text-category = 1; }
-                        }
-                    }
-
-                    PresetGrid {
-                        horizontal-stretch: 1;
-                        items: root.text-category == 1 ? root.language-presets : root.presets;
-                        applied(id) => { root.add-text(id); }
-                    }
-                }
-
-                // ─────────────────────────────────────────────────────────────
-                // TAB 8: LỒNG TIẾNG & DỊCH AI (GEMINI STUDIO & DUBBING)
-                // ─────────────────────────────────────────────────────────────
-                if root.tab == 8: VerticalLayout {
-                    padding: 8px;
-                    spacing: 10px;
-
-                    // Dual AI Studio Cards
-                    HorizontalLayout {
-                        spacing: 8px;
-
-                        // Card 1: Gemini Studio
-                        Rectangle {
-                            horizontal-stretch: 1;
-                            border-radius: Theme.r;
-                            background: #092020;
-                            border-width: 1px;
-                            border-color: #14b8a6.with-alpha(0.6);
-
-                            VerticalLayout {
-                                padding: 10px;
-                                spacing: 6px;
-
-                                HorizontalLayout {
-                                    spacing: 6px;
-                                    Icon {
-                                        glyph: Glyph.waveform;
-                                        size: 16px;
-                                        tint: #2dd4bf;
-                                    }
-                                    Text {
-                                        text: "Lồng tiếng đa vai Gemini";
-                                        font-size: Theme.fs;
-                                        font-weight: Theme.weight-title;
-                                        color: #ccfbf1;
-                                        vertical-alignment: center;
-                                    }
-                                }
-
-                                Text {
-                                    text: "Soạn kịch bản nhiều nhân vật, chỉnh cảm xúc và cao độ giọng nói AI.";
-                                    font-size: Theme.fs-xs;
-                                    color: #99f6e4;
-                                    wrap: word-wrap;
-                                }
-
-                                                                Rectangle {
-                                    height: 30px;
-                                    border-radius: Theme.r-xs;
-                                    background: studio-touch.has-hover ? #0f766e : #115e59;
-                                    border-width: 1px;
-                                    border-color: #2dd4bf.with-alpha(0.5);
-
-                                    animate background { duration: 120ms; }
-
-                                    HorizontalLayout {
-                                        spacing: 4px;
-                                        alignment: center;
-                                        VerticalLayout {
-                                            alignment: center;
-                                            Icon { glyph: Glyph.waveform; size: 12px; tint: Colors.white; }
-                                        }
-                                        Text {
-                                            text: "Mở Xưởng Lồng tiếng";
-                                            font-size: Theme.fs-sm;
-                                            font-weight: Theme.weight-title;
-                                            color: Colors.white;
-                                            vertical-alignment: center;
-                                            wrap: no-wrap;
-                                        }
-                                    }
-                                    studio-touch := TouchArea {
-                                        mouse-cursor: pointer;
-                                        clicked => { root.open-gemini-studio(); }
-                                    }
-                                }
-                            }
-                        }
-
-                        // Card 2: Video Dubbing & Translation
-                        Rectangle {
-                            horizontal-stretch: 1;
-                            border-radius: Theme.r;
-                            background: #0d1b33;
-                            border-width: 1px;
-                            border-color: #3b82f6.with-alpha(0.6);
-
-                            VerticalLayout {
-                                padding: 10px;
-                                spacing: 6px;
-
-                                HorizontalLayout {
-                                    spacing: 6px;
-                                    Icon {
-                                        glyph: Glyph.translate;
-                                        size: 16px;
-                                        tint: #60a5fa;
-                                    }
-                                    Text {
-                                        text: "Dịch & Thuyết minh video";
-                                        font-size: Theme.fs;
-                                        font-weight: Theme.weight-title;
-                                        color: #dbeafe;
-                                        vertical-alignment: center;
-                                    }
-                                }
-
-                                Text {
-                                    text: "Tự động dịch phụ đề và lồng tiếng lại video sang ngôn ngữ khác.";
-                                    font-size: Theme.fs-xs;
-                                    color: #bfdbfe;
-                                    wrap: word-wrap;
-                                }
-
-                                                                Rectangle {
-                                    height: 30px;
-                                    border-radius: Theme.r-xs;
-                                    background: dub-touch.has-hover ? #1d4ed8 : #1e40af;
-                                    border-width: 1px;
-                                    border-color: #60a5fa.with-alpha(0.5);
-
-                                    animate background { duration: 120ms; }
-
-                                    HorizontalLayout {
-                                        spacing: 4px;
-                                        alignment: center;
-                                        VerticalLayout {
-                                            alignment: center;
-                                            Icon { glyph: Glyph.sparkle; size: 12px; tint: Colors.white; }
-                                        }
-                                        Text {
-                                            text: "Mở Xưởng Dịch";
-                                            font-size: Theme.fs-sm;
-                                            font-weight: Theme.weight-title;
-                                            color: Colors.white;
-                                            vertical-alignment: center;
-                                            wrap: no-wrap;
-                                        }
-                                    }
-                                    dub-touch := TouchArea {
-                                        mouse-cursor: pointer;
-                                        clicked => { root.open-translate(); }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // Audio Shelf Selector
-                    HorizontalLayout {
-                        spacing: 6px;
-                        Text {
-                            text: "KHO ÂM THANH & GIỌNG ĐỌC";
-                            color: Theme.fg-muted;
-                            font-size: Theme.fs-xs;
-                            font-weight: Theme.weight-title;
-                            letter-spacing: 0.5px;
-                            vertical-alignment: center;
-                        }
-                        Rectangle { horizontal-stretch: 1; }
-                        FilterChip {
-                            label: "Tệp âm thanh";
-                            count: Sounds.mine.length;
-                            current: root.audio-category == 0;
-                            clicked => { root.audio-category = 0; }
-                        }
-                        FilterChip {
-                            label: "Mẫu giọng";
-                            count: Sounds.voices-saved.length;
-                            current: root.audio-category == 10;
-                            clicked => { root.audio-category = 10; }
-                        }
-                    }
-
-                    if root.audio-category == 0: VerticalLayout {
-                        spacing: 6px;
-                        ImportButton {
-                            label: I18n.t("sounds.importSounds");
-                            busy: Sounds.importing;
-                            clicked => { Sounds.import(); }
-                        }
-                        SoundList {
-                            items: Sounds.mine;
-                        }
-                        if Sounds.mine.length == 0: Empty {
-                            glyph: Glyph.music;
-                            text: I18n.t("sounds.noSoundsYet");
-                        }
-                    }
-
-                    if root.audio-category >= 10: VerticalLayout {
-                        spacing: 6px;
-                        VoiceList {
-                            styles: root.audio-category == 11;
-                            if root.audio-category == 10: VerticalLayout {
-                                padding-top: 4px;
-                                padding-bottom: 6px;
-                                ImportButton {
-                                    label: I18n.t("voices.importVoice");
-                                    clicked => { Sounds.voice-import(); }
-                                }
-                            }
-                        }
-                    }
+                import-media => { root.import-media(); }
+                import-link => { root.import-link(); }
+                sort-changed(s) => { root.sort-changed(s); }
+                narrow(f) => { root.narrow(f); }
+                remove-selected => { root.remove-selected(); }
+                select(id, add) => { root.select(id, add); }
+                activate(id) => { root.activate(id); }
+                remove(id) => { root.remove(id); }
+                context(id) => { root.context(id); }
+                menu-selected(id) => { root.menu-selected(id); }
+                floor-pressed => { root.floor-pressed(); }
+                band-selected(columns, from-col, to-col, from-row, to-row, additive) => {
+                    root.band-selected(columns, from-col, to-col,
+                        from-row, to-row, additive);
                 }
             }
         }

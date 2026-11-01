@@ -22,6 +22,7 @@ import {
 import { TextPanel } from "../inspector/text-panel.slint";
 import { Switch } from "../inspector/controls.slint";
 import { Editor } from "../editor.slint";
+import { MediaLibraryView } from "media-pane.slint";
 import { StudioText } from "../dialogs/gemini-studio.slint";
 import {
     ClipField, ClipKind, ClipTextField, SelectedClipData, SelectedTransitionData,
@@ -77,26 +78,6 @@ component FactRow inherits HorizontalLayout {
         selection-foreground-color: Theme.on-accent;
     }
 }
-
-// "PROJECT", "CONTENTS" — the muted caps that break the facts into groups.
-component FactHeading inherits HorizontalLayout {
-    in property <string> title;
-
-    padding-left: Theme.pad;
-    padding-right: Theme.pad;
-    // The air belongs between the groups, not between the lines inside one.
-    padding-top: 12px;
-    padding-bottom: 3px;
-
-    Text {
-        text: root.title;
-        color: Theme.fg-dim;
-        font-size: Theme.fs-sm;
-        font-weight: Theme.weight-title;
-        letter-spacing: 1px;
-    }
-}
-
 
 component InspectorModeTab inherits Rectangle {
     in property <string> label;
@@ -280,6 +261,23 @@ export component ConfigPane inherits Rectangle {
     in property <[AppliedParamData]> transition-knobs;
     in property <[TransitionChoiceData]> transition-choices;
     property <bool> on-transition: root.transition.present && !root.has-selection;
+    property <string> selected-clip-id: root.selected.id;
+
+    changed has-selection => {
+        if root.has-selection {
+            Editor.inspector-mode = 0;
+        }
+    }
+    changed selected-clip-id => {
+        if root.has-selection {
+            Editor.inspector-mode = 0;
+        }
+    }
+    changed on-transition => {
+        if root.on-transition {
+            Editor.inspector-mode = 0;
+        }
+    }
     property <int> voice-sub-mode <=> Editor.voice-sub-mode;
     in property <string> project-name: I18n.t("common.untitledProject");
     in property <string> project-folder: "—";
@@ -598,6 +596,12 @@ export component ConfigPane inherits Rectangle {
                 spacing: 4px;
 
                 InspectorModeTab {
+                    glyph: Glyph.film;
+                    label: "Kho tệp";
+                    current: Editor.inspector-mode == 3;
+                    clicked => { Editor.inspector-mode = 3; }
+                }
+                InspectorModeTab {
                     glyph: Glyph.settings;
                     label: "Thuộc tính";
                     current: Editor.inspector-mode == 0;
@@ -605,13 +609,13 @@ export component ConfigPane inherits Rectangle {
                 }
                 InspectorModeTab {
                     glyph: Glyph.sparkle;
-                    label: "Phụ đề AI";
+                    label: "Phụ đề";
                     current: Editor.inspector-mode == 1;
                     clicked => { Editor.inspector-mode = 1; }
                 }
                 InspectorModeTab {
                     glyph: Glyph.waveform;
-                    label: "Lồng tiếng AI";
+                    label: "Lồng tiếng";
                     current: Editor.inspector-mode == 2;
                     clicked => { Editor.inspector-mode = 2; }
                 }
@@ -892,7 +896,7 @@ export component ConfigPane inherits Rectangle {
         // tabs: on the panel itself, so it reads as a place inside the tab
         // and not a second row of tabs. One section needs no strip: the tab
         // already says where you are.
-        if root.has-selection && root.sections.length > 1: Rectangle {
+        if Editor.inspector-mode == 0 && root.has-selection && root.sections.length > 1: Rectangle {
             height: 40px;
             background: Theme.panel;
 
@@ -2020,6 +2024,44 @@ export component ConfigPane inherits Rectangle {
                             }
                         }
                     }
+                }
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────────
+        // MODE 3: KHO TỆP (MEDIA LIBRARY VIEW)
+        // ─────────────────────────────────────────────────────────────────
+        if Editor.inspector-mode == 3: PaneBody {
+            padding: 0px;
+            spacing: 0px;
+
+            MediaLibraryView {
+                width: 100%;
+                height: 100%;
+                items: Editor.media;
+                count-all: Editor.media-count-all;
+                count-video: Editor.media-count-video;
+                count-audio: Editor.media-count-audio;
+                count-images: Editor.media-count-images;
+                count-speech: Editor.media-count-speech;
+                count-processed: Editor.media-count-processed;
+                selected-count: Editor.media-selected-count;
+                importing: Editor.importing;
+                filter: Editor.media-filter;
+
+                import-media => { Editor.import-media(); }
+                import-link => { Editor.import-link(); }
+                sort-changed(s) => { Editor.media-sort-changed(s); }
+                narrow(f) => { Editor.media-filter-changed(f); }
+                remove-selected => { Editor.media-remove-selected(); }
+                select(id, add) => { Editor.media-select(id, add); }
+                activate(id) => { Editor.media-activate(id); }
+                remove(id) => { Editor.media-remove(id); }
+                context(id) => { Editor.media-context(id); }
+                floor-pressed => { Editor.media-clear-picks(); }
+                band-selected(columns, from-col, to-col, from-row, to-row, additive) => {
+                    Editor.media-band-selected(columns, from-col, to-col,
+                        from-row, to-row, additive);
                 }
             }
         }

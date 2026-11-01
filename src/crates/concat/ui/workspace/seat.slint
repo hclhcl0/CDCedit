@@ -223,10 +223,12 @@ export component Seat inherits Rectangle {
             quality-changed(index) => { Editor.quality-changed(index); }
             stage-pressed(x, y, additive) => {
                 Editor.blur();
+                Editor.inspector-mode = 0;
                 Editor.stage-pressed(x, y, additive);
             }
             stage-grip-pressed(id, grip, x, y) => {
                 Editor.blur();
+                Editor.inspector-mode = 0;
                 Editor.stage-grip-pressed(id, grip, x, y);
             }
             stage-dragged(x, y, snap) => { Editor.stage-dragged(x, y, snap); }
@@ -452,7 +454,12 @@ export component Seat inherits Rectangle {
             zoom-to-fit(width) => { Editor.zoom-to-fit(width); }
             zoom(factor, anchor) => { Editor.zoom(factor, anchor); }
             lanes-resized(width) => { Editor.lanes-resized(width); }
-            floor-pressed => { Editor.blur(); }
+            floor-pressed => {
+                Editor.blur();
+                if Editor.inspector-mode == 0 {
+                    Editor.inspector-mode = 3;
+                }
+            }
             key-mark-moved(from, to) => { Editor.key-mark-moved(from, to); }
             key-mark-opened => { Editor.key-mark-opened(); }
             scrubbed(seconds) => {
@@ -461,6 +468,7 @@ export component Seat inherits Rectangle {
             }
             clip-pressed(id, additive, edge) => {
                 Editor.blur();
+                Editor.inspector-mode = 0;
                 Editor.clip-pressed(id, additive, edge);
             }
             clip-split(id, seconds) => { Editor.clip-split(id, seconds); }
@@ -472,7 +480,10 @@ export component Seat inherits Rectangle {
             menu-token: Editor.menu-token;
             clip-context(id) => { Editor.clip-context(id); }
             menu-selected(id) => { Editor.menu-selected(id); }
-            band-selected(a, b, c, d, additive) => { Editor.band-selected(a, b, c, d, additive); }
+            band-selected(a, b, c, d, additive) => {
+                Editor.inspector-mode = 0;
+                Editor.band-selected(a, b, c, d, additive);
+            }
             scrolled(seconds) => { Editor.scrolled(seconds); }
             drop: Editor.drop;
             drag-hovered(payload, seconds, row) => {

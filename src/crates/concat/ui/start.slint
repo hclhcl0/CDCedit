@@ -803,51 +803,6 @@ component CreateTile inherits Pressable {
 // Where a drag from the file manager can land, said where the verbs are.
 // It takes no press: the whole window takes the drop, and this only says
 // so - so it is drawn as a hole in the page, a ring with nothing on it,
-// rather than as one more card to click.
-component DropTile inherits Rectangle {
-    border-radius: Theme.r-lg;
-    border-width: 1px;
-    border-color: Theme.line-strong;
-
-    HorizontalLayout {
-        padding-left: 20px;
-        padding-right: 18px;
-        spacing: 14px;
-
-        VerticalLayout {
-            alignment: center;
-            Icon {
-                glyph: Glyph.import;
-                size: 19px;
-                tint: Theme.fg-dim;
-            }
-        }
-
-        VerticalLayout {
-            alignment: center;
-            horizontal-stretch: 1;
-            spacing: 3px;
-
-            Text {
-                text: I18n.t("start.dropToStart");
-                color: Theme.fg-muted;
-                font-size: 16px;
-                font-weight: Theme.weight-title;
-                overflow: elide;
-            }
-
-            Text {
-                text: I18n.t("start.dropToStartNote");
-                color: Theme.fg-dim;
-                font-size: Theme.fs;
-                wrap: word-wrap;
-                max-height: 2 * Theme.fs * 1.4;
-                overflow: elide;
-            }
-        }
-    }
-}
-
 // A small round button over a poster: Show in folder, Remove from list.
 // Dark glass under a white mark whatever the theme, because what is under
 // it is a picture, not the page.
@@ -1290,13 +1245,15 @@ struct LearnItem {
 component LearnCard inherits Pressable {
     in property <LearnItem> item;
     in property <bool> flat;
+    in property <bool> active: false;
 
     label: root.item.title;
     radius: root.flat ? Theme.r : Theme.r-lg;
-    background: root.lit || root.down ? Theme.launch-raised
-        : root.flat ? Colors.transparent : Theme.launch-panel;
-    border-width: root.flat ? 0px : 1px;
-    border-color: root.lit ? Theme.line-strong : Theme.line;
+    background: root.active ? #1e293b
+        : (root.lit || root.down ? Theme.launch-raised
+        : root.flat ? Colors.transparent : Theme.launch-panel);
+    border-width: (root.active || !root.flat) ? 1px : 0px;
+    border-color: root.active ? #38bdf8 : (root.lit ? Theme.line-strong : Theme.line);
 
     animate background, border-color { duration: 120ms; easing: cubic-bezier(0.4, 0, 0.2, 1); }
 
@@ -1608,6 +1565,7 @@ global AiTools {
 // when there is no room for a column beside them.
 component LearnGrid inherits Rectangle {
     in property <[LearnItem]> items;
+    in property <string> active-name: "";
 
     callback link(name: string);
 
@@ -1625,10 +1583,831 @@ component LearnGrid inherits Rectangle {
         width: root.card-w;
         height: root.card-h;
         item: item;
+        active: root.active-name == item.name;
         clicked => { root.link(item.name); }
     }
 }
 
+export component AiToolThumbCard inherits Rectangle {
+    in property <string> name;
+    in property <string> title;
+    in property <string> note;
+    in property <Glyph> glyph;
+    in property <string> badge;
+    in property <color> accent: #38bdf8;
+    in property <bool> active: false;
+    callback clicked();
+
+    border-radius: Theme.r-lg;
+    background: root.active ? #1b2434 : (touch.has-hover ? #171d2b : Theme.launch-panel);
+    border-width: root.active ? 2px : 1px;
+    border-color: root.active ? root.accent : (touch.has-hover ? Theme.line-strong : Theme.line);
+    animate background, border-color { duration: 120ms; }
+
+    VerticalLayout {
+        padding: 6px;
+        spacing: 6px;
+
+        // 16:9 Thumbnail Poster (định dạng như thumb Dự án)
+        poster := Rectangle {
+            height: self.width * 0.5;
+            border-radius: Theme.r;
+            background: root.active 
+                ? root.accent.with-alpha(0.2) 
+                : (touch.has-hover ? #222b3d : #131722);
+            border-width: 1px;
+            border-color: root.active ? root.accent.with-alpha(0.6) : Theme.line;
+            clip: true;
+
+            // Background glow accent
+            Rectangle {
+                x: parent.width * 0.25;
+                y: -parent.height * 0.3;
+                width: parent.width * 0.7;
+                height: parent.height * 1.5;
+                border-radius: self.width / 2;
+                background: root.accent.with-alpha(root.active ? 0.32 : (touch.has-hover ? 0.18 : 0.08));
+            }
+
+            // Big Centered Icon
+            Icon {
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                glyph: root.glyph;
+                size: 32px;
+                tint: root.active ? root.accent : (touch.has-hover ? Colors.white : Theme.fg-muted);
+            }
+
+            // Bottom-right badge (như nhãn thời lượng trên thumb dự án)
+            if root.badge != "": Rectangle {
+                x: parent.width - self.width - 6px;
+                y: parent.height - self.height - 6px;
+                width: badge-txt.preferred-width + 10px;
+                height: 18px;
+                border-radius: 4px;
+                background: root.active ? root.accent : #090d16.with-alpha(0.85);
+
+                badge-txt := Text {
+                    text: root.badge;
+                    color: root.active ? Colors.white : #cbd5e1;
+                    font-size: Theme.fs-xs;
+                    font-weight: Theme.weight-title;
+                    vertical-alignment: center;
+                    horizontal-alignment: center;
+                }
+            }
+
+            // Top-left active checkmark
+            if root.active: Rectangle {
+                x: 6px;
+                y: 6px;
+                width: 20px;
+                height: 20px;
+                border-radius: 10px;
+                background: root.accent;
+
+                Icon {
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    glyph: Glyph.check;
+                    size: 11px;
+                    tint: Colors.white;
+                }
+            }
+        }
+
+        // Title and notes
+        VerticalLayout {
+            padding-left: 4px;
+            padding-right: 4px;
+            spacing: 2px;
+
+            Text {
+                text: root.title;
+                color: root.active ? Colors.white : Theme.fg;
+                font-size: Theme.fs;
+                font-weight: Theme.weight-title;
+                overflow: elide;
+            }
+
+            Text {
+                text: root.note;
+                color: root.active ? #94a3b8 : Theme.fg-dim;
+                font-size: Theme.fs-xs;
+                overflow: elide;
+            }
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+export component AiToolDetailPanel inherits Rectangle {
+    in property <string> tool: "tool-captions";
+    callback open-in-editor(string);
+    callback open-settings();
+
+    border-radius: Theme.r-lg;
+    background: #141722;
+    border-width: 1px;
+    border-color: #38bdf8.with-alpha(0.35);
+
+    VerticalLayout {
+        padding: 16px;
+        spacing: 12px;
+
+        // Header: Tool Icon, Title, and Badge
+        HorizontalLayout {
+            spacing: 12px;
+            alignment: center;
+
+            Rectangle {
+                width: 38px;
+                height: 38px;
+                border-radius: 10px;
+                background: #38bdf8.with-alpha(0.18);
+                border-width: 1px;
+                border-color: #38bdf8.with-alpha(0.4);
+
+                Icon {
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    glyph: root.tool == "tool-captions" ? Glyph.subtitles
+                        : root.tool == "tool-translation" ? Glyph.translate
+                        : root.tool == "tool-audio-studio" ? Glyph.audio-studio
+                        : root.tool == "tool-voice-changer" ? Glyph.voice-changer
+                        : Glyph.cloud-download;
+                    size: 20px;
+                    tint: #38bdf8;
+                }
+            }
+
+            VerticalLayout {
+                horizontal-stretch: 1;
+                spacing: 2px;
+                Text {
+                    text: root.tool == "tool-captions" ? "Tạo Phụ Đề AI Tự Động"
+                        : root.tool == "tool-translation" ? "Thuyết Minh & Dịch Thuật Video"
+                        : root.tool == "tool-audio-studio" ? "Phòng Thu Âm & Giọng Đọc AI"
+                        : root.tool == "tool-voice-changer" ? "Voice Changer - Biến Đổi Giọng"
+                        : "Tải Video & Âm Thanh Từ Link";
+                    color: Theme.fg;
+                    font-size: Theme.fs-lg;
+                    font-weight: Theme.weight-title;
+                    overflow: elide;
+                }
+                Text {
+                    text: root.tool == "tool-captions" ? "PhoWhisper AI · Tiếng Việt chuẩn xác · Xuất SRT"
+                        : root.tool == "tool-translation" ? "Dịch SRT đa ngữ · Đối chiếu song ngữ · Lồng tiếng"
+                        : root.tool == "tool-audio-studio" ? "Đọc văn bản TTS · Studio hội thoại · Gemini & ElevenLabs"
+                        : root.tool == "tool-voice-changer" ? "Chuyển đổi âm sắc · Bộ lọc phòng thu DSP"
+                        : "Hỗ trợ YouTube, TikTok, Facebook, Drive... (1080p/MP3)";
+                    color: Theme.fg-muted;
+                    font-size: Theme.fs-xs;
+                    overflow: elide;
+                }
+            }
+
+            // Quick API Key button
+            Rectangle {
+                height: 24px;
+                width: api-layout.preferred-width + 16px;
+                border-radius: 12px;
+                background: api-touch.has-hover ? #2e264f : #1e1b38;
+                border-width: 1px;
+                border-color: api-touch.has-hover ? #a78bfa : #8b5cf6.with-alpha(0.5);
+                animate background, border-color { duration: 120ms; }
+
+                api-layout := HorizontalLayout {
+                    padding-left: 8px;
+                    padding-right: 8px;
+                    spacing: 4px;
+                    alignment: center;
+
+                    Icon {
+                        glyph: Glyph.settings;
+                        size: 11px;
+                        tint: #a78bfa;
+                    }
+                    Text {
+                        text: "Thêm API Key";
+                        color: #c4b5fd;
+                        font-size: Theme.fs-xs;
+                        font-weight: Theme.weight-title;
+                        vertical-alignment: center;
+                    }
+                }
+
+                api-touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.open-settings(); }
+                }
+            }
+
+            // Status indicator pill
+            Rectangle {
+                height: 24px;
+                width: status-layout.preferred-width + 16px;
+                border-radius: 12px;
+                background: #10b981.with-alpha(0.15);
+                border-width: 1px;
+                border-color: #10b981.with-alpha(0.4);
+
+                status-layout := HorizontalLayout {
+                    padding-left: 8px;
+                    padding-right: 8px;
+                    spacing: 5px;
+                    alignment: center;
+
+                    Rectangle {
+                        width: 6px;
+                        height: 6px;
+                        border-radius: 3px;
+                        background: #10b981;
+                        y: (parent.height - self.height) / 2;
+                    }
+                    Text {
+                        text: "Sẵn sàng";
+                        color: #34d399;
+                        font-size: Theme.fs-xs;
+                        font-weight: Theme.weight-title;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            height: 1px;
+            background: Theme.line;
+        }
+
+        // ── TOOL: CAPTIONS ──
+        if root.tool == "tool-captions": VerticalLayout {
+            spacing: 10px;
+
+            Rectangle {
+                height: 48px;
+                border-radius: Theme.r;
+                background: Theme.launch-raised;
+                border-width: 1px;
+                border-color: Theme.line;
+
+                HorizontalLayout {
+                    padding-left: 12px;
+                    padding-right: 12px;
+                    spacing: 10px;
+                    alignment: center;
+
+                    Icon { glyph: Glyph.folder; size: 16px; tint: #38bdf8; }
+                    Text { text: "Kéo thả video / audio vào đây hoặc bấm chọn file"; color: Theme.fg-muted; font-size: Theme.fs-sm; vertical-alignment: center; }
+                    Rectangle { horizontal-stretch: 1; }
+                    Rectangle {
+                        height: 30px;
+                        border-radius: 6px;
+                        background: #2563eb;
+                        HorizontalLayout {
+                            padding-left: 12px;
+                            padding-right: 12px;
+                            alignment: center;
+                            Text { text: "📁 Chọn file nguồn"; color: Colors.white; font-size: Theme.fs-sm; font-weight: Theme.weight-title; vertical-alignment: center; }
+                        }
+                        TouchArea { mouse-cursor: pointer; clicked => { root.open-in-editor(root.tool); } }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 8px;
+                Text { text: "Mô hình nhận diện:"; color: Theme.fg-muted; font-size: Theme.fs-xs; vertical-alignment: center; }
+                Rectangle {
+                    height: 26px;
+                    border-radius: 5px;
+                    background: #1e293b;
+                    border-width: 1px;
+                    border-color: #38bdf8.with-alpha(0.6);
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        alignment: center;
+                        Text { text: "PhoWhisper AI (Tiếng Việt Chuẩn)"; color: Colors.white; font-size: Theme.fs-xs; font-weight: Theme.weight-title; vertical-alignment: center; }
+                    }
+                }
+                Rectangle {
+                    height: 26px;
+                    border-radius: 5px;
+                    background: Theme.launch-raised;
+                    border-width: 1px;
+                    border-color: Theme.line;
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        alignment: center;
+                        Text { text: "Gemini 2.5 AI"; color: Theme.fg-muted; font-size: Theme.fs-xs; vertical-alignment: center; }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 8px;
+                Text { text: "Vị trí phụ đề:"; color: Theme.fg-muted; font-size: Theme.fs-xs; vertical-alignment: center; }
+                Rectangle {
+                    height: 26px;
+                    border-radius: 5px;
+                    background: #1e293b;
+                    border-width: 1px;
+                    border-color: #38bdf8.with-alpha(0.6);
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        alignment: center;
+                        Text { text: "Dưới cùng (Mặc định)"; color: Colors.white; font-size: Theme.fs-xs; vertical-alignment: center; }
+                    }
+                }
+                Rectangle {
+                    height: 26px;
+                    border-radius: 5px;
+                    background: Theme.launch-raised;
+                    border-width: 1px;
+                    border-color: Theme.line;
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        alignment: center;
+                        Text { text: "Phía trên"; color: Theme.fg-muted; font-size: Theme.fs-xs; vertical-alignment: center; }
+                    }
+                }
+            }
+
+            Rectangle { horizontal-stretch: 0; vertical-stretch: 1; min-height: 8px; }
+
+            Rectangle {
+                height: 38px;
+                border-radius: 6px;
+                background: #10b981;
+
+                HorizontalLayout {
+                    alignment: center;
+                    spacing: 8px;
+                    Icon { glyph: Glyph.sparkle; size: 14px; tint: Colors.white; }
+                    Text { text: "Mở trong Editor để quét tự động"; color: Colors.white; font-size: Theme.fs; font-weight: Theme.weight-title; vertical-alignment: center; }
+                }
+
+                TouchArea { mouse-cursor: pointer; clicked => { root.open-in-editor(root.tool); } }
+            }
+        }
+
+        // ── TOOL: TRANSLATION ──
+        if root.tool == "tool-translation": VerticalLayout {
+            spacing: 10px;
+
+            Rectangle {
+                height: 48px;
+                border-radius: Theme.r;
+                background: Theme.launch-raised;
+                border-width: 1px;
+                border-color: Theme.line;
+
+                HorizontalLayout {
+                    padding-left: 12px;
+                    padding-right: 12px;
+                    spacing: 10px;
+                    alignment: center;
+
+                    Icon { glyph: Glyph.folder; size: 16px; tint: #38bdf8; }
+                    Text { text: "Chọn file phụ đề .SRT hoặc video cần dịch thuật"; color: Theme.fg-muted; font-size: Theme.fs-sm; vertical-alignment: center; }
+                    Rectangle { horizontal-stretch: 1; }
+                    Rectangle {
+                        height: 30px;
+                        border-radius: 6px;
+                        background: #2563eb;
+                        HorizontalLayout {
+                            padding-left: 12px;
+                            padding-right: 12px;
+                            alignment: center;
+                            Text { text: "📁 Chọn file"; color: Colors.white; font-size: Theme.fs-sm; font-weight: Theme.weight-title; vertical-alignment: center; }
+                        }
+                        TouchArea { mouse-cursor: pointer; clicked => { root.open-in-editor(root.tool); } }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 8px;
+                Text { text: "Ngôn ngữ nguồn:"; color: Theme.fg-muted; font-size: Theme.fs-xs; vertical-alignment: center; }
+                Rectangle {
+                    height: 26px;
+                    border-radius: 5px;
+                    background: #1e293b;
+                    border-width: 1px;
+                    border-color: #38bdf8.with-alpha(0.6);
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        alignment: center;
+                        Text { text: "Tự động nhận diện ngôn ngữ"; color: Colors.white; font-size: Theme.fs-xs; vertical-alignment: center; }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 8px;
+                Text { text: "Ngôn ngữ đích:"; color: Theme.fg-muted; font-size: Theme.fs-xs; vertical-alignment: center; }
+                Rectangle {
+                    height: 26px;
+                    border-radius: 5px;
+                    background: #1e293b;
+                    border-width: 1px;
+                    border-color: #38bdf8.with-alpha(0.6);
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        alignment: center;
+                        Text { text: "Tiếng Việt"; color: Colors.white; font-size: Theme.fs-xs; font-weight: Theme.weight-title; vertical-alignment: center; }
+                    }
+                }
+                Rectangle {
+                    height: 26px;
+                    border-radius: 5px;
+                    background: Theme.launch-raised;
+                    border-width: 1px;
+                    border-color: Theme.line;
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        alignment: center;
+                        Text { text: "Song ngữ (Gốc + Dịch)"; color: Theme.fg-muted; font-size: Theme.fs-xs; vertical-alignment: center; }
+                    }
+                }
+            }
+
+            Rectangle { horizontal-stretch: 0; vertical-stretch: 1; min-height: 8px; }
+
+            Rectangle {
+                height: 38px;
+                border-radius: 6px;
+                background: #2563eb;
+
+                HorizontalLayout {
+                    alignment: center;
+                    spacing: 8px;
+                    Icon { glyph: Glyph.translate; size: 14px; tint: Colors.white; }
+                    Text { text: "Mở trong Editor để dịch & lồng tiếng"; color: Colors.white; font-size: Theme.fs; font-weight: Theme.weight-title; vertical-alignment: center; }
+                }
+
+                TouchArea { mouse-cursor: pointer; clicked => { root.open-in-editor(root.tool); } }
+            }
+        }
+
+        // ── TOOL: AUDIO STUDIO ──
+        if root.tool == "tool-audio-studio": VerticalLayout {
+            spacing: 10px;
+
+            Rectangle {
+                height: 48px;
+                border-radius: Theme.r;
+                background: Theme.launch-raised;
+                border-width: 1px;
+                border-color: Theme.line;
+
+                HorizontalLayout {
+                    padding-left: 12px;
+                    padding-right: 12px;
+                    spacing: 10px;
+                    alignment: center;
+
+                    Icon { glyph: Glyph.audio-studio; size: 16px; tint: #10b981; }
+                    Text { text: "Nhập kịch bản hội thoại hoặc văn bản cần đọc TTS..."; color: Theme.fg-muted; font-size: Theme.fs-sm; vertical-alignment: center; }
+                    Rectangle { horizontal-stretch: 1; }
+                    Rectangle {
+                        height: 30px;
+                        border-radius: 6px;
+                        background: #0d9488;
+                        HorizontalLayout {
+                            padding-left: 12px;
+                            padding-right: 12px;
+                            alignment: center;
+                            Text { text: "Nhập văn bản"; color: Colors.white; font-size: Theme.fs-sm; font-weight: Theme.weight-title; vertical-alignment: center; }
+                        }
+                        TouchArea { mouse-cursor: pointer; clicked => { root.open-in-editor(root.tool); } }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 8px;
+                Text { text: "Mô hình âm thanh:"; color: Theme.fg-muted; font-size: Theme.fs-xs; vertical-alignment: center; }
+                Rectangle {
+                    height: 26px;
+                    border-radius: 5px;
+                    background: #1e293b;
+                    border-width: 1px;
+                    border-color: #10b981.with-alpha(0.6);
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        alignment: center;
+                        Text { text: "Gemini TTS AI"; color: Colors.white; font-size: Theme.fs-xs; font-weight: Theme.weight-title; vertical-alignment: center; }
+                    }
+                }
+                Rectangle {
+                    height: 26px;
+                    border-radius: 5px;
+                    background: Theme.launch-raised;
+                    border-width: 1px;
+                    border-color: Theme.line;
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        alignment: center;
+                        Text { text: "ElevenLabs"; color: Theme.fg-muted; font-size: Theme.fs-xs; vertical-alignment: center; }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 8px;
+                Text { text: "Giọng đọc mẫu:"; color: Theme.fg-muted; font-size: Theme.fs-xs; vertical-alignment: center; }
+                Rectangle {
+                    height: 26px;
+                    border-radius: 5px;
+                    background: #1e293b;
+                    border-width: 1px;
+                    border-color: #10b981.with-alpha(0.6);
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        alignment: center;
+                        Text { text: "Nữ truyền cảm"; color: Colors.white; font-size: Theme.fs-xs; vertical-alignment: center; }
+                    }
+                }
+                Rectangle {
+                    height: 26px;
+                    border-radius: 5px;
+                    background: Theme.launch-raised;
+                    border-width: 1px;
+                    border-color: Theme.line;
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        alignment: center;
+                        Text { text: "Nam MC trầm ấm"; color: Theme.fg-muted; font-size: Theme.fs-xs; vertical-alignment: center; }
+                    }
+                }
+            }
+
+            Rectangle { horizontal-stretch: 0; vertical-stretch: 1; min-height: 8px; }
+
+            Rectangle {
+                height: 38px;
+                border-radius: 6px;
+                background: #0d9488;
+
+                HorizontalLayout {
+                    alignment: center;
+                    spacing: 8px;
+                    Icon { glyph: Glyph.audio-studio; size: 14px; tint: Colors.white; }
+                    Text { text: "Mở Studio Âm Thanh & Giọng Đọc AI"; color: Colors.white; font-size: Theme.fs; font-weight: Theme.weight-title; vertical-alignment: center; }
+                }
+
+                TouchArea { mouse-cursor: pointer; clicked => { root.open-in-editor(root.tool); } }
+            }
+        }
+
+        // ── TOOL: VOICE CHANGER ──
+        if root.tool == "tool-voice-changer": VerticalLayout {
+            spacing: 10px;
+
+            Rectangle {
+                height: 48px;
+                border-radius: Theme.r;
+                background: Theme.launch-raised;
+                border-width: 1px;
+                border-color: Theme.line;
+
+                HorizontalLayout {
+                    padding-left: 12px;
+                    padding-right: 12px;
+                    spacing: 10px;
+                    alignment: center;
+
+                    Icon { glyph: Glyph.voice-changer; size: 16px; tint: #f59e0b; }
+                    Text { text: "Kéo thả file âm thanh giọng nói cần biến đổi"; color: Theme.fg-muted; font-size: Theme.fs-sm; vertical-alignment: center; }
+                    Rectangle { horizontal-stretch: 1; }
+                    Rectangle {
+                        height: 30px;
+                        border-radius: 6px;
+                        background: #d97706;
+                        HorizontalLayout {
+                            padding-left: 12px;
+                            padding-right: 12px;
+                            alignment: center;
+                            Text { text: "📁 Chọn file"; color: Colors.white; font-size: Theme.fs-sm; font-weight: Theme.weight-title; vertical-alignment: center; }
+                        }
+                        TouchArea { mouse-cursor: pointer; clicked => { root.open-in-editor(root.tool); } }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 8px;
+                Text { text: "Phương thức:"; color: Theme.fg-muted; font-size: Theme.fs-xs; vertical-alignment: center; }
+                Rectangle {
+                    height: 26px;
+                    border-radius: 5px;
+                    background: #1e293b;
+                    border-width: 1px;
+                    border-color: #f59e0b.with-alpha(0.6);
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        alignment: center;
+                        Text { text: "ElevenLabs Speech-to-Speech"; color: Colors.white; font-size: Theme.fs-xs; font-weight: Theme.weight-title; vertical-alignment: center; }
+                    }
+                }
+                Rectangle {
+                    height: 26px;
+                    border-radius: 5px;
+                    background: Theme.launch-raised;
+                    border-width: 1px;
+                    border-color: Theme.line;
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        alignment: center;
+                        Text { text: "DSP Filter"; color: Theme.fg-muted; font-size: Theme.fs-xs; vertical-alignment: center; }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 8px;
+                Text { text: "Kiểu giọng mẫu:"; color: Theme.fg-muted; font-size: Theme.fs-xs; vertical-alignment: center; }
+                Rectangle {
+                    height: 26px;
+                    border-radius: 5px;
+                    background: #1e293b;
+                    border-width: 1px;
+                    border-color: #f59e0b.with-alpha(0.6);
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        alignment: center;
+                        Text { text: "Nam trầm ấm"; color: Colors.white; font-size: Theme.fs-xs; vertical-alignment: center; }
+                    }
+                }
+                Rectangle {
+                    height: 26px;
+                    border-radius: 5px;
+                    background: Theme.launch-raised;
+                    border-width: 1px;
+                    border-color: Theme.line;
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        alignment: center;
+                        Text { text: "Nữ trong trẻo"; color: Theme.fg-muted; font-size: Theme.fs-xs; vertical-alignment: center; }
+                    }
+                }
+                Rectangle {
+                    height: 26px;
+                    border-radius: 5px;
+                    background: Theme.launch-raised;
+                    border-width: 1px;
+                    border-color: Theme.line;
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        alignment: center;
+                        Text { text: "Robot / Radio"; color: Theme.fg-muted; font-size: Theme.fs-xs; vertical-alignment: center; }
+                    }
+                }
+            }
+
+            Rectangle { horizontal-stretch: 0; vertical-stretch: 1; min-height: 8px; }
+
+            Rectangle {
+                height: 38px;
+                border-radius: 6px;
+                background: #d97706;
+
+                HorizontalLayout {
+                    alignment: center;
+                    spacing: 8px;
+                    Icon { glyph: Glyph.voice-changer; size: 14px; tint: Colors.white; }
+                    Text { text: "Mở Voice Changer trong Editor"; color: Colors.white; font-size: Theme.fs; font-weight: Theme.weight-title; vertical-alignment: center; }
+                }
+
+                TouchArea { mouse-cursor: pointer; clicked => { root.open-in-editor(root.tool); } }
+            }
+        }
+
+        // ── TOOL: LINKS DOWNLOADER ──
+        if root.tool == "tool-links": VerticalLayout {
+            spacing: 10px;
+
+            Rectangle {
+                height: 48px;
+                border-radius: Theme.r;
+                background: Theme.launch-raised;
+                border-width: 1px;
+                border-color: Theme.line;
+
+                HorizontalLayout {
+                    padding-left: 12px;
+                    padding-right: 12px;
+                    spacing: 10px;
+                    alignment: center;
+
+                    Icon { glyph: Glyph.cloud-download; size: 16px; tint: #a855f7; }
+                    Text { text: "Dán đường link YouTube, TikTok, Facebook vào đây..."; color: Theme.fg-muted; font-size: Theme.fs-sm; vertical-alignment: center; }
+                    Rectangle { horizontal-stretch: 1; }
+                    Rectangle {
+                        height: 30px;
+                        border-radius: 6px;
+                        background: #7c3aed;
+                        HorizontalLayout {
+                            padding-left: 12px;
+                            padding-right: 12px;
+                            alignment: center;
+                            Text { text: "Dán link"; color: Colors.white; font-size: Theme.fs-sm; font-weight: Theme.weight-title; vertical-alignment: center; }
+                        }
+                        TouchArea { mouse-cursor: pointer; clicked => { root.open-in-editor(root.tool); } }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 8px;
+                Text { text: "Định dạng xuất:"; color: Theme.fg-muted; font-size: Theme.fs-xs; vertical-alignment: center; }
+                Rectangle {
+                    height: 26px;
+                    border-radius: 5px;
+                    background: #1e293b;
+                    border-width: 1px;
+                    border-color: #a855f7.with-alpha(0.6);
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        alignment: center;
+                        Text { text: "Video MP4 (1080p FHD)"; color: Colors.white; font-size: Theme.fs-xs; font-weight: Theme.weight-title; vertical-alignment: center; }
+                    }
+                }
+                Rectangle {
+                    height: 26px;
+                    border-radius: 5px;
+                    background: Theme.launch-raised;
+                    border-width: 1px;
+                    border-color: Theme.line;
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        alignment: center;
+                        Text { text: "Chỉ lấy âm thanh MP3"; color: Theme.fg-muted; font-size: Theme.fs-xs; vertical-alignment: center; }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 8px;
+                Text { text: "Tùy chọn:"; color: Theme.fg-muted; font-size: Theme.fs-xs; vertical-alignment: center; }
+                Rectangle {
+                    height: 26px;
+                    border-radius: 5px;
+                    background: #1e293b;
+                    border-width: 1px;
+                    border-color: #a855f7.with-alpha(0.6);
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        alignment: center;
+                        Text { text: "Tự động chèn vào Timeline sau khi tải"; color: Colors.white; font-size: Theme.fs-xs; vertical-alignment: center; }
+                    }
+                }
+            }
+
+            Rectangle { horizontal-stretch: 0; vertical-stretch: 1; min-height: 8px; }
+
+            Rectangle {
+                height: 38px;
+                border-radius: 6px;
+                background: #7c3aed;
+
+                HorizontalLayout {
+                    alignment: center;
+                    spacing: 8px;
+                    Icon { glyph: Glyph.cloud-download; size: 14px; tint: Colors.white; }
+                    Text { text: "Tải về và mở trong Editor"; color: Colors.white; font-size: Theme.fs; font-weight: Theme.weight-title; vertical-alignment: center; }
+                }
+
+                TouchArea { mouse-cursor: pointer; clicked => { root.open-in-editor(root.tool); } }
+            }
+        }
+    }
+}
 // ── the screen ───────────────────────────────────────────────────────────
 
 // The wide page: a desk's window, from 680px across to a 4K screen.
@@ -1649,6 +2428,7 @@ component WideHome inherits Rectangle {
 
     callback compose();
     callback open();
+    callback open-settings();
     callback open-recent(path: string);
     callback forget-recent(path: string);
     callback reveal-recent(path: string);
@@ -1661,19 +2441,8 @@ component WideHome inherits Rectangle {
     property <length> pad: Math.max(24px, Math.min(64px, root.width / 18));
     property <length> pad-top: Math.max(28px, Math.min(72px, root.height / 12));
     property <length> content-w: Math.min(root.width - 2 * root.pad, 1360px);
-    /// Room for the learn panel beside the projects.
-    property <bool> aside: root.content-w >= 1100px;
-    property <length> aside-w: root.content-w >= 1280px ? 360px : 330px;
-    property <length> aside-gap: 40px;
-    property <length> main-w: root.aside ? root.content-w - root.aside-w - root.aside-gap
-        : root.content-w;
-    /// The drop tile, beside New and Open, where they still have room.
-    property <bool> drop-tile: root.can-drop && root.main-w >= 940px;
-    /// The create row shares its width by weight - New a third again as
-    /// wide as the others - and not by what its words would like, so a
-    /// longer line on one tile does not shoulder the others aside.
-    property <length> tile-unit: (root.main-w - (root.drop-tile ? 2 : 1) * 14px)
-        / (root.drop-tile ? 3.3 : 2.3);
+    property <length> main-w: root.content-w;
+    in-out property <string> active-ai-tool: "";
     property <bool> searchable: root.recents-total > 8;
 
     flick := Flickable {
@@ -1685,8 +2454,7 @@ component WideHome inherits Rectangle {
             x: (flick.width - self.width) / 2;
             y: root.pad-top;
             width: root.content-w;
-            height: Math.max(main.preferred-height,
-                root.aside ? side.y + side-body.preferred-height : 0px);
+            height: main.preferred-height;
 
             main := VerticalLayout {
                 x: 0;
@@ -1695,77 +2463,195 @@ component WideHome inherits Rectangle {
                 height: self.preferred-height;
                 alignment: start;
 
-                // ── the greeting ─────────────────────────────────────
-                Text {
-                    text: root.recents-total == 0
-                        ? I18n.t("start.welcome")
-                        : I18n.t("start.welcomeBack");
-                    color: Theme.fg;
-                    // The one display-sized line in the app. The tree
-                    // bundles no display face, so the interface face
-                    // carries it at its heaviest weight and tight tracking.
-                    font-size: Theme.fs-display;
-                    font-weight: Theme.weight-display;
-                    letter-spacing: -1px;
-                    wrap: word-wrap;
-                }
+                // ── the greeting & top action buttons (Canh phải, 2:1, Icon to đậm) ──
+                Rectangle {
+                    width: root.main-w;
+                    height: Math.max(left-greeting.preferred-height, 60px);
 
-                Rectangle { height: 8px; }
+                    // Left: Welcome greeting & subtitle (x = 0) with App Logo
+                    left-greeting := HorizontalLayout {
+                        x: 0;
+                        y: (parent.height - self.preferred-height) / 2;
+                        spacing: 16px;
+                        alignment: start;
 
-                Text {
-                    text: root.recents-total == 0
-                        ? I18n.t("start.welcomeNote")
-                        : I18n.t("start.welcomeBackNote");
-                    color: Theme.fg-muted;
-                    font-size: Theme.fs-xl;
-                    wrap: word-wrap;
+                        Image {
+                            width: 56px;
+                            height: 56px;
+                            source: @image-url("assets/app-logo.png");
+                            image-fit: contain;
+                        }
+
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 4px;
+
+                            Text {
+                                text: root.recents-total == 0
+                                    ? I18n.t("start.welcome")
+                                    : I18n.t("start.welcomeBack");
+                                color: Theme.fg;
+                                font-size: Theme.fs-display;
+                                font-weight: Theme.weight-display;
+                                letter-spacing: -0.8px;
+                                wrap: word-wrap;
+                            }
+
+                            Text {
+                                text: root.recents-total == 0
+                                    ? I18n.t("start.welcomeNote")
+                                    : I18n.t("start.welcomeBackNote");
+                                color: Theme.fg-muted;
+                                font-size: Theme.fs;
+                                wrap: word-wrap;
+                            }
+                        }
+                    }
+
+                    // Right: Action buttons CANH PHẢI tuyệt đối (x = parent.width - self.preferred-width)
+                    right-buttons := HorizontalLayout {
+                        x: parent.width - self.preferred-width;
+                        y: (parent.height - self.preferred-height) / 2;
+                        spacing: 12px;
+
+                        // Button 1: New Project (Tạo dự án mới) - Tỷ lệ 2:1 (120x60px), icon to đậm
+                        Rectangle {
+                            width: 120px;
+                            height: 60px;
+                            border-radius: Theme.r;
+                            background: new-touch.has-hover ? #c8ff47 : #bbf438;
+                            border-width: 1px;
+                            border-color: #a3e620;
+                            animate background { duration: 120ms; }
+
+                            HorizontalLayout {
+                                alignment: center;
+                                spacing: 8px;
+                                padding-left: 10px;
+                                padding-right: 10px;
+
+                                Icon {
+                                    glyph: Glyph.plus;
+                                    size: 26px;
+                                    weight: 3.0;
+                                    tint: #0f172a;
+                                }
+
+                                Text {
+                                    text: I18n.t("start.newProject");
+                                    color: #0f172a;
+                                    font-size: Theme.fs;
+                                    font-weight: 700;
+                                    vertical-alignment: center;
+                                    overflow: elide;
+                                }
+                            }
+
+                            new-touch := TouchArea {
+                                mouse-cursor: pointer;
+                                enabled: !root.busy;
+                                clicked => { root.compose(); }
+                            }
+                        }
+
+                        // Button 2: Open Project (Mở dự án) - Tỷ lệ 2:1 (120x60px), icon to đậm
+                        Rectangle {
+                            width: 120px;
+                            height: 60px;
+                            border-radius: Theme.r;
+                            background: open-touch.has-hover ? #222b3d : Theme.launch-panel;
+                            border-width: 1px;
+                            border-color: open-touch.has-hover ? Theme.line-strong : Theme.line;
+                            animate background, border-color { duration: 120ms; }
+
+                            HorizontalLayout {
+                                alignment: center;
+                                spacing: 8px;
+                                padding-left: 10px;
+                                padding-right: 10px;
+
+                                Icon {
+                                    glyph: Glyph.folder;
+                                    size: 26px;
+                                    weight: 2.5;
+                                    tint: open-touch.has-hover ? Colors.white : Theme.fg;
+                                }
+
+                                Text {
+                                    text: I18n.t("start.openProject");
+                                    color: open-touch.has-hover ? Colors.white : Theme.fg-muted;
+                                    font-size: Theme.fs;
+                                    font-weight: 600;
+                                    vertical-alignment: center;
+                                    overflow: elide;
+                                }
+                            }
+
+                            open-touch := TouchArea {
+                                mouse-cursor: pointer;
+                                enabled: !root.busy;
+                                clicked => { root.open(); }
+                            }
+                        }
+
+                        // Button 3: Settings (Cài đặt / API Key) - Tỷ lệ 2:1 (120x60px)
+                        Rectangle {
+                            width: 120px;
+                            height: 60px;
+                            border-radius: Theme.r;
+                            background: settings-touch.has-hover ? #28243c : #181528;
+                            border-width: 1px;
+                            border-color: settings-touch.has-hover ? #a855f7 : #8b5cf6.with-alpha(0.4);
+                            animate background, border-color { duration: 120ms; }
+
+                            HorizontalLayout {
+                                alignment: center;
+                                spacing: 8px;
+                                padding-left: 10px;
+                                padding-right: 10px;
+
+                                Icon {
+                                    glyph: Glyph.settings;
+                                    size: 26px;
+                                    weight: 2.2;
+                                    tint: settings-touch.has-hover ? #e9d5ff : #c084fc;
+                                }
+
+                                VerticalLayout {
+                                    alignment: center;
+                                    spacing: 1px;
+
+                                    Text {
+                                        text: "Cài đặt API";
+                                        color: settings-touch.has-hover ? Colors.white : Theme.fg;
+                                        font-size: Theme.fs;
+                                        font-weight: 700;
+                                        vertical-alignment: center;
+                                        overflow: elide;
+                                    }
+
+                                    Text {
+                                        text: "Gemini / Eleven";
+                                        color: #a855f7;
+                                        font-size: 10px;
+                                        font-weight: 500;
+                                        overflow: elide;
+                                    }
+                                }
+                            }
+
+                            settings-touch := TouchArea {
+                                mouse-cursor: pointer;
+                                enabled: !root.busy;
+                                clicked => { root.open-settings(); }
+                            }
+                        }
+                    }
                 }
 
                 Rectangle { height: 28px; }
 
-                // ── create ───────────────────────────────────────────
-                create-row := HorizontalLayout {
-                    height: 92px;
-                    spacing: 14px;
-
-                    CreateTile {
-                        width: root.tile-unit * 1.3;
-                        primary: true;
-                        glyph: Glyph.plus;
-                        title: I18n.t("start.newProject");
-                        note: I18n.t("start.newProjectNote");
-                        enabled: !root.busy;
-                        clicked => { root.compose(); }
-                    }
-
-                    CreateTile {
-                        width: root.tile-unit;
-                        glyph: Glyph.folder;
-                        title: I18n.t("start.openProject");
-                        note: I18n.t("start.openProjectNote");
-                        enabled: !root.busy;
-                        clicked => { root.open(); }
-                    }
-
-                    if root.drop-tile: DropTile {
-                        width: root.tile-unit;
-                    }
-                }
-
-                // Where the tile does not fit, a line says what it would.
-                if root.can-drop && !root.drop-tile: VerticalLayout {
-                    padding-top: 12px;
-                    Text {
-                        text: I18n.t("start.dropHint");
-                        color: Theme.fg-dim;
-                        font-size: Theme.fs;
-                        wrap: word-wrap;
-                    }
-                }
-
-                Rectangle { height: 32px; }
-
-                // ── standalone AI tools ──────────────────────────────
+                // ── standalone AI tools (2 Columns: Tools on left, Details on right) ──
                 SectionHead {
                     height: 34px;
                     text: "Công cụ & Tiện ích AI (Chạy độc lập)";
@@ -1774,9 +2660,95 @@ component WideHome inherits Rectangle {
 
                 Rectangle { height: 12px; }
 
-                LearnGrid {
-                    items: AiTools.all;
-                    link(name) => { root.link(name); }
+                HorizontalLayout {
+                    spacing: 16px;
+
+                    // ── CỘT 1: CÁC TIỆN ÍCH (Định dạng như thumb Dự án) ──
+                    VerticalLayout {
+                        horizontal-stretch: 57;
+                        spacing: 12px;
+
+                        // Hàng 1: 3 tiện ích
+                        HorizontalLayout {
+                            spacing: 12px;
+
+                            AiToolThumbCard {
+                                horizontal-stretch: 1;
+                                name: "tool-captions";
+                                title: "Tạo Phụ Đề AI (.SRT)";
+                                note: "Nhận diện giọng nói PhoWhisper";
+                                glyph: Glyph.subtitles;
+                                badge: "AI Whisper";
+                                accent: #38bdf8;
+                                active: (root.active-ai-tool == "" || root.active-ai-tool == self.name);
+                                clicked => { root.active-ai-tool = self.name; }
+                            }
+
+                            AiToolThumbCard {
+                                horizontal-stretch: 1;
+                                name: "tool-translation";
+                                title: "Dịch Thuật & Lồng Tiếng";
+                                note: "Dịch phụ đề SRT song ngữ";
+                                glyph: Glyph.translate;
+                                badge: "Song ngữ";
+                                accent: #3b82f6;
+                                active: root.active-ai-tool == self.name;
+                                clicked => { root.active-ai-tool = self.name; }
+                            }
+
+                            AiToolThumbCard {
+                                horizontal-stretch: 1;
+                                name: "tool-audio-studio";
+                                title: "Phòng Thu Âm & TTS";
+                                note: "Đọc văn bản & Studio hội thoại";
+                                glyph: Glyph.audio-studio;
+                                badge: "Studio TTS";
+                                accent: #10b981;
+                                active: root.active-ai-tool == self.name;
+                                clicked => { root.active-ai-tool = self.name; }
+                            }
+                        }
+
+                        // Hàng 2: 2 tiện ích
+                        HorizontalLayout {
+                            spacing: 12px;
+
+                            AiToolThumbCard {
+                                horizontal-stretch: 1;
+                                name: "tool-voice-changer";
+                                title: "Voice Changer (Biến Đổi Giọng)";
+                                note: "ElevenLabs AI & Bộ lọc DSP";
+                                glyph: Glyph.voice-changer;
+                                badge: "Voice AI";
+                                accent: #f59e0b;
+                                active: root.active-ai-tool == self.name;
+                                clicked => { root.active-ai-tool = self.name; }
+                            }
+
+                            AiToolThumbCard {
+                                horizontal-stretch: 1;
+                                name: "tool-links";
+                                title: "Tải Video & Nhạc Từ Link";
+                                note: "YouTube, TikTok, Facebook, Drive";
+                                glyph: Glyph.cloud-download;
+                                badge: "1080p / MP3";
+                                accent: #a855f7;
+                                active: root.active-ai-tool == self.name;
+                                clicked => { root.active-ai-tool = self.name; }
+                            }
+                        }
+                    }
+
+                    // ── CỘT 2: CHI TIẾT TIỆN ÍCH ──
+                    VerticalLayout {
+                        horizontal-stretch: 43;
+
+                        AiToolDetailPanel {
+                            tool: root.active-ai-tool != "" ? root.active-ai-tool : "tool-captions";
+                            open-in-editor(name) => { root.link(name); }
+                            open-settings => { root.open-settings(); }
+                        }
+                    }
                 }
 
                 Rectangle { height: 36px; }
@@ -1850,8 +2822,8 @@ component WideHome inherits Rectangle {
                     revealed(path) => { root.reveal-recent(path); }
                 }
 
-                // ── learn, under the projects ────────────────────────
-                if !root.aside: VerticalLayout {
+                // ── Hướng dẫn & Hỗ trợ (LUÔN Ở DƯỚI CÙNG TOÀN BỘ TRANG) ──
+                VerticalLayout {
                     padding-top: 48px;
                     spacing: 16px;
 
@@ -1867,60 +2839,6 @@ component WideHome inherits Rectangle {
 
                     VersionLine {
                         padding-top: 8px;
-                        version: root.version;
-                        notes => { root.link("release-notes"); }
-                    }
-                }
-            }
-
-            // ── learn, beside the projects ───────────────────────────
-            // From the create row down, so its top lines up with the
-            // first thing that can be pressed.
-            side := Rectangle {
-                x: root.main-w + root.aside-gap;
-                y: create-row.y;
-                width: root.aside-w;
-                height: side-body.preferred-height;
-                visible: root.aside;
-                border-radius: Theme.r-lg;
-                background: Theme.launch-panel;
-                border-width: 1px;
-                border-color: Theme.line;
-
-                side-body := VerticalLayout {
-                    padding: 8px;
-                    padding-top: 16px;
-                    spacing: 2px;
-
-                    HorizontalLayout {
-                        padding-left: 10px;
-                        Text {
-                            text: I18n.t("start.guidesAndSupport");
-                            color: Theme.fg;
-                            font-size: Theme.fs-xl;
-                            font-weight: Theme.weight-title;
-                        }
-                    }
-
-                    Rectangle { height: 8px; }
-
-                    for item in Learn.desk: LearnCard {
-                        height: 58px;
-                        flat: true;
-                        item: item;
-                        enabled: root.aside;
-                        clicked => { root.link(item.name); }
-                    }
-
-                    Rectangle {
-                        height: 1px;
-                        background: Theme.line;
-                    }
-
-                    VersionLine {
-                        padding-left: 10px;
-                        padding-top: 8px;
-                        padding-bottom: 4px;
                         version: root.version;
                         notes => { root.link("release-notes"); }
                     }
@@ -1944,6 +2862,75 @@ component WideHome inherits Rectangle {
 // far. Stacked the way a phone's own apps are - the greeting with Settings
 // beside it, New project across the width under the thumb, the projects as
 // a list, and the learn cards as one grouped list at the foot.
+
+component MobileAiTile inherits Rectangle {
+    in property <Glyph> glyph;
+    in property <string> title;
+    in property <string> subtitle;
+    in property <color> icon-bg: #89e21922;
+    in property <color> icon-color: Theme.accent;
+    callback clicked();
+
+    border-radius: Theme.r-lg;
+    background: touch.has-hover ? Theme.launch-raised : Theme.launch-panel;
+    border-width: 1px;
+    border-color: touch.has-hover ? Theme.accent : Theme.line;
+    animate background { duration: 120ms; }
+    animate border-color { duration: 120ms; }
+
+    touch := TouchArea {
+        clicked => { root.clicked(); }
+    }
+
+    VerticalLayout {
+        padding: 13px;
+        alignment: space-between;
+
+        HorizontalLayout {
+            alignment: space-between;
+            Rectangle {
+                width: 36px;
+                height: 36px;
+                border-radius: 9px;
+                background: root.icon-bg;
+
+                Icon {
+                    width: 20px;
+                    height: 20px;
+                    glyph: root.glyph;
+                    tint: root.icon-color;
+                }
+            }
+
+            Text {
+                text: "›";
+                color: Theme.fg-dim;
+                font-size: 18px;
+                vertical-alignment: top;
+            }
+        }
+
+        VerticalLayout {
+            spacing: 3px;
+
+            Text {
+                text: root.title;
+                color: Theme.fg;
+                font-size: 13px;
+                font-weight: 700;
+                wrap: word-wrap;
+            }
+
+            Text {
+                text: root.subtitle;
+                color: Theme.fg-muted;
+                font-size: 11px;
+                wrap: word-wrap;
+            }
+        }
+    }
+}
+
 component NarrowHome inherits Rectangle {
     in property <[RecentProjectData]> recents;
     in property <int> recents-total;
@@ -1985,7 +2972,14 @@ component NarrowHome inherits Rectangle {
             alignment: start;
 
             HorizontalLayout {
-                spacing: 8px;
+                spacing: 12px;
+
+                Image {
+                    width: 44px;
+                    height: 44px;
+                    source: @image-url("assets/app-logo.png");
+                    image-fit: contain;
+                }
 
                 Text {
                     horizontal-stretch: 1;
@@ -2101,27 +3095,113 @@ component NarrowHome inherits Rectangle {
 
             Rectangle { height: 10px; }
 
-            Rectangle {
-                border-radius: Theme.r-lg;
-                background: Theme.launch-panel;
-                border-width: 1px;
-                border-color: Theme.line;
-                height: ai-list.preferred-height;
+            VerticalLayout {
+                spacing: 10px;
 
-                ai-list := VerticalLayout {
-                    padding: 6px;
+                HorizontalLayout {
+                    spacing: 10px;
+                    height: 126px;
 
-                    for item[index] in AiTools.all: VerticalLayout {
-                        if index > 0: Rectangle {
-                            height: 1px;
-                            background: Theme.line;
+                    MobileAiTile {
+                        glyph: Glyph.voice-changer;
+                        title: "Voice Changer";
+                        subtitle: "ElevenLabs / DSP";
+                        icon-bg: #e2199b22;
+                        icon-color: #f048b2;
+                        clicked => { root.link(AiTools.voice-changer.name); }
+                    }
+
+                    MobileAiTile {
+                        glyph: Glyph.audio-studio;
+                        title: "Phòng Thu AI";
+                        subtitle: "TTS • Thuyết minh";
+                        icon-bg: #89e21922;
+                        icon-color: Theme.accent;
+                        clicked => { root.link(AiTools.audio-studio.name); }
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: 10px;
+                    height: 126px;
+
+                    MobileAiTile {
+                        glyph: Glyph.subtitles;
+                        title: "Tạo Phụ Đề AI";
+                        subtitle: "Whisper • SRT";
+                        icon-bg: #197be222;
+                        icon-color: #3b9fff;
+                        clicked => { root.link(AiTools.captions.name); }
+                    }
+
+                    MobileAiTile {
+                        glyph: Glyph.translate;
+                        title: "Dịch & Lồng Tiếng";
+                        subtitle: "Song ngữ • Gemini";
+                        icon-bg: #e2901922;
+                        icon-color: #ffaa33;
+                        clicked => { root.link(AiTools.translation.name); }
+                    }
+                }
+
+                Rectangle {
+                    height: 76px;
+                    border-radius: Theme.r-lg;
+                    background: link-touch.has-hover ? Theme.launch-raised : Theme.launch-panel;
+                    border-width: 1px;
+                    border-color: link-touch.has-hover ? Theme.accent : Theme.line;
+                    animate background { duration: 120ms; }
+                    animate border-color { duration: 120ms; }
+
+                    link-touch := TouchArea {
+                        clicked => { root.link(AiTools.links.name); }
+                    }
+
+                    HorizontalLayout {
+                        padding: 13px;
+                        spacing: 13px;
+                        alignment: start;
+
+                        Rectangle {
+                            width: 44px;
+                            height: 44px;
+                            border-radius: 10px;
+                            background: #19e2a822;
+
+                            Icon {
+                                width: 24px;
+                                height: 24px;
+                                glyph: Glyph.cloud-download;
+                                tint: #20e0b0;
+                            }
                         }
 
-                        LearnCard {
-                            height: 66px;
-                            flat: true;
-                            item: item;
-                            clicked => { root.link(item.name); }
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 3px;
+                            horizontal-stretch: 1;
+
+                            Text {
+                                text: "Tải Video & Nhạc Từ Link";
+                                color: Theme.fg;
+                                font-size: 14px;
+                                font-weight: 700;
+                            }
+
+                            Text {
+                                text: "YouTube, TikTok, Facebook, Drive…";
+                                color: Theme.fg-muted;
+                                font-size: 11px;
+                            }
+                        }
+
+                        VerticalLayout {
+                            alignment: center;
+                            Text {
+                                text: "›";
+                                color: Theme.fg-dim;
+                                font-size: 20px;
+                            }
                         }
                     }
                 }
@@ -2209,6 +3289,8 @@ export component StartScreen inherits Rectangle {
     in property <bool> can-drop;
     in property <bool> phone;
 
+    in-out property <string> active-ai-tool: "";
+
     /// Put up the sheet a new project is described on.
     callback compose();
     /// Open a project that already exists, picked from disk.
@@ -2228,6 +3310,15 @@ export component StartScreen inherits Rectangle {
     background: Theme.launch-page;
     clip: true;
 
+    // Atmospheric CDCAI Wallpaper background
+    Image {
+        width: 100%;
+        height: 100%;
+        source: @image-url("assets/welcome-bg.png");
+        image-fit: cover;
+        opacity: 0.35;
+    }
+
     if !root.narrow: WideHome {
         width: root.width;
         height: root.height;
@@ -2239,8 +3330,10 @@ export component StartScreen inherits Rectangle {
         busy: root.busy;
         version: root.version;
         can-drop: root.can-drop;
+        active-ai-tool <=> root.active-ai-tool;
         compose => { root.compose(); }
         open => { root.open(); }
+        open-settings => { root.open-settings(); }
         open-recent(path) => { root.open-recent(path); }
         forget-recent(path) => { root.forget-recent(path); }
         reveal-recent(path) => { root.reveal-recent(path); }
