@@ -544,6 +544,7 @@ export global Editor {
 
     // ── AI Studio & Inspector Mode ──
     in-out property <int> inspector-mode: 0; // 0 = Clip Properties, 1 = Captions Studio, 2 = Voice & Dubbing Studio
+    in-out property <int> voice-sub-mode: 0; // 0 = Gemini Studio, 1 = Video Dubbing & Translation, 2 = Live Voiceover
     in-out property <CaptionsSheetData> captions-data;
     in-out property <GeminiStudioData> gemini-studio-data;
     in-out property <TranslationData> translation-data;
@@ -567,4 +568,5 @@ export global Editor {
 
     callback gemini-studio-action(int, int, string, float);
     callback translation-action(int, int, string, float);
+    callback voiceover-action(string);
 }

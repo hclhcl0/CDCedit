@@ -2298,6 +2298,21 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
         };
         state.handle(Msg::Voiceover(msg));
     }));
+    editor.on_voiceover_action(on_window!(|state, verb: SharedString| {
+        let msg = match verb.as_str() {
+            "record" => VoiceoverMsg::Record,
+            "pause" => VoiceoverMsg::Pause,
+            "resume" => VoiceoverMsg::Resume,
+            "stop" => VoiceoverMsg::Stop,
+            "retake" => VoiceoverMsg::Retake,
+            "retry" => VoiceoverMsg::Retry,
+            other => {
+                log::warn!("voiceover: no such action {other:?}");
+                return;
+            }
+        };
+        state.handle(Msg::Voiceover(msg));
+    }));
     app.on_voiceover_device_changed(on_window!(|state, index: i32| {
         state.handle(Msg::Voiceover(VoiceoverMsg::Device(index)));
     }));
@@ -2316,28 +2331,17 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
     app.on_voiceover_prompt_speed_changed(on_window!(|state, index: i32| {
         state.handle(Msg::Voiceover(VoiceoverMsg::PromptSpeed(index)));
     }));
-    editor.on_speak(on_window!(|state| {
-        if state.speech.open && state.speech.dub.mode == 0 {
-            state.handle(Msg::Speech(SpeechMsg::Close));
-        } else {
-            state.speech.dub.mode = 0;
-            state.handle(Msg::Speech(SpeechMsg::Open));
-        }
+    editor.on_speak(on_window!(|_state| {
+        Shell::with(|_, app| {
+            app.global::<Editor>().set_inspector_mode(2);
+            app.global::<Editor>().set_voice_sub_mode(1);
+        });
     }));
-    editor.on_voice_changer(on_window!(|state| {
-        if state.speech.open && state.speech.dub.mode == 3 {
-            state.handle(Msg::Speech(SpeechMsg::Close));
-        } else {
-            state.speech.dub.mode = 3;
-            state.speech.dub.vc_method = 1;
-            if !state.prefs.eleven_api_key.expose().trim().is_empty() {
-                state.speech.dub.provider = 2;
-            } else if !state.prefs.gemini_api_key.expose().trim().is_empty() {
-                state.speech.dub.provider = 1;
-            }
-            state.speech.dub.mute_original = true;
-            state.handle(Msg::Speech(SpeechMsg::Open));
-        }
+    editor.on_voice_changer(on_window!(|_state| {
+        Shell::with(|_, app| {
+            app.global::<Editor>().set_inspector_mode(2);
+            app.global::<Editor>().set_voice_sub_mode(0);
+        });
     }));
     editor.on_translate(on_window!(|state| {
         state.handle(Msg::Translation(
@@ -2345,6 +2349,7 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
         ));
         Shell::with(|_, app| {
             app.global::<Editor>().set_inspector_mode(2);
+            app.global::<Editor>().set_voice_sub_mode(1);
         });
     }));
     editor.on_gemini_studio(on_window!(|state| {
@@ -2353,6 +2358,7 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
         ));
         Shell::with(|_, app| {
             app.global::<Editor>().set_inspector_mode(2);
+            app.global::<Editor>().set_voice_sub_mode(0);
         });
     }));
 

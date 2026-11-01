@@ -6,6 +6,7 @@ import { Theme, SegmentedControl } from "../primitives/primitives.slint";
 import { SectionTabs } from "../primitives/section-tabs.slint";
 import { Glyph, Icon } from "../icons.slint";
 import { Select } from "../primitives/select.slint";
+import { LevelMeter } from "../primitives/level-meter.slint";
 import { Pane, PaneBody, PaneScroll } from "pane.slint";
 import { PaneKind, PaneSwitcher } from "pane-switcher.slint";
 import { EffectData } from "../demo/effects-panel.slint";
@@ -279,7 +280,7 @@ export component ConfigPane inherits Rectangle {
     in property <[AppliedParamData]> transition-knobs;
     in property <[TransitionChoiceData]> transition-choices;
     property <bool> on-transition: root.transition.present && !root.has-selection;
-    property <int> voice-sub-mode: 0;
+    property <int> voice-sub-mode <=> Editor.voice-sub-mode;
     in property <string> project-name: I18n.t("common.untitledProject");
     in property <string> project-folder: "—";
     /// The active timeline, whose frame, rate and duration the rows below
@@ -1470,17 +1471,24 @@ export component ConfigPane inherits Rectangle {
                         spacing: 6px;
                         FilterChip {
                             horizontal-stretch: 1;
-                            glyph: Glyph.waveform;
+                            glyph: Glyph.audio-studio;
                             label: "Lồng tiếng Gemini";
                             current: root.voice-sub-mode == 0;
                             clicked => { root.voice-sub-mode = 0; }
                         }
                         FilterChip {
                             horizontal-stretch: 1;
-                            glyph: Glyph.text-mark;
+                            glyph: Glyph.translate;
                             label: "Dịch & Thuyết minh";
                             current: root.voice-sub-mode == 1;
                             clicked => { root.voice-sub-mode = 1; }
+                        }
+                        FilterChip {
+                            horizontal-stretch: 1;
+                            glyph: Glyph.mic;
+                            label: "Thu âm trực tiếp";
+                            current: root.voice-sub-mode == 2;
+                            clicked => { root.voice-sub-mode = 2; }
                         }
                     }
 
@@ -1676,7 +1684,7 @@ export component ConfigPane inherits Rectangle {
                                 VerticalLayout {
                                     alignment: center;
                                     Icon {
-                                        glyph: Glyph.waveform;
+                                        glyph: Glyph.audio-studio;
                                         size: 14px;
                                         tint: Colors.white;
                                     }
@@ -1867,6 +1875,89 @@ export component ConfigPane inherits Rectangle {
                                         mouse-cursor: pointer;
                                         clicked => { Editor.translation-action(25, 0, "", 0.0); }
                                     }
+                                }
+                            }
+                        }
+                    }
+
+                    // ── SUB-MODE 2: LIVE VOICEOVER RECORDING ──
+                    if root.voice-sub-mode == 2: VerticalLayout {
+                        spacing: 8px;
+
+                        Rectangle {
+                            border-radius: Theme.r;
+                            background: Theme.well;
+                            border-width: 1px;
+                            border-color: #ec4899.with-alpha(0.3);
+
+                            VerticalLayout {
+                                padding: 12px;
+                                spacing: 8px;
+
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    VerticalLayout {
+                                        alignment: center;
+                                        Icon { glyph: Glyph.mic; size: 18px; tint: #f472b6; }
+                                    }
+                                    Text {
+                                        text: "Thu âm Lồng tiếng Trực tiếp";
+                                        font-size: Theme.fs;
+                                        font-weight: Theme.weight-title;
+                                        color: #fdf2f8;
+                                        vertical-alignment: center;
+                                    }
+                                }
+
+                                Text {
+                                    text: "Thu âm giọng đọc trực tiếp từ micro và đưa thẳng track âm thanh lên timeline.";
+                                    font-size: Theme.fs-xs;
+                                    color: #fbcfe8;
+                                    wrap: word-wrap;
+                                }
+
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    Rectangle {
+                                        height: 34px;
+                                        border-radius: Theme.r-sm;
+                                        background: Editor.recording ? #ef4444 : #db2777;
+
+                                        HorizontalLayout {
+                                            padding-left: 14px;
+                                            padding-right: 14px;
+                                            spacing: 6px;
+                                            alignment: center;
+                                            VerticalLayout {
+                                                alignment: center;
+                                                Icon {
+                                                    glyph: Editor.recording ? Glyph.stop : Glyph.mic;
+                                                    size: 14px;
+                                                    tint: Colors.white;
+                                                }
+                                            }
+                                            Text {
+                                                text: Editor.recording ? "Dừng thu âm" : "Bắt đầu thu âm";
+                                                font-size: Theme.fs-sm;
+                                                font-weight: Theme.weight-title;
+                                                color: Colors.white;
+                                                vertical-alignment: center;
+                                            }
+                                        }
+
+                                        TouchArea {
+                                            mouse-cursor: pointer;
+                                            clicked => {
+                                                Editor.record-voiceover();
+                                            }
+                                        }
+                                    }
+
+                                    if Editor.recording: LevelMeter {
+                                        width: 100px;
+                                        value: Editor.record-level;
+                                    }
+                                    Rectangle { horizontal-stretch: 1; }
                                 }
                             }
                         }
