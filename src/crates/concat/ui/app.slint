@@ -840,7 +840,7 @@ export component App inherits Window {
     // it has no scrim, so the work beside it carries on, and a sheet put up
     // while it is open - Export, Settings - covers it like the rest.
     if !root.on-start: VoiceoverPanel {
-        visible: false;
+        
         x: 0;
         y: 0;
         width: root.width;
@@ -883,7 +883,7 @@ export component App inherits Window {
         z: root.sheets-fill ? 1 : 0;
 
         CaptionsDialog {
-            visible: false;
+            
             fill: root.sheets-fill;
             floating: !root.sheets-fill && !root.on-start;
             z: root.front-tool == "captions" ? 1 : 0;
@@ -927,7 +927,7 @@ export component App inherits Window {
         }
 
         SpeechDialog {
-            visible: false;
+            
             fill: root.sheets-fill;
             floating: !root.sheets-fill && !root.on-start;
             // Its own home, a step in from the captions card's, so the two
@@ -1193,7 +1193,7 @@ export component App inherits Window {
     }
 
     GeminiStudioDialog {
-        visible: false;
+        
         x:0;y:0;width:root.width;height:root.height;
         fill:root.sheets-fill;
         inset-top:root.safe-area-insets.top;inset-bottom:root.safe-area-insets.bottom;
@@ -1204,7 +1204,7 @@ export component App inherits Window {
     }
 
     TranslationDialog {
-        visible: false;
+        
         x:0;y:0;width:root.width;height:root.height;fill:root.sheets-fill;
         inset-top:root.safe-area-insets.top;inset-bottom:root.safe-area-insets.bottom;
         inset-left:root.safe-area-insets.left;inset-right:root.safe-area-insets.right;

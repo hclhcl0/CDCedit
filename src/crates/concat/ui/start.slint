@@ -2681,7 +2681,7 @@ component WideHome inherits Rectangle {
                                 badge: "AI Whisper";
                                 accent: #38bdf8;
                                 active: (root.active-ai-tool == "" || root.active-ai-tool == self.name);
-                                clicked => { root.active-ai-tool = self.name; }
+                                clicked => { root.active-ai-tool = self.name; root.link(self.name); }
                             }
 
                             AiToolThumbCard {
@@ -2693,7 +2693,7 @@ component WideHome inherits Rectangle {
                                 badge: "Song ngữ";
                                 accent: #3b82f6;
                                 active: root.active-ai-tool == self.name;
-                                clicked => { root.active-ai-tool = self.name; }
+                                clicked => { root.active-ai-tool = self.name; root.link(self.name); }
                             }
 
                             AiToolThumbCard {
@@ -2705,7 +2705,7 @@ component WideHome inherits Rectangle {
                                 badge: "Studio TTS";
                                 accent: #10b981;
                                 active: root.active-ai-tool == self.name;
-                                clicked => { root.active-ai-tool = self.name; }
+                                clicked => { root.active-ai-tool = self.name; root.link(self.name); }
                             }
                         }
 
@@ -2722,7 +2722,7 @@ component WideHome inherits Rectangle {
                                 badge: "Voice AI";
                                 accent: #f59e0b;
                                 active: root.active-ai-tool == self.name;
-                                clicked => { root.active-ai-tool = self.name; }
+                                clicked => { root.active-ai-tool = self.name; root.link(self.name); }
                             }
 
                             AiToolThumbCard {
@@ -2734,7 +2734,7 @@ component WideHome inherits Rectangle {
                                 badge: "1080p / MP3";
                                 accent: #a855f7;
                                 active: root.active-ai-tool == self.name;
-                                clicked => { root.active-ai-tool = self.name; }
+                                clicked => { root.active-ai-tool = self.name; root.link(self.name); }
                             }
                         }
                     }

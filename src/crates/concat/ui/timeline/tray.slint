@@ -409,38 +409,22 @@ export component TimelineTray inherits Rectangle {
             glyph: Glyph.subtitles;
             label: "Phụ đề AI (PhoWhisper)";
             icon-size: 16px;
-            checked: Editor.inspector-mode == 1;
-            clicked => {
-                Editor.inspector-mode = (Editor.inspector-mode == 1 ? 0 : 1);
-            }
+            checked: Editor.captions-open;
+            clicked => { root.captions(); }
         }
         TrayButton {
             glyph: Glyph.audio-studio;
-            label: "Lồng tiếng đa vai Gemini";
+            label: "Phòng Thu & Lồng Tiếng AI (Gemini / TTS)";
             icon-size: 16px;
-            checked: Editor.inspector-mode == 2 && Editor.voice-sub-mode == 0;
-            clicked => {
-                if (Editor.inspector-mode == 2 && Editor.voice-sub-mode == 0) {
-                    Editor.inspector-mode = 0;
-                } else {
-                    Editor.inspector-mode = 2;
-                    Editor.voice-sub-mode = 0;
-                }
-            }
+            checked: Editor.speech-open && !Editor.voice-changer-open;
+            clicked => { root.speak(); }
         }
         TrayButton {
-            glyph: Glyph.translate;
-            label: "Dịch & Thuyết minh video";
+            glyph: Glyph.voice-changer;
+            label: "Voice Changer (ElevenLabs / Đổi giọng)";
             icon-size: 16px;
-            checked: Editor.inspector-mode == 2 && Editor.voice-sub-mode == 1;
-            clicked => {
-                if (Editor.inspector-mode == 2 && Editor.voice-sub-mode == 1) {
-                    Editor.inspector-mode = 0;
-                } else {
-                    Editor.inspector-mode = 2;
-                    Editor.voice-sub-mode = 1;
-                }
-            }
+            checked: Editor.voice-changer-open;
+            clicked => { Editor.voice-changer(); }
         }
         // A voiceover: the picture rolls from the playhead and the words go
         // onto a lane under it. The same button stops the take.
@@ -449,19 +433,8 @@ export component TimelineTray inherits Rectangle {
             label: root.recording ? I18n.t("tray.stopRecording") : "Thu âm lồng tiếng (Voiceover)";
             icon-size: 16px;
             idle: root.recording ? Theme.danger : Theme.fg;
-            checked: root.recording || (Editor.inspector-mode == 2 && Editor.voice-sub-mode == 2);
-            clicked => {
-                if (root.recording) {
-                    root.record-voiceover();
-                } else {
-                    if (Editor.inspector-mode == 2 && Editor.voice-sub-mode == 2) {
-                        Editor.inspector-mode = 0;
-                    } else {
-                        Editor.inspector-mode = 2;
-                        Editor.voice-sub-mode = 2;
-                    }
-                }
-            }
+            checked: root.recording || Editor.voiceover-open;
+            clicked => { root.record-voiceover(); }
         }
         if root.recording: LevelMeter {
             width: 56px;
