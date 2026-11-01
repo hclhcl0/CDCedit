@@ -3167,7 +3167,8 @@ fn safe_start() -> (Option<concat_host::jobs::Tripwire>, bool) {
     if preferences.settle_start(died, &build) {
         preferences.save(&dirs);
     }
-    if preferences.draws_in_software() && std::env::var_os("CONCAT_GPU").is_none() {
+    // Only force software rasteriser if explicitly set in Settings by the person
+    if preferences.software_gpu && std::env::var_os("CONCAT_GPU").is_none() {
         // SAFETY: on a desk the process is single-threaded here, as for the
         // scale above. On Android the activity's glue thread is running, but
         // it is Java's and reads no environment; Rust's own readers take
