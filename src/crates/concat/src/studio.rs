@@ -3209,6 +3209,7 @@ impl Studio {
             std::time::Duration::from_millis(8),
             move || {
                 crate::host::Shell::with(|shell, app| {
+                    let mut needs_publish = false;
                     {
                         let mut studio = shell.studio.borrow_mut();
                         let end = studio.duration();
@@ -3225,9 +3226,13 @@ impl Studio {
                         // to it, the way every editor keeps the cut in view.
                         // A phone's lanes glide instead, the playhead held
                         // at their middle.
+                        let old_left = studio.lanes.scroll_left;
                         if studio.lanes.centred {
                             let playhead = studio.playhead;
                             studio.lanes.recentre(playhead);
+                            if (studio.lanes.scroll_left - old_left).abs() > 0.01 {
+                                needs_publish = true;
+                            }
                         } else if let Some((low, high)) = studio.lanes.published_span() {
                             let screen = (high - low) / 3.0;
                             let left = studio.lanes.scroll_left;
@@ -3237,15 +3242,21 @@ impl Studio {
                             {
                                 studio.lanes.scroll_left =
                                     (studio.playhead - screen * 0.05).max(0.0);
+                                needs_publish = true;
                             }
                         }
                         if position >= end {
                             studio.pause();
+                            needs_publish = true;
                         } else {
                             studio.request_preview();
                         }
                     }
-                    shell.studio.borrow().publish_lanes(&app, &shell.models);
+                    if needs_publish {
+                        shell.studio.borrow().publish_lanes(&app, &shell.models);
+                    } else {
+                        shell.studio.borrow().publish_playhead(&app);
+                    }
                 });
             },
         );
@@ -9956,6 +9967,14 @@ impl Studio {
     pub fn publish_frame(&self, app: &App) {
         app.global::<Editor>()
             .set_preview_frame(self.monitor.image.clone());
+    }
+
+    /// The playhead and scroll alone: what a transport tick during playback
+    /// updates without needing to re-sync all clip/track/keyframe models.
+    pub fn publish_playhead(&self, app: &App) {
+        let editor = app.global::<Editor>();
+        editor.set_playhead(self.playhead);
+        editor.set_scroll_left(self.lanes.scroll_left);
     }
 
     /// The timeline and the readouts that follow it: what runs on every

@@ -2995,6 +2995,14 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
         if let Some(path) = started {
             let _ = std::fs::remove_file(path);
         }
+        if let Ok(dirs) = concat_host::AppDirs::locate() {
+            let mut preferences = prefs::Preferences::load(&dirs);
+            if preferences.software_after_crash.is_some() {
+                log::info!("start: app is stable past startup window; resetting software_after_crash");
+                preferences.software_after_crash = None;
+                preferences.save(&dirs);
+            }
+        }
     });
 
     // The chosen interface scale, as soon as the window is up.
