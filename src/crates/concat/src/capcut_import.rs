@@ -41,7 +41,23 @@ pub fn import_capcut_draft_path(studio: &mut Studio, input_path: &Path) {
         if let Ok(file) = std::fs::File::open(input_path) {
             if let Ok(mut archive) = zip::ZipArchive::new(file) {
                 let _ = std::fs::create_dir_all(&dest);
-                let _ = archive.extract(&dest);
+                for i in 0..archive.len() {
+                    if let Ok(mut f) = archive.by_index(i) {
+                        if let Some(enclosed) = f.enclosed_name() {
+                            let outpath = dest.join(enclosed);
+                            if f.is_dir() {
+                                let _ = std::fs::create_dir_all(&outpath);
+                            } else {
+                                if let Some(p) = outpath.parent() {
+                                    let _ = std::fs::create_dir_all(p);
+                                }
+                                if let Ok(mut outfile) = std::fs::File::create(&outpath) {
+                                    let _ = std::io::copy(&mut f, &mut outfile);
+                                }
+                            }
+                        }
+                    }
+                }
                 Some(dest)
             } else {
                 None

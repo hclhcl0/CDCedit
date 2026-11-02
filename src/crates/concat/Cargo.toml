@@ -177,6 +177,9 @@ toml = "1.1"
 # JPEG encoding for the media artwork cache.
 image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
 
+# Zip extraction for importing archived CapCut drafts
+zip = { version = "2.4.2", default-features = false, features = ["deflate"] }
+
 [build-dependencies]
 slint-build = "1.18"
 # The .exe's icon, for Explorer and the Start menu, as a Windows resource.

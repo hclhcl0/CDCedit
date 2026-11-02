@@ -7,7 +7,7 @@
 use std::path::{Path, PathBuf};
 use serde_json::Value;
 
-use crate::capcut_export::{capcut_root_meta_file, default_capcut_drafts_dir};
+use crate::capcut_export::capcut_root_meta_file;
 
 #[derive(Clone, Debug)]
 pub struct CapCutDraft {
