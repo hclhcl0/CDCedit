@@ -310,6 +310,7 @@ fn run(
     drop(tx);
     let start = Instant::now();
     let mut output = Vec::new();
+    let mut err_lines: Vec<String> = Vec::new();
     loop {
         if cancel.load(Ordering::Relaxed) || start.elapsed() > limit {
             #[cfg(windows)]
@@ -359,6 +360,13 @@ fn run(
                         .collect::<String>();
                     progress((percent / 100.0).clamp(0.0, 1.0), speed);
                 } else if !out {
+                    let trimmed = text.trim().to_string();
+                    if !trimmed.is_empty() {
+                        if err_lines.len() >= 10 {
+                            err_lines.remove(0);
+                        }
+                        err_lines.push(trimmed);
+                    }
                     if let Ok(v) = serde_json::from_slice::<Value>(&line) {
                         if let Some(stats) = v.get("stats") {
                             let done = stats["bytes"].as_f64().unwrap_or(0.0);
@@ -402,6 +410,17 @@ fn run(
         .wait()
         .map_err(|_| "Could not finish download process")?;
     if !status.success() {
+        let last_err = err_lines
+            .iter()
+            .rev()
+            .find(|l| l.contains("ERROR:") || l.contains("Error") || l.contains("Failed") || l.contains("Unable"))
+            .cloned()
+            .unwrap_or_else(|| err_lines.last().cloned().unwrap_or_default());
+        log::error!("Download process failed with status {status:?}: {last_err}");
+        if !last_err.is_empty() {
+            let clean = last_err.trim_start_matches("ERROR:").trim();
+            return Err(format!("Source request failed: {clean}"));
+        }
         return Err("Source request failed. Check link access, sign in when required, or update download tools.".into());
     }
     Ok(output)
@@ -409,38 +428,56 @@ fn run(
 #[cfg(target_os = "android")]
 fn ensure_android_python(tools: &Tools, native_libs: &Path) {
     let py_home = tools.bin.parent().unwrap_or(&tools.bin).join("python");
-    let marker = py_home.join(".extracted");
+    let marker = py_home.join(".extracted_v2");
     if marker.is_file() {
         return;
     }
-    let zip_path = if tools.bin.join("python.zip").is_file() {
-        tools.bin.join("python.zip")
-    } else {
-        native_libs.join("libpython.zip.so")
-    };
-    if let Ok(file) = fs::File::open(&zip_path) {
-        if let Ok(mut archive) = zip::ZipArchive::new(file) {
-            let _ = fs::create_dir_all(&py_home);
-            for i in 0..archive.len() {
-                if let Ok(mut f) = archive.by_index(i) {
-                    if let Some(enclosed) = f.enclosed_name() {
-                        let outpath = py_home.join(enclosed);
-                        if f.is_dir() {
-                            let _ = fs::create_dir_all(&outpath);
-                        } else {
-                            if let Some(p) = outpath.parent() {
-                                let _ = fs::create_dir_all(p);
-                            }
-                            if let Ok(mut outfile) = fs::File::create(&outpath) {
-                                let _ = std::io::copy(&mut f, &mut outfile);
+    let extract_zip = |archive_path: &Path, target_dir: &Path| {
+        if let Ok(file) = fs::File::open(archive_path) {
+            if let Ok(mut archive) = zip::ZipArchive::new(file) {
+                let _ = fs::create_dir_all(target_dir);
+                for i in 0..archive.len() {
+                    if let Ok(mut f) = archive.by_index(i) {
+                        if let Some(enclosed) = f.enclosed_name() {
+                            let outpath = target_dir.join(enclosed);
+                            if f.is_dir() {
+                                let _ = fs::create_dir_all(&outpath);
+                            } else {
+                                if let Some(p) = outpath.parent() {
+                                    let _ = fs::create_dir_all(p);
+                                }
+                                if let Ok(mut outfile) = fs::File::create(&outpath) {
+                                    let _ = std::io::copy(&mut f, &mut outfile);
+                                }
                             }
                         }
                     }
                 }
             }
-            let _ = fs::write(&marker, b"ok");
         }
+    };
+
+    let py_candidates = [
+        tools.bin.join("python.zip"),
+        tools.bin.parent().unwrap_or(&tools.bin).join("app.cdcedit.editor").join("link-tools").join("python.zip"),
+        tools.bin.parent().unwrap_or(&tools.bin).join("concat").join("link-tools").join("python.zip"),
+        native_libs.join("libpython.zip.so"),
+    ];
+    if let Some(py_zip) = py_candidates.into_iter().find(|p| p.is_file()) {
+        extract_zip(&py_zip, &py_home);
     }
+
+    let ff_candidates = [
+        tools.bin.join("ffmpeg.zip"),
+        tools.bin.parent().unwrap_or(&tools.bin).join("app.cdcedit.editor").join("link-tools").join("ffmpeg.zip"),
+        tools.bin.parent().unwrap_or(&tools.bin).join("concat").join("link-tools").join("ffmpeg.zip"),
+        native_libs.join("libffmpeg.zip.so"),
+    ];
+    if let Some(ff_zip) = ff_candidates.into_iter().find(|p| p.is_file()) {
+        extract_zip(&ff_zip, &py_home);
+    }
+
+    let _ = fs::write(&marker, b"ok");
 }
 
 fn video_command(tools: &Tools, cookies: Option<&Path>) -> Command {
@@ -449,36 +486,57 @@ fn video_command(tools: &Tools, cookies: Option<&Path>) -> Command {
         if let Ok(native_libs) = std::env::var("CONCAT_NATIVE_LIBS") {
             let lib_dir = PathBuf::from(&native_libs);
             let py_exe = lib_dir.join("libpython.so");
-            let ytdlp = if tools.bin.join("ytdlp").is_file() {
-                tools.bin.join("ytdlp")
-            } else {
-                lib_dir.join("libytdlp.so")
-            };
-            if py_exe.is_file() && ytdlp.is_file() {
+            let ytdlp_candidates = [
+                tools.bin.join("ytdlp"),
+                tools.bin.parent().unwrap_or(&tools.bin).join("app.cdcedit.editor").join("link-tools").join("ytdlp"),
+                tools.bin.parent().unwrap_or(&tools.bin).join("concat").join("link-tools").join("ytdlp"),
+                tools.bin.join("yt-dlp"),
+                lib_dir.join("libytdlp.so"),
+            ];
+            let ytdlp = ytdlp_candidates.into_iter().find(|p| p.is_file());
+            if py_exe.is_file() && ytdlp.is_some() {
+                let ytdlp = ytdlp.unwrap();
                 ensure_android_python(tools, &lib_dir);
                 let py_home = tools.bin.parent().unwrap_or(&tools.bin).join("python");
+                let usr_dir = if py_home.join("usr").is_dir() {
+                    py_home.join("usr")
+                } else {
+                    py_home.clone()
+                };
                 let mut c = Command::new(&py_exe);
                 c.arg(&ytdlp);
-                c.env("PYTHONHOME", &py_home);
-                c.env("PYTHONPATH", py_home.join("usr").join("lib"));
+                c.env("PYTHONHOME", &usr_dir);
+                c.env("HOME", &usr_dir);
+                let usr_lib = usr_dir.join("lib");
+                c.env("PYTHONPATH", &usr_lib);
+                let cert = usr_dir.join("etc").join("tls").join("cert.pem");
+                if cert.is_file() {
+                    c.env("SSL_CERT_FILE", &cert);
+                }
+                c.env("LD_LIBRARY_PATH", format!("{}:{}", usr_lib.display(), lib_dir.display()));
                 let tmp = tools.bin.parent().unwrap_or(&tools.bin).join("tmp");
                 let _ = fs::create_dir_all(&tmp);
                 c.env("TMPDIR", &tmp);
-                c.env("PATH", format!("{}:/system/bin", lib_dir.display()));
+                let usr_bin = usr_dir.join("bin");
+                c.env("PATH", format!("{}:{}:/system/bin", usr_bin.display(), lib_dir.display()));
                 c.args([
                     "--ignore-config",
                     "--no-playlist",
                     "--no-warnings",
                     "--no-color",
                     "--socket-timeout",
-                    "25",
+                    "30",
                     "--retries",
                     "3",
                     "--extractor-args",
                     "youtube:player_client=android,web",
-                    "--ffmpeg-location",
                 ]);
-                c.arg(&lib_dir);
+                let ff_exe = lib_dir.join("libffmpeg.so");
+                if ff_exe.is_file() {
+                    c.arg("--ffmpeg-location").arg(&ff_exe);
+                } else {
+                    c.arg("--ffmpeg-location").arg(&lib_dir);
+                }
                 let qjs = lib_dir.join("libqjs.so");
                 if qjs.is_file() {
                     c.arg("--js-runtimes").arg(format!("quickjs:{}", qjs.display()));

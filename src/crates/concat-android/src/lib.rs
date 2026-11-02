@@ -498,15 +498,19 @@ mod native_libs {
                 log::info!("CONCAT_NATIVE_LIBS={path}");
             }
             if let Ok(data) = std::env::var("XDG_DATA_HOME") {
-                let tools_dir = std::path::PathBuf::from(data).join("concat").join("link-tools");
-                let tools_str = tools_dir.to_string_lossy();
-                let tools_jstr = env.new_string(&tools_str)?;
-                let _ = env.call_static_method(
-                    class,
-                    jni_str!("extractAssets"),
-                    jni_sig!("(Landroid/app/Activity;Ljava/lang/String;)V"),
-                    &[activity.into(), (&tools_jstr).into()],
-                );
+                let p1 = std::path::PathBuf::from(&data).join("app.cdcedit.editor").join("link-tools");
+                let p2 = std::path::PathBuf::from(&data).join("concat").join("link-tools");
+                for p in [p1, p2] {
+                    let tools_str = p.to_string_lossy();
+                    if let Ok(tools_jstr) = env.new_string(&tools_str) {
+                        let _ = env.call_static_method(
+                            class,
+                            jni_str!("extractAssets"),
+                            jni_sig!("(Landroid/app/Activity;Ljava/lang/String;)V"),
+                            &[activity.into(), (&tools_jstr).into()],
+                        );
+                    }
+                }
             }
             Ok(())
         });

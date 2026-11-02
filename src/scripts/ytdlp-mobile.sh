@@ -54,6 +54,7 @@ cp "$tmp/ff_extracted/jni/$abi/libffprobe.so" "$dest/"
 # Non-ELF zip archives into assets
 cp "$tmp/lib_extracted/res/raw/ytdlp" "$assets/ytdlp"
 cp "$tmp/lib_extracted/jni/$abi/libpython.zip.so" "$assets/python.zip"
+cp "$tmp/ff_extracted/jni/$abi/libffmpeg.zip.so" "$assets/ffmpeg.zip"
 
 rm -rf "$tmp"
 echo "Android native binaries installed to $dest:"

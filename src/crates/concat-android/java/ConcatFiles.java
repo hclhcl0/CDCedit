@@ -192,7 +192,7 @@ public class ConcatFiles extends Fragment {
         if (activity == null || targetDir == null) return;
         File dir = new File(targetDir);
         dir.mkdirs();
-        String[] files = new String[] {"ytdlp", "python.zip"};
+        String[] files = new String[] {"ytdlp", "python.zip", "ffmpeg.zip"};
         for (String name : files) {
             File dest = new File(dir, name);
             if (dest.exists() && dest.length() > 0) continue;
@@ -203,7 +203,8 @@ public class ConcatFiles extends Fragment {
                 while ((read = in.read(buf)) > 0) {
                     out.write(buf, 0, read);
                 }
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                android.util.Log.w("ConcatFiles", "Could not extract " + name + ": " + e.getMessage());
             }
         }
     }
