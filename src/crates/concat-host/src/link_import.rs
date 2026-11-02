@@ -428,28 +428,61 @@ fn run(
 #[cfg(target_os = "android")]
 fn ensure_android_python(tools: &Tools, native_libs: &Path) {
     let py_home = tools.bin.parent().unwrap_or(&tools.bin).join("python");
-    let marker = py_home.join(".extracted_v2");
+    let marker = py_home.join(".extracted_v3");
     if marker.is_file() {
         return;
     }
+    let _ = fs::remove_dir_all(&py_home);
     let extract_zip = |archive_path: &Path, target_dir: &Path| {
         if let Ok(file) = fs::File::open(archive_path) {
             if let Ok(mut archive) = zip::ZipArchive::new(file) {
                 let _ = fs::create_dir_all(target_dir);
+                let mut symlinks = Vec::new();
                 for i in 0..archive.len() {
                     if let Ok(mut f) = archive.by_index(i) {
                         if let Some(enclosed) = f.enclosed_name() {
                             let outpath = target_dir.join(enclosed);
                             if f.is_dir() {
                                 let _ = fs::create_dir_all(&outpath);
-                            } else {
-                                if let Some(p) = outpath.parent() {
-                                    let _ = fs::create_dir_all(p);
+                                continue;
+                            }
+                            if let Some(p) = outpath.parent() {
+                                let _ = fs::create_dir_all(p);
+                            }
+                            let is_symlink = f
+                                .unix_mode()
+                                .map_or(false, |m| (m & 0o170000) == 0o120000);
+                            if is_symlink {
+                                let mut target_bytes = Vec::new();
+                                use std::io::Read;
+                                if f.read_to_end(&mut target_bytes).is_ok() {
+                                    if let Ok(target_str) = String::from_utf8(target_bytes) {
+                                        symlinks.push((outpath, target_str.trim().to_string()));
+                                    }
                                 }
+                            } else {
+                                let _ = fs::remove_file(&outpath);
                                 if let Ok(mut outfile) = fs::File::create(&outpath) {
                                     let _ = std::io::copy(&mut f, &mut outfile);
                                 }
                             }
+                        }
+                    }
+                }
+                for (outpath, target_str) in symlinks {
+                    let _ = fs::remove_file(&outpath);
+                    #[cfg(unix)]
+                    {
+                        let _ = std::os::unix::fs::symlink(&target_str, &outpath);
+                    }
+                    if !outpath.is_file() {
+                        let target_path = if let Some(parent) = outpath.parent() {
+                            parent.join(&target_str)
+                        } else {
+                            PathBuf::from(&target_str)
+                        };
+                        if target_path.is_file() {
+                            let _ = fs::copy(&target_path, &outpath);
                         }
                     }
                 }
@@ -508,7 +541,6 @@ fn video_command(tools: &Tools, cookies: Option<&Path>) -> Command {
                 c.env("PYTHONHOME", &usr_dir);
                 c.env("HOME", &usr_dir);
                 let usr_lib = usr_dir.join("lib");
-                c.env("PYTHONPATH", &usr_lib);
                 let cert = usr_dir.join("etc").join("tls").join("cert.pem");
                 if cert.is_file() {
                     c.env("SSL_CERT_FILE", &cert);
