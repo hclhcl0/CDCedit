@@ -2297,11 +2297,19 @@ component WideHome inherits Rectangle {
                 if root.recents-total == 0 && root.project-tab == 1: VerticalLayout {
                     padding: 32px;
                     alignment: center;
+                    spacing: 14px;
                     Text {
-                        text: "Không tìm thấy dự án CapCut nào trên máy tính.";
+                        text: "Chưa tìm thấy dự án CapCut nào tự động.";
                         color: Theme.fg-muted;
                         font-size: Theme.fs-lg;
                         horizontal-alignment: center;
+                    }
+                    HorizontalLayout {
+                        alignment: center;
+                        Button {
+                            label: "Mở tệp / thư mục dự án CapCut (JSON / ZIP)...";
+                            clicked => { root.link("import-capcut"); }
+                        }
                     }
                 }
 
@@ -2584,11 +2592,33 @@ component NarrowHome inherits Rectangle {
 
                 Rectangle { height: 10px; }
 
-                if root.recents.length == 0: Text {
+                if root.project-tab == 1: VerticalLayout {
+                    padding-bottom: 6px;
+                    HorizontalLayout {
+                        alignment: center;
+                        Button {
+                            label: "📂 Mở tệp / thư mục dự án CapCut (JSON / ZIP)...";
+                            clicked => { root.link("import-capcut"); }
+                        }
+                    }
+                }
+
+                if root.recents.length == 0 && root.project-tab == 0: Text {
                     text: I18n.t1("start.noMatches", root.query);
                     color: Theme.fg-muted;
                     font-size: Theme.fs-lg;
                     wrap: word-wrap;
+                }
+
+                if root.recents.length == 0 && root.project-tab == 1: VerticalLayout {
+                    padding: 16px;
+                    alignment: center;
+                    Text {
+                        text: "Chưa tìm thấy dự án CapCut nào tự động.";
+                        color: Theme.fg-muted;
+                        font-size: Theme.fs;
+                        horizontal-alignment: center;
+                    }
                 }
 
                 for project in root.recents: ProjectRow {

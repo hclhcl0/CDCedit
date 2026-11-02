@@ -372,6 +372,10 @@ impl StartPane {
                         )));
                         return;
                     }
+                    "import-capcut" => {
+                        crate::capcut_import::import_capcut_dialog(studio);
+                        return;
+                    }
                     "tool-captions" => {
                         use crate::panes::captions::CaptionsMsg;
                         studio.handle(crate::panes::Msg::Captions(CaptionsMsg::Open));

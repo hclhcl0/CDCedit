@@ -101,9 +101,43 @@ pub fn list_capcut_drafts() -> Vec<CapCutDraft> {
         }
     }
 
-    // 2. Also scan default drafts directory for any folders not yet in root_meta_info.json
-    if let Some(default_dir) = default_capcut_drafts_dir() {
-        if let Ok(entries) = std::fs::read_dir(&default_dir) {
+    // 2. Also scan all candidate drafts directories for any folders not yet in root_meta_info.json
+    for search_dir in crate::capcut_export::capcut_drafts_dirs() {
+        if !search_dir.is_dir() {
+            continue;
+        }
+
+        // Case A: The directory itself is a draft
+        if is_capcut_draft(&search_dir) {
+            let norm = search_dir.to_string_lossy().replace('\\', "/");
+            if !seen_paths.contains(&norm.to_lowercase()) {
+                seen_paths.insert(norm.to_lowercase());
+                let name = extract_draft_name(&search_dir);
+                let cover_path = find_cover_image(&search_dir);
+                let modified_at_millis = search_dir
+                    .metadata()
+                    .ok()
+                    .and_then(|m| m.modified().ok())
+                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                    .map(|d| d.as_millis() as u64)
+                    .unwrap_or(0);
+
+                drafts.push(CapCutDraft {
+                    path: norm,
+                    name,
+                    cover_path,
+                    duration_sec: 0.0,
+                    size_bytes: 0,
+                    modified_at_millis,
+                    width: 1920,
+                    height: 1080,
+                    exists: true,
+                });
+            }
+        }
+
+        // Case B: Scan subdirectories for drafts
+        if let Ok(entries) = std::fs::read_dir(&search_dir) {
             for entry in entries.flatten() {
                 let p = entry.path();
                 if !p.is_dir() {
@@ -115,13 +149,8 @@ pub fn list_capcut_drafts() -> Vec<CapCutDraft> {
                 }
                 if is_capcut_draft(&p) {
                     seen_paths.insert(norm.to_lowercase());
-                    let name = p
-                        .file_name()
-                        .and_then(|n| n.to_str())
-                        .unwrap_or("Dự án CapCut")
-                        .to_string();
-                    let cover = p.join("draft_cover.jpg");
-                    let cover_path = if cover.is_file() { Some(cover) } else { None };
+                    let name = extract_draft_name(&p);
+                    let cover_path = find_cover_image(&p);
                     let modified_at_millis = entry
                         .metadata()
                         .ok()
@@ -151,17 +180,58 @@ pub fn list_capcut_drafts() -> Vec<CapCutDraft> {
     drafts
 }
 
-/// Check if a directory is a CapCut draft folder.
+fn extract_draft_name(dir: &Path) -> String {
+    let fallback = dir
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("Dự án CapCut")
+        .to_string();
+
+    for meta_name in ["draft_meta_info.json", "draft_info.json", "draft_content.json"] {
+        let meta_file = dir.join(meta_name);
+        if meta_file.is_file() {
+            if let Ok(raw) = std::fs::read_to_string(&meta_file) {
+                if let Ok(val) = serde_json::from_str::<Value>(&raw) {
+                    if let Some(n) = val["draft_name"].as_str().or_else(|| val["name"].as_str()) {
+                        let trimmed = n.trim();
+                        if !trimmed.is_empty() {
+                            return trimmed.to_string();
+                        }
+                    }
+                }
+            }
+        }
+    }
+    fallback
+}
+
+fn find_cover_image(dir: &Path) -> Option<PathBuf> {
+    for name in ["draft_cover.jpg", "draft_cover.png", "cover.jpg", "cover.png"] {
+        let p = dir.join(name);
+        if p.is_file() {
+            return Some(p);
+        }
+    }
+    None
+}
+
+/// Check if a directory or file is a CapCut draft.
 pub fn is_capcut_draft(path: &Path) -> bool {
     if !path.exists() {
         return false;
     }
     if path.is_file() {
-        return path.file_name().map_or(false, |n| n == "draft_content.json");
+        return path.file_name().map_or(false, |n| {
+            n == "draft_content.json"
+                || n == "draft_info.json"
+                || n == "draft_meta_info.json"
+                || n == "project.json"
+        });
     }
     path.join("draft_content.json").is_file()
-        || path.join("Timelines").is_dir()
+        || path.join("draft_info.json").is_file()
         || path.join("draft_meta_info.json").is_file()
+        || path.join("Timelines").is_dir()
 }
 
 /// Filter and sort CapCut drafts for the start screen grid.

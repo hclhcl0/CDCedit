@@ -17,12 +17,11 @@ use serde_json::Value;
 
 use crate::studio::Studio;
 
-/// Main entry point: opens file picker to choose a CapCut `draft_content.json` or draft folder.
+/// Main entry point: opens file picker to choose a CapCut `draft_content.json`, `draft_info.json`, or draft folder/zip.
 pub fn import_capcut_dialog(_studio: &mut Studio) {
-
     crate::host::pick_files_then(
-        "Chọn tệp dự án CapCut (draft_content.json)".to_string(),
-        Some(("CapCut Draft (*.json)".to_string(), &["json"])),
+        "Chọn tệp dự án CapCut (draft_content.json, draft_info.json hoặc .zip)".to_string(),
+        Some(("CapCut Draft (*.json, *.zip)".to_string(), &["json", "zip"])),
         |studio, _, _, paths| {
             if let Some(path) = paths.into_iter().next() {
                 import_capcut_draft_path(studio, &path);
@@ -33,29 +32,73 @@ pub fn import_capcut_dialog(_studio: &mut Studio) {
 
 /// Parse and import a CapCut draft from a given file or folder path.
 pub fn import_capcut_draft_path(studio: &mut Studio, input_path: &Path) {
-    let (draft_file, draft_dir) = if input_path.is_dir() {
-        (input_path.join("draft_content.json"), input_path.to_path_buf())
-    } else if input_path.is_file() {
-        let parent = input_path.parent().unwrap_or(Path::new(".")).to_path_buf();
-        (input_path.to_path_buf(), parent)
+    // If user provided a .zip archive (common way to backup/share mobile drafts)
+    let extracted_dir = if input_path.is_file()
+        && input_path.extension().map_or(false, |ext| ext.eq_ignore_ascii_case("zip"))
+    {
+        let stem = input_path.file_stem().and_then(|s| s.to_str()).unwrap_or("capcut_draft");
+        let dest = studio.host.dirs.data.join("CapCut").join(stem);
+        if let Ok(file) = std::fs::File::open(input_path) {
+            if let Ok(mut archive) = zip::ZipArchive::new(file) {
+                let _ = std::fs::create_dir_all(&dest);
+                let _ = archive.extract(&dest);
+                Some(dest)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
     } else {
-        studio.notify(&format!("Đường dẫn không hợp lệ: {}", input_path.display()), true);
+        None
+    };
+
+    let target_path = extracted_dir.as_deref().unwrap_or(input_path);
+
+    let (draft_file, draft_dir) = if target_path.is_dir() {
+        // Look for candidate draft files
+        let candidates = [
+            target_path.join("draft_content.json"),
+            target_path.join("draft_info.json"),
+            target_path.join("draft_meta_info.json"),
+        ];
+        let found = candidates.into_iter().find(|p| p.is_file()).unwrap_or_else(|| {
+            target_path.join("draft_content.json")
+        });
+        (found, target_path.to_path_buf())
+    } else if target_path.is_file() {
+        let parent = target_path.parent().unwrap_or(Path::new(".")).to_path_buf();
+        (target_path.to_path_buf(), parent)
+    } else {
+        studio.notify(&format!("Đường dẫn không hợp lệ: {}", target_path.display()), true);
         return;
     };
 
     let draft_file = if draft_file.is_file() {
         draft_file
     } else {
-        // Modern CapCut 9.x: draft_content.json is inside Timelines/<main_timeline_id>/
-        let project_json = draft_dir.join("Timelines").join("project.json");
-        let mut found = None;
-        if project_json.is_file() {
-            if let Ok(raw) = std::fs::read_to_string(&project_json) {
-                if let Ok(pj) = serde_json::from_str::<Value>(&raw) {
-                    if let Some(main_id) = pj["main_timeline_id"].as_str() {
-                        let candidate = draft_dir.join("Timelines").join(main_id).join("draft_content.json");
-                        if candidate.is_file() {
-                            found = Some(candidate);
+        // Check fallback filenames in draft_dir
+        let candidates = [
+            draft_dir.join("draft_content.json"),
+            draft_dir.join("draft_info.json"),
+            draft_dir.join("draft_meta_info.json"),
+        ];
+        let mut found = candidates.into_iter().find(|p| p.is_file());
+
+        // Modern CapCut: draft_content.json or draft_info.json inside Timelines/<main_timeline_id>/
+        if found.is_none() {
+            let project_json = draft_dir.join("Timelines").join("project.json");
+            if project_json.is_file() {
+                if let Ok(raw) = std::fs::read_to_string(&project_json) {
+                    if let Ok(pj) = serde_json::from_str::<Value>(&raw) {
+                        if let Some(main_id) = pj["main_timeline_id"].as_str() {
+                            let c1 = draft_dir.join("Timelines").join(main_id).join("draft_content.json");
+                            let c2 = draft_dir.join("Timelines").join(main_id).join("draft_info.json");
+                            if c1.is_file() {
+                                found = Some(c1);
+                            } else if c2.is_file() {
+                                found = Some(c2);
+                            }
                         }
                     }
                 }
@@ -64,9 +107,13 @@ pub fn import_capcut_draft_path(studio: &mut Studio, input_path: &Path) {
         if found.is_none() {
             if let Ok(entries) = std::fs::read_dir(draft_dir.join("Timelines")) {
                 for e in entries.flatten() {
-                    let cand = e.path().join("draft_content.json");
-                    if cand.is_file() {
-                        found = Some(cand);
+                    let cand1 = e.path().join("draft_content.json");
+                    let cand2 = e.path().join("draft_info.json");
+                    if cand1.is_file() {
+                        found = Some(cand1);
+                        break;
+                    } else if cand2.is_file() {
+                        found = Some(cand2);
                         break;
                     }
                 }
@@ -77,7 +124,7 @@ pub fn import_capcut_draft_path(studio: &mut Studio, input_path: &Path) {
 
     if !draft_file.is_file() {
         studio.notify(
-            &format!("Không tìm thấy tệp draft_content.json tại: {}", draft_dir.display()),
+            &format!("Không tìm thấy tệp draft_content.json hoặc draft_info.json tại: {}", draft_dir.display()),
             true,
         );
         return;
@@ -99,19 +146,26 @@ pub fn import_capcut_draft_path(studio: &mut Studio, input_path: &Path) {
         }
     };
 
-    // 1. Project name from draft_meta_info.json or directory name
-    let meta_file = draft_dir.join("draft_meta_info.json");
+    // 1. Project name from draft metadata or directory name
     let mut project_name = draft_dir
         .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("Dự án CapCut")
         .to_string();
 
-    if meta_file.is_file() {
-        if let Ok(meta_raw) = std::fs::read_to_string(&meta_file) {
-            if let Ok(meta_val) = serde_json::from_str::<Value>(&meta_raw) {
-                if let Some(name) = meta_val["draft_name"].as_str().filter(|s| !s.is_empty()) {
-                    project_name = name.to_string();
+    if let Some(name) = draft["draft_name"].as_str().or_else(|| draft["name"].as_str()).filter(|s| !s.trim().is_empty()) {
+        project_name = name.trim().to_string();
+    } else {
+        for meta_name in ["draft_meta_info.json", "draft_info.json"] {
+            let meta_file = draft_dir.join(meta_name);
+            if meta_file.is_file() {
+                if let Ok(meta_raw) = std::fs::read_to_string(&meta_file) {
+                    if let Ok(meta_val) = serde_json::from_str::<Value>(&meta_raw) {
+                        if let Some(name) = meta_val["draft_name"].as_str().or_else(|| meta_val["name"].as_str()).filter(|s| !s.trim().is_empty()) {
+                            project_name = name.trim().to_string();
+                            break;
+                        }
+                    }
                 }
             }
         }

@@ -1203,12 +1203,13 @@ impl SpeechPane {
                                 } else {
                                     None
                                 };
+                                let total_rows = rows.len();
                                 return Ok(DubResult {
                                     rows,
                                     preview,
                                     listen: false,
                                     review_all: false,
-                                    notice: Some(format!("Dừng tại câu {}/{}: {}", i + 1, rows.len(), e)),
+                                    notice: Some(format!("Dừng tại câu {}/{}: {}", i + 1, total_rows, e)),
                                 });
                             }
                         };
