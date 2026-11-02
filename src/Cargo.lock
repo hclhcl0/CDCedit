@@ -1259,6 +1259,7 @@ dependencies = [
  "wayland-client",
  "wgpu",
  "winresource",
+ "zip",
 ]
 
 [[package]]
