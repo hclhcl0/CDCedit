@@ -1198,13 +1198,10 @@ impl SpeechPane {
                             Ok(p) => p,
                             Err(e) => {
                                 cloud_tts::check_cancel(&cancel)?;
-                                let (preview, _) = if dubbing::missing_audio(&rows).is_empty() {
-                                    match dubbing::render(&rows, &project, &cancel) {
-                                        Ok(path) => (Some(path), None),
-                                        Err(_) => (None, None),
-                                    }
+                                let preview = if dubbing::missing_audio(&rows).is_empty() {
+                                    dubbing::render(&rows, &project, &cancel).ok()
                                 } else {
-                                    (None, None)
+                                    None
                                 };
                                 return Ok(DubResult {
                                     rows,

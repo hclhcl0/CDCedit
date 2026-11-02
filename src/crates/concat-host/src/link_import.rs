@@ -134,24 +134,56 @@ impl Tools {
     pub fn exe(&self, name: &str) -> PathBuf {
         #[cfg(target_os = "android")]
         {
-            let path = self.bin.join(name);
-            if path.is_file() {
-                return path;
-            }
-            if let Some(parent) = self.bin.parent() {
-                let pkg_bin = parent.join("no_backup").join("youtubedl-android").join("packages");
+            if let Ok(native_libs) = std::env::var("CONCAT_NATIVE_LIBS") {
+                let lib_dir = PathBuf::from(&native_libs);
                 if name == "yt-dlp" || name == "python" {
-                    let py = pkg_bin.join("python").join("bin").join("python3");
+                    let py = lib_dir.join("libpython.so");
                     if py.is_file() {
                         return py;
                     }
                 }
+                if name == "ytdlp_script" || name == "ytdlp" {
+                    let ytdlp = lib_dir.join("libytdlp.so");
+                    if ytdlp.is_file() {
+                        return ytdlp;
+                    }
+                }
                 if name == "ffmpeg" {
-                    let ff = pkg_bin.join("ffmpeg").join("bin").join("ffmpeg");
+                    let ff = lib_dir.join("libffmpeg.so");
                     if ff.is_file() {
                         return ff;
                     }
                 }
+                if name == "deno" || name == "quickjs" || name == "qjs" {
+                    let qjs = lib_dir.join("libqjs.so");
+                    if qjs.is_file() {
+                        return qjs;
+                    }
+                }
+            }
+            let path = self.bin.join(name);
+            if path.is_file() {
+                return path;
+            }
+            let mut cur = self.bin.parent();
+            while let Some(p) = cur {
+                let pkg_bin = p.join("no_backup").join("youtubedl-android").join("packages");
+                if pkg_bin.is_dir() {
+                    if name == "yt-dlp" || name == "python" {
+                        let py = pkg_bin.join("python").join("bin").join("python3");
+                        if py.is_file() {
+                            return py;
+                        }
+                    }
+                    if name == "ffmpeg" {
+                        let ff = pkg_bin.join("ffmpeg").join("bin").join("ffmpeg");
+                        if ff.is_file() {
+                            return ff;
+                        }
+                    }
+                    break;
+                }
+                cur = p.parent();
             }
             path
         }
@@ -374,7 +406,90 @@ fn run(
     }
     Ok(output)
 }
+#[cfg(target_os = "android")]
+fn ensure_android_python(tools: &Tools, native_libs: &Path) {
+    let py_home = tools.bin.parent().unwrap_or(&tools.bin).join("python");
+    let marker = py_home.join(".extracted");
+    if marker.is_file() {
+        return;
+    }
+    let zip_path = if tools.bin.join("python.zip").is_file() {
+        tools.bin.join("python.zip")
+    } else {
+        native_libs.join("libpython.zip.so")
+    };
+    if let Ok(file) = fs::File::open(&zip_path) {
+        if let Ok(mut archive) = zip::ZipArchive::new(file) {
+            let _ = fs::create_dir_all(&py_home);
+            for i in 0..archive.len() {
+                if let Ok(mut f) = archive.by_index(i) {
+                    if let Some(enclosed) = f.enclosed_name() {
+                        let outpath = py_home.join(enclosed);
+                        if f.is_dir() {
+                            let _ = fs::create_dir_all(&outpath);
+                        } else {
+                            if let Some(p) = outpath.parent() {
+                                let _ = fs::create_dir_all(p);
+                            }
+                            if let Ok(mut outfile) = fs::File::create(&outpath) {
+                                let _ = std::io::copy(&mut f, &mut outfile);
+                            }
+                        }
+                    }
+                }
+            }
+            let _ = fs::write(&marker, b"ok");
+        }
+    }
+}
+
 fn video_command(tools: &Tools, cookies: Option<&Path>) -> Command {
+    #[cfg(target_os = "android")]
+    {
+        if let Ok(native_libs) = std::env::var("CONCAT_NATIVE_LIBS") {
+            let lib_dir = PathBuf::from(&native_libs);
+            let py_exe = lib_dir.join("libpython.so");
+            let ytdlp = if tools.bin.join("ytdlp").is_file() {
+                tools.bin.join("ytdlp")
+            } else {
+                lib_dir.join("libytdlp.so")
+            };
+            if py_exe.is_file() && ytdlp.is_file() {
+                ensure_android_python(tools, &lib_dir);
+                let py_home = tools.bin.parent().unwrap_or(&tools.bin).join("python");
+                let mut c = Command::new(&py_exe);
+                c.arg(&ytdlp);
+                c.env("PYTHONHOME", &py_home);
+                c.env("PYTHONPATH", py_home.join("usr").join("lib"));
+                let tmp = tools.bin.parent().unwrap_or(&tools.bin).join("tmp");
+                let _ = fs::create_dir_all(&tmp);
+                c.env("TMPDIR", &tmp);
+                c.env("PATH", format!("{}:/system/bin", lib_dir.display()));
+                c.args([
+                    "--ignore-config",
+                    "--no-playlist",
+                    "--no-warnings",
+                    "--no-color",
+                    "--socket-timeout",
+                    "25",
+                    "--retries",
+                    "3",
+                    "--extractor-args",
+                    "youtube:player_client=android,web",
+                    "--ffmpeg-location",
+                ]);
+                c.arg(&lib_dir);
+                let qjs = lib_dir.join("libqjs.so");
+                if qjs.is_file() {
+                    c.arg("--js-runtimes").arg(format!("quickjs:{}", qjs.display()));
+                }
+                if let Some(p) = cookies {
+                    c.arg("--cookies").arg(p);
+                }
+                return c;
+            }
+        }
+    }
     let mut c = tools.command("yt-dlp");
     c.args([
         "--ignore-config",

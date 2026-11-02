@@ -186,6 +186,40 @@ public class ConcatFiles extends Fragment {
     }
 
     /**
+     * Extracts bundled assets (ytdlp, python.zip) to targetDir if not already extracted.
+     */
+    public static void extractAssets(Activity activity, String targetDir) {
+        if (activity == null || targetDir == null) return;
+        File dir = new File(targetDir);
+        dir.mkdirs();
+        String[] files = new String[] {"ytdlp", "python.zip"};
+        for (String name : files) {
+            File dest = new File(dir, name);
+            if (dest.exists() && dest.length() > 0) continue;
+            try (InputStream in = activity.getAssets().open(name);
+                 OutputStream out = new FileOutputStream(dest)) {
+                byte[] buf = new byte[65536];
+                int read;
+                while ((read = in.read(buf)) > 0) {
+                    out.write(buf, 0, read);
+                }
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
+    /**
+     * Returns the app's native library directory where embedded binaries
+     * (libpython.so, libffmpeg.so, libqjs.so, libytdlp.so) live with execute permissions.
+     */
+    public static String nativeLibraryDir(Activity activity) {
+        if (activity == null || activity.getApplicationInfo() == null) {
+            return null;
+        }
+        return activity.getApplicationInfo().nativeLibraryDir;
+    }
+
+    /**
      * Opens a web address in the browser, or in whichever app claims it -
      * the launch screen's guides, the repository, the Discord invite. Null
      * when it went, or why it could not. Asked straight rather than through

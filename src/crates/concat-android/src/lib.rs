@@ -474,6 +474,46 @@ mod microphone {
 /// The browser, for the launch screen's guides and links: an ACTION_VIEW
 /// intent through the activity, which the Java sends.
 #[cfg(target_os = "android")]
+mod native_libs {
+    use jni::objects::JString;
+    use jni::{jni_sig, jni_str};
+    use slint::android::AndroidApp;
+
+    pub fn install(app: &AndroidApp) {
+        let _ = super::java::with_class(app, |env, activity, class| {
+            let dir = env
+                .call_static_method(
+                    class,
+                    jni_str!("nativeLibraryDir"),
+                    jni_sig!("(Landroid/app/Activity;)Ljava/lang/String;"),
+                    &[activity.into()],
+                )?
+                .l()?;
+            if !dir.is_null() {
+                let dir = env.cast_local::<JString>(dir)?;
+                let path = dir.mutf8_chars(env)?.to_string();
+                unsafe {
+                    std::env::set_var("CONCAT_NATIVE_LIBS", &path);
+                }
+                log::info!("CONCAT_NATIVE_LIBS={path}");
+            }
+            if let Ok(data) = std::env::var("XDG_DATA_HOME") {
+                let tools_dir = std::path::PathBuf::from(data).join("concat").join("link-tools");
+                let tools_str = tools_dir.to_string_lossy();
+                let tools_jstr = env.new_string(&tools_str)?;
+                let _ = env.call_static_method(
+                    class,
+                    jni_str!("extractAssets"),
+                    jni_sig!("(Landroid/app/Activity;Ljava/lang/String;)V"),
+                    &[activity.into(), (&tools_jstr).into()],
+                );
+            }
+            Ok(())
+        });
+    }
+}
+
+#[cfg(target_os = "android")]
 mod links {
     use jni::objects::JString;
     use jni::{jni_sig, jni_str};
@@ -525,6 +565,7 @@ fn android_main(app: slint::android::AndroidApp) {
     publisher::install(&app);
     microphone::install(&app);
     links::install(&app);
+    native_libs::install(&app);
     if let Err(error) = concat::run() {
         log::error!("{error}");
     }

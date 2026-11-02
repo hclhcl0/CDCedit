@@ -1236,6 +1236,7 @@ dependencies = [
  "concat-mcp",
  "concat-media",
  "concat-project",
+ "concat-render",
  "concat-server",
  "concat-speech",
  "concat-text",

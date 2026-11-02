@@ -187,6 +187,11 @@ jobs:
       - name: sherpa-onnx for Android
         run: src/scripts/sherpa-mobile.sh ${{ matrix.target }}
 
+      - name: youtubedl-android and tools for Android
+        run: |
+          chmod +x src/scripts/ytdlp-mobile.sh
+          src/scripts/ytdlp-mobile.sh ${{ matrix.target }}
+
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: src

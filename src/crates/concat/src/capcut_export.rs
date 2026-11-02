@@ -228,8 +228,10 @@ pub fn export_studio_to_capcut(studio: &mut Studio, launch: bool) {
     match perform_export(studio) {
         Ok((draft_dir, in_capcut_app)) => {
             let mut launched = false;
+            let _ = &mut launched;
             if launch {
                 if let Some(exe) = find_capcut_exe() {
+                    let _ = &exe;
                     #[cfg(target_os = "windows")]
                     {
                         if std::process::Command::new(&exe).spawn().is_ok() {
