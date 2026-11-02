@@ -30,6 +30,17 @@ pub mod upscale;
 
 pub use compositor::Compositor;
 pub use gpu::WgpuCompositor;
+/// The preferred compositor working format: `Rgba16Float`. Exposed so callers
+/// that share the window's device (via [`WgpuCompositor::with_device_and_format`])
+/// can check whether the adapter supports it before opening the compositor.
+pub use gpu::WORK as COMPOSITOR_WORK;
+/// Queries whether `adapter` can blend into the compositor's working format.
+/// Returns [`COMPOSITOR_WORK`] (`Rgba16Float`) when it can, or
+/// `Rgba8UnormSrgb` (the sRGB fallback) when it cannot. Call this in
+/// `Gpu::acquire` and pass the result through to
+/// [`WgpuCompositor::with_device_and_format`] so the shared-device path
+/// checks format support the same way the independent-device path does.
+pub use gpu::work_format as work_format_for;
 pub use metrics::ssim;
 pub use plan::{
     Backdrop, Crop, FramePlan, Geometry, PlannedLayer, PlannedTreatment, Shading, Transition, Warp,

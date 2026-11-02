@@ -287,7 +287,7 @@ export component SpeechForm inherits VerticalLayout {
     padding-bottom: 12px;
 
     // Panel điều khiển chính: Header chọn mode, cấu hình Cloud TTS, Voice Changer, hoặc Dubbing
-    if !root.running: DubbingPanel {
+    DubbingPanel {
         data: root.data.dubbing;
         insert-tag(text, tag, at) => { return root.insert-tag(text, tag, at); }
         action(action,index,text,value) => { root.dubbing-action(action,index,text,value); }
@@ -650,8 +650,8 @@ export component SpeechForm inherits VerticalLayout {
         }
     }
 
-    // THANH TIẾN ĐỘ KHI ĐANG XỬ LÝ (RUNNING PROGRESS)
-    if root.running: VerticalLayout {
+    // THANH TIẾN ĐỘ KHI ĐANG XỬ LÝ (RUNNING PROGRESS - CHỈ CHO MODE 0 TTS)
+    if root.running && root.data.dubbing.mode == 0: VerticalLayout {
         padding: 14px;
         spacing: 8px;
 
@@ -753,7 +753,7 @@ export component SpeechDialog inherits Modal {
     property <bool> running: root.data.running;
 
     PaneScroll {
-        property <length> view-height: root.running ? 200px : Math.min(760px, Math.max(240px, root.height - 140px));
+        property <length> view-height: (root.running && root.data.dubbing.mode == 0) ? 200px : Math.min(760px, Math.max(240px, root.height - 140px));
         min-height: self.view-height;
         max-height: self.view-height;
         finger: true;

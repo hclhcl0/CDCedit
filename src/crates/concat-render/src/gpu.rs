@@ -272,7 +272,7 @@ fn fs_darken(in: VsOut) -> @location(0) vec4<f32> {
 /// one, between the upload and the one conversion to eight bits at the
 /// end (see `resolve`). Uploaded frames are converted into it on the GPU
 /// as they arrive (see `upload`).
-const WORK: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
+pub const WORK: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
 
 /// What a texture in the pool costs a pixel, in [`WORK`].
 const WORK_BYTES: u64 = 8;
@@ -686,7 +686,7 @@ fn limits_for(adapter: &wgpu::Limits) -> wgpu::Limits {
 /// blended and filtered, as on every desktop GPU and most phones;
 /// [`WORK_FALLBACK`] on an OpenGL ES device without half-float colour
 /// buffers.
-fn work_format(adapter: &wgpu::Adapter) -> wgpu::TextureFormat {
+pub fn work_format(adapter: &wgpu::Adapter) -> wgpu::TextureFormat {
     let features = adapter.get_texture_format_features(WORK);
     let needed =
         wgpu::TextureFormatFeatureFlags::BLENDABLE | wgpu::TextureFormatFeatureFlags::FILTERABLE;
@@ -1015,6 +1015,20 @@ impl WgpuCompositor {
     /// texture this draws is one the window can show.
     pub fn with_device(device: wgpu::Device, queue: wgpu::Queue) -> Self {
         Self::drawing_in(device, queue, WORK)
+    }
+
+    /// Like [`WgpuCompositor::with_device`], but drawing in the `work` format
+    /// the caller already determined from the adapter. Use this instead of
+    /// [`WgpuCompositor::with_device`] when you have already called
+    /// `concat_render::work_format_for(&adapter)` (e.g. in `Gpu::acquire`),
+    /// so the shared-device path gets the same format check as the
+    /// independent-device path opened by [`WgpuCompositor::new`].
+    pub fn with_device_and_format(
+        device: wgpu::Device,
+        queue: wgpu::Queue,
+        work: wgpu::TextureFormat,
+    ) -> Self {
+        Self::drawing_in(device, queue, work)
     }
 
     /// [`WgpuCompositor::with_device`], drawing in `work`: [`WORK`], or

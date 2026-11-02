@@ -30,11 +30,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -69,6 +73,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val started = SystemClock.elapsedRealtime()
         ConcatNative.init(applicationContext)
+        YtDlpBridge.init(applicationContext)
         val loaded = SystemClock.elapsedRealtime()
         engine = Engine(filesDir.absolutePath)
         val opened = SystemClock.elapsedRealtime()
@@ -81,7 +86,7 @@ class MainActivity : ComponentActivity() {
         val mode = intent.getStringExtra("mode") ?: "vulkan"
         setContent {
             MaterialTheme(colorScheme = darkColorScheme()) {
-                Editor(engine, importPath, bench, mode, ::copyIn)
+                Editor(engine, importPath, bench, mode, ::copyIn, File(filesDir, "media"))
             }
         }
     }
@@ -110,6 +115,7 @@ private fun Editor(
     bench: Boolean,
     initialMode: String,
     copyIn: (Uri) -> File,
+    downloadDir: File,
 ) {
     val scope = rememberCoroutineScope()
     var clips by remember { mutableStateOf(engine.clips()) }
@@ -121,6 +127,7 @@ private fun Editor(
     var mode by remember { mutableStateOf(initialMode) }
     var message by remember { mutableStateOf("") }
     var scrubbing by remember { mutableStateOf(false) }
+    var showLinkDialog by remember { mutableStateOf(false) }
 
     fun refresh() {
         clips = engine.clips()
@@ -163,6 +170,8 @@ private fun Editor(
         if (importPath != null && clips.isEmpty()) importFile(File(importPath))
         if (bench) runBench(engine)
     }
+
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     Column(
         Modifier.fillMaxSize().background(Color(0xFF111111)).safeDrawingPadding().padding(8.dp),
@@ -208,10 +217,27 @@ private fun Editor(
             Button(onClick = {
                 picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly))
             }) { Text("Import") }
+            Button(onClick = { showLinkDialog = true }) { Text("Tải link") }
             Button(onClick = { if (playing) engine.pause() else engine.play() }, enabled = duration > 0) {
                 Text(if (playing) "Pause" else "Play")
             }
             Text("${seconds(position)} / ${seconds(duration)} s", color = Color.White)
+        }
+
+        if (showLinkDialog) {
+            LinkDownloadDialog(
+                onDismiss = { showLinkDialog = false },
+                onDownloaded = { file ->
+                    exportToPublicDownloads(context, file)
+                    android.widget.Toast.makeText(
+                        context,
+                        "Đã tải xong: Lưu vào Download/CDCedit",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                    scope.launch { importFile(file) }
+                },
+                downloadDir = downloadDir,
+            )
         }
 
         Slider(
@@ -247,6 +273,188 @@ private fun Editor(
             lineHeight = 13.sp,
         )
     }
+}
+
+@Composable
+private fun LinkDownloadDialog(
+    onDismiss: () -> Unit,
+    onDownloaded: (File) -> Unit,
+    downloadDir: File,
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+    var url by remember { mutableStateOf("") }
+    var inspecting by remember { mutableStateOf(false) }
+    var downloading by remember { mutableStateOf(false) }
+    var updating by remember { mutableStateOf(false) }
+    var streamInfo by remember { mutableStateOf<StreamInfo?>(null) }
+    var customName by remember { mutableStateOf("") }
+    var selectedQuality by remember { mutableStateOf(0) }
+    var audioOnly by remember { mutableStateOf(false) }
+    var progress by remember { mutableStateOf(0f) }
+    var statusText by remember { mutableStateOf("") }
+
+    fun startDownload() {
+        downloading = true
+        progress = 0f
+        statusText = "Bắt đầu tải..."
+        scope.launch {
+            val result = YtDlpBridge.download(
+                url = url.trim(),
+                destDir = downloadDir,
+                customName = customName.ifBlank { null },
+                quality = selectedQuality,
+                audioOnly = audioOnly,
+                onProgress = { p, msg ->
+                    progress = p
+                    statusText = msg
+                },
+            )
+            downloading = false
+            result.fold(
+                onSuccess = { file ->
+                    onDownloaded(file)
+                    onDismiss()
+                },
+                onFailure = {
+                    statusText = "Lỗi tải: ${it.message}"
+                },
+            )
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = { if (!downloading && !updating) onDismiss() },
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Tải video từ link")
+                TextButton(
+                    onClick = {
+                        updating = true
+                        statusText = "Đang cập nhật yt-dlp từ GitHub..."
+                        scope.launch {
+                            val res = YtDlpBridge.update(context)
+                            updating = false
+                            res.fold(
+                                onSuccess = { statusText = "Đã cập nhật yt-dlp lên bản mới nhất!" },
+                                onFailure = { statusText = "Lỗi cập nhật: ${it.message}" },
+                            )
+                        }
+                    },
+                    enabled = !updating && !downloading,
+                ) {
+                    Text(if (updating) "Đang nâng cấp..." else "🔄 Cập nhật engine", fontSize = 11.sp)
+                }
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = url,
+                    onValueChange = {
+                        url = it
+                        streamInfo = null
+                    },
+                    label = { Text("YouTube / Facebook / TikTok link") },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !downloading && !inspecting,
+                    singleLine = true,
+                )
+
+                if (inspecting) {
+                    Text("Đang kiểm tra liên kết...", color = Color.Gray, fontSize = 12.sp)
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
+
+                streamInfo?.let { info ->
+                    OutlinedTextField(
+                        value = customName,
+                        onValueChange = { customName = it },
+                        label = { Text("Tên video lưu (bạn có thể sửa cho gọn)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !downloading,
+                        singleLine = true,
+                    )
+                    if (info.duration > 0) {
+                        Text("Thời lượng: ${info.duration.toInt()}s", color = Color.Gray, fontSize = 12.sp)
+                    }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        listOf(0 to "Best", 1080 to "1080p", 720 to "720p", 480 to "480p").forEach { (q, label) ->
+                            FilterChip(
+                                selected = !audioOnly && selectedQuality == q,
+                                onClick = {
+                                    audioOnly = false
+                                    selectedQuality = q
+                                },
+                                label = { Text(label) },
+                                enabled = !downloading,
+                            )
+                        }
+                    }
+                    FilterChip(
+                        selected = audioOnly,
+                        onClick = { audioOnly = !audioOnly },
+                        label = { Text("Chỉ âm thanh (m4a)") },
+                        enabled = !downloading,
+                    )
+                }
+
+                if (downloading) {
+                    Text(statusText.ifEmpty { "Đang tải xuống..." }, fontSize = 12.sp)
+                    LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
+                } else if (statusText.isNotEmpty()) {
+                    Text(statusText, color = Color.Yellow, fontSize = 12.sp)
+                }
+            }
+        },
+        confirmButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (streamInfo == null) {
+                    if (statusText.isNotEmpty()) {
+                        Button(
+                            onClick = { startDownload() },
+                            enabled = url.isNotBlank() && !downloading,
+                        ) { Text("Tải trực tiếp") }
+                    }
+                    Button(
+                        onClick = {
+                            if (url.isNotBlank()) {
+                                inspecting = true
+                                statusText = ""
+                                scope.launch {
+                                    val result = YtDlpBridge.inspect(url.trim())
+                                    inspecting = false
+                                    result.fold(
+                                        onSuccess = {
+                                            streamInfo = it
+                                            customName = it.title
+                                        },
+                                        onFailure = { statusText = "Lỗi kiểm tra: ${it.message}" },
+                                    )
+                                }
+                            }
+                        },
+                        enabled = url.isNotBlank() && !inspecting && !downloading,
+                    ) { Text("Kiểm tra") }
+                } else {
+                    Button(
+                        onClick = { startDownload() },
+                        enabled = !downloading,
+                    ) { Text("Tải về") }
+                }
+            }
+        },
+        dismissButton = {
+            if (!downloading) {
+                TextButton(onClick = onDismiss) { Text("Đóng") }
+            }
+        },
+    )
 }
 
 /** The timeline: one block per clip at 48dp a second, the playhead over it. Tap to seek. */
@@ -330,4 +538,54 @@ private suspend fun runBench(engine: Engine) {
     delay(6000)
     report("play")
     engine.pause()
+}
+
+private fun exportToPublicDownloads(context: android.content.Context, sourceFile: File) {
+    try {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            val resolver = context.contentResolver
+            val contentValues = android.content.ContentValues().apply {
+                put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, sourceFile.name)
+                put(
+                    android.provider.MediaStore.MediaColumns.MIME_TYPE,
+                    if (sourceFile.extension.lowercase() == "m4a") "audio/mp4" else "video/mp4"
+                )
+                put(
+                    android.provider.MediaStore.MediaColumns.RELATIVE_PATH,
+                    "${android.os.Environment.DIRECTORY_DOWNLOADS}/CDCedit"
+                )
+                put(android.provider.MediaStore.MediaColumns.IS_PENDING, 1)
+            }
+            val uri = resolver.insert(
+                if (sourceFile.extension.lowercase() == "m4a")
+                    android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+                else
+                    android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                contentValues
+            )
+            if (uri != null) {
+                resolver.openOutputStream(uri)?.use { out ->
+                    sourceFile.inputStream().use { it.copyTo(out) }
+                }
+                contentValues.clear()
+                contentValues.put(android.provider.MediaStore.MediaColumns.IS_PENDING, 0)
+                resolver.update(uri, contentValues, null, null)
+            }
+        } else {
+            val pubDir = File(
+                android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS),
+                "CDCedit"
+            ).apply { mkdirs() }
+            val dest = File(pubDir, sourceFile.name)
+            sourceFile.copyTo(dest, overwrite = true)
+            android.media.MediaScannerConnection.scanFile(
+                context,
+                arrayOf(dest.absolutePath),
+                null,
+                null
+            )
+        }
+    } catch (e: Exception) {
+        Log.e("concat-spike", "Failed to export to public downloads: ${e.message}")
+    }
 }

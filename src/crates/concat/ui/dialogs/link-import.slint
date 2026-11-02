@@ -50,8 +50,8 @@ export component LinkImportDialog inherits Modal {
                     if !root.data.mobile: Button {label:root.data.ready ? I18n.t("links.updateTools") : I18n.t("links.installTools");enabled:!root.data.busy;ghost:true;clicked=>{root.action(9,0,"");}}
                     Button {label:I18n.t("links.inspect");enabled:(root.data.mobile || root.data.ready) && !root.data.busy;clicked=>{root.action(11,0,"");}}
                 }
-                if !root.data.mobile: DialogRow {label:I18n.t("links.quality");Select {options:[I18n.t("links.best"),"1080p","720p","480p"];current:root.data.quality;enabled:!root.data.busy;changed(index)=>{root.action(3,index,"");}}}
-                if !root.data.mobile: DialogRow {label:I18n.t("links.audioOnly");Switch {checked:root.data.audio;enabled:!root.data.busy;toggled(on)=>{root.action(4,on ? 1 : 0,"");}}}
+                DialogRow {label:I18n.t("links.quality");Select {options:[I18n.t("links.best"),"1080p","720p","480p"];current:root.data.quality;enabled:!root.data.busy;changed(index)=>{root.action(3,index,"");}}}
+                DialogRow {label:I18n.t("links.audioOnly");Switch {checked:root.data.audio;enabled:!root.data.busy;toggled(on)=>{root.action(4,on ? 1 : 0,"");}}}
                 if !root.data.mobile: Text {text:I18n.t("links.driveOriginal");color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
             }
             if !root.data.mobile: DialogSection {
@@ -78,11 +78,34 @@ export component LinkImportDialog inherits Modal {
                 title:I18n.t("links.selectMedia");
                 Button {label:I18n.t("links.toggleAll");ghost:true;enabled:!root.data.busy;clicked=>{root.action(7,0,"");}}
                 for item[index] in root.data.items: VerticalLayout {
+                    spacing: 4px;
                     HorizontalLayout {
                         spacing:8px;
                         Switch {checked:item.selected;enabled:!root.data.busy;toggled(on)=>{root.action(6,index,"");}}
                         Image {source:item.thumbnail;width:56px;height:40px;image-fit:contain;}
-                        Text {text:item.title;color:Theme.fg;font-size:Theme.fs;wrap:word-wrap;horizontal-stretch:1;}
+                        Rectangle {
+                            background: Theme.field;
+                            border-radius: Theme.r;
+                            clip: true;
+                            horizontal-stretch: 1;
+                            height: 32px;
+                            TextInput {
+                                x: 6px;
+                                y: (parent.height - self.height) / 2;
+                                width: parent.width - 12px;
+                                height: self.preferred-height;
+                                text: item.title;
+                                color: Theme.fg;
+                                font-size: Theme.fs;
+                                single-line: true;
+                                enabled: !root.data.busy;
+                                changed has-focus => {
+                                    if (!self.has-focus) {
+                                        root.action(16, index, self.text);
+                                    }
+                                }
+                            }
+                        }
                     }
                     Text {text:item.detail;color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
                 }

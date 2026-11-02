@@ -9,13 +9,30 @@ import android.view.Surface
  * once before JNA opens the same .so for the UniFFI calls.
  */
 object ConcatNative {
+    private var loaded = false
+
     init {
-        System.loadLibrary("concat_mobile")
+        try {
+            System.loadLibrary("concat_mobile")
+            loaded = true
+        } catch (_: Throwable) {
+        }
     }
 
     /** Logcat, and the JavaVM + Context that cpal's AAudio host reads. */
-    @JvmStatic external fun init(context: Context)
+    @JvmStatic fun init(context: Context) {
+        if (loaded) {
+            try { nativeInit(context) } catch (_: Throwable) {}
+        }
+    }
 
     /** The Surface's ANativeWindow with one reference acquired; 0 for none. */
-    @JvmStatic external fun windowFromSurface(surface: Surface): Long
+    @JvmStatic fun windowFromSurface(surface: Surface): Long {
+        return if (loaded) {
+            try { nativeWindowFromSurface(surface) } catch (_: Throwable) { 0L }
+        } else 0L
+    }
+
+    @JvmStatic private external fun nativeInit(context: Context)
+    @JvmStatic private external fun nativeWindowFromSurface(surface: Surface): Long
 }

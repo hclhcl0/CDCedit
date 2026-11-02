@@ -10,6 +10,7 @@ import { Rail, Switch } from "../inspector/controls.slint";
 export struct DubbingRowData { text: string, start: float, end: float, generated: bool }
 export struct DubbingData {
     expressions: bool,
+    align-mode: int,
     mode: int, provider: int, cloud-voice: string, cloud-model: string,
     voice-choice: int, voice-names: [string], voice-gender: int, show-paid: bool, catalog-loading: bool, accent: int, delivery-preset: int,
     temperature: float,
@@ -695,19 +696,70 @@ export component DubbingPanel inherits VerticalLayout {
             }
         }
 
+        // Cấu hình căn thời gian riêng cho Mode 1 (Lồng tiếng track chữ)
+        if root.data.mode == 1 && root.data.rows.length > 0: DialogSection {
+            title: "Phương thức lồng tiếng phụ đề";
+
+            DialogRow {
+                label: I18n.t("dubbing.alignMode");
+                Select {
+                    options: [
+                        I18n.t("dubbing.alignModeNoWhisper"),
+                        I18n.t("dubbing.alignModeWithWhisper")
+                    ];
+                    current: root.data.align-mode;
+                    changed(index) => { root.action(50, index, "", 0); }
+                }
+            }
+
+            if root.data.align-mode == 1: DialogRow {
+                label: "Whisper";
+                Select {
+                    options: root.data.whispers;
+                    current: root.data.whisper;
+                    placeholder: I18n.t("common.noneInstalled");
+                    changed(index) => { root.action(15, index, "", 0); }
+                }
+            }
+
+            Text {
+                text: root.data.align-mode == 0
+                    ? I18n.t("dubbing.alignModeNoWhisperDesc")
+                    : I18n.t("dubbing.alignModeWithWhisperDesc");
+                color: Theme.fg-muted;
+                font-size: Theme.fs-sm;
+                wrap: word-wrap;
+            }
+        }
+
         // Bảng câu thoại của mode 1 & 2
         if root.data.rows.length > 0: VerticalLayout {
             spacing: 8px;
             HorizontalLayout {
                 spacing: 8px;
-                Button {
+                if root.data.mode == 1: Button {
+                    horizontal-stretch: 1;
+                    label: I18n.t("dubbing.generateNoWhisper");
+                    primary: root.data.align-mode == 0;
+                    glyph: Glyph.sparkle;
+                    clicked => { root.action(50, 0, "", 0); root.action(8, 0, "", 0); }
+                }
+                if root.data.mode == 1: Button {
+                    horizontal-stretch: 1;
+                    label: I18n.t("dubbing.generateWithWhisper");
+                    primary: root.data.align-mode == 1;
+                    glyph: Glyph.mic;
+                    clicked => { root.action(50, 1, "", 0); root.action(8, 0, "", 0); }
+                }
+                if root.data.mode != 1: Button {
                     horizontal-stretch: 1;
                     label: I18n.t("dubbing.generateUnified");
                     primary: true;
+                    glyph: Glyph.mic;
                     clicked => { root.action(8, 0, "", 0); }
                 }
                 Button {
-                    label: "✨ Gemini ngắt câu thông minh";
+                    label: "✨ Gemini ngắt câu";
                     ghost: true;
                     clicked => { root.action(37, 0, "", 0); }
                 }
@@ -745,7 +797,7 @@ export component DubbingPanel inherits VerticalLayout {
     // DANH SÁCH CÂU THOẠI (DÀNH CHO MODE 1, 2 HOẶC VOICE CHANGER PHƯƠNG THỨC 3)
     // ─────────────────────────────────────────────────────────────
     if root.data.mode != 0 && root.data.rows.length > 0 && (root.data.mode != 3 || root.data.vc-method == 2): Flickable {
-        height: 280px;
+        height: 340px;
         content-height: root.data.rows.length * (root.data.expressions ? 174px : 136px);
         content-width: self.width;
         for row[index] in root.data.rows: Rectangle {

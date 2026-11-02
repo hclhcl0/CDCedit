@@ -79,7 +79,7 @@ impl Host {
             dirs,
             playback: Playback::start(Arc::new(Events))?,
             monitor: match gpu {
-                Some(gpu) => Monitor::with_gpu(gpu.device, gpu.queue),
+                Some(gpu) => Monitor::with_gpu(gpu.device, gpu.queue, gpu.work_format),
                 None => Monitor::new(),
             },
             exporter: Exporter::new(),

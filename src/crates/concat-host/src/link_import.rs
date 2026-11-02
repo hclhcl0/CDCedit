@@ -132,17 +132,66 @@ impl Tools {
     }
     /// Executable path for the active platform.
     pub fn exe(&self, name: &str) -> PathBuf {
-        self.bin.join(if cfg!(windows) {
-            format!("{name}.exe")
-        } else {
-            name.into()
-        })
+        #[cfg(target_os = "android")]
+        {
+            let path = self.bin.join(name);
+            if path.is_file() {
+                return path;
+            }
+            if let Some(parent) = self.bin.parent() {
+                let pkg_bin = parent.join("no_backup").join("youtubedl-android").join("packages");
+                if name == "yt-dlp" || name == "python" {
+                    let py = pkg_bin.join("python").join("bin").join("python3");
+                    if py.is_file() {
+                        return py;
+                    }
+                }
+                if name == "ffmpeg" {
+                    let ff = pkg_bin.join("ffmpeg").join("bin").join("ffmpeg");
+                    if ff.is_file() {
+                        return ff;
+                    }
+                }
+            }
+            path
+        }
+        #[cfg(not(target_os = "android"))]
+        {
+            let local = self.bin.join(if cfg!(windows) {
+                format!("{name}.exe")
+            } else {
+                name.into()
+            });
+            if local.is_file() {
+                return local;
+            }
+            if let Some(paths) = std::env::var_os("PATH") {
+                let filename = if cfg!(windows) {
+                    format!("{name}.exe")
+                } else {
+                    name.to_string()
+                };
+                for dir in std::env::split_paths(&paths) {
+                    let candidate = dir.join(&filename);
+                    if candidate.is_file() {
+                        return candidate;
+                    }
+                }
+            }
+            local
+        }
     }
     /// All required tools are installed.
     pub fn ready(&self) -> bool {
-        ["yt-dlp", "rclone", "ffmpeg", "ffprobe", "deno"]
-            .iter()
-            .all(|n| self.exe(n).is_file())
+        #[cfg(target_os = "android")]
+        {
+            // Embedded via youtubedl-android or native binary on Android
+            true
+        }
+        #[cfg(not(target_os = "android"))]
+        {
+            self.exe("yt-dlp").is_file() && self.exe("ffmpeg").is_file()
+        }
     }
     /// A completed local Drive authorization is present.
     pub fn connected(&self) -> bool {
@@ -335,12 +384,20 @@ fn video_command(tools: &Tools, cookies: Option<&Path>) -> Command {
         "--socket-timeout",
         "25",
         "--retries",
-        "2",
+        "3",
+        "--extractor-args",
+        "youtube:player_client=android,web",
     ]);
-    c.arg("--ffmpeg-location")
-        .arg(&tools.bin)
-        .arg("--js-runtimes")
-        .arg(format!("deno:{}", tools.exe("deno").display()));
+    let ffmpeg = tools.exe("ffmpeg");
+    if let Some(dir) = ffmpeg.parent() {
+        c.arg("--ffmpeg-location").arg(dir);
+    } else {
+        c.arg("--ffmpeg-location").arg(&tools.bin);
+    }
+    let deno = tools.exe("deno");
+    if deno.is_file() {
+        c.arg("--js-runtimes").arg(format!("deno:{}", deno.display()));
+    }
     if let Some(p) = cookies {
         c.arg("--cookies").arg(p);
     }
@@ -597,6 +654,27 @@ fn thumbnail(tools: &Tools, address: &str) -> String {
         String::new()
     }
 }
+fn clean_title(title: &str) -> String {
+    let mut words = Vec::new();
+    for word in title.split_whitespace() {
+        if word.starts_with('#') {
+            continue;
+        }
+        words.push(word);
+    }
+    let combined = words.join(" ");
+    let filtered: String = combined
+        .chars()
+        .filter(|c| !c.is_control() && !matches!(c, '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*'))
+        .take(70)
+        .collect();
+    let trimmed = filtered.trim().trim_matches(['.', ' ', '-']);
+    if trimmed.is_empty() {
+        "video".to_string()
+    } else {
+        trimmed.to_string()
+    }
+}
 /// Inspect source links without downloading their media.
 pub fn inspect(
     tools: &Tools,
@@ -695,6 +773,12 @@ pub fn inspect(
                     Source::Video(u) | Source::Drive { url: u, .. } => u,
                 };
                 let mut c = video_command(tools, cookies);
+                if url.contains("facebook.com") || url.contains("fb.watch") || url.contains("fb.com") {
+                    c.args([
+                        "--user-agent",
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    ]);
+                }
                 c.args(["--skip-download", "--dump-single-json", "--", &url]);
                 let bytes = run(c, cancel, Duration::from_secs(90), &mut |_, _| {})?;
                 let v: Value =
@@ -708,10 +792,25 @@ pub fn inspect(
                     .flatten()
                     .filter_map(|f| f["height"].as_u64().map(|h| h as u32))
                     .collect();
+                if heights.is_empty() {
+                    if let Some(formats) = v["formats"].as_array() {
+                        for f in formats {
+                            let fid = f["format_id"].as_str().unwrap_or("");
+                            if fid.contains("hd") {
+                                heights.push(1080);
+                            } else if fid.contains("sd") {
+                                heights.push(480);
+                            }
+                        }
+                    }
+                    if heights.is_empty() {
+                        heights.extend([1080, 720, 480]);
+                    }
+                }
                 heights.sort_unstable();
                 heights.dedup();
                 result.push(Item {
-                    title: v["title"].as_str().unwrap_or("Media").into(),
+                    title: clean_title(v["title"].as_str().unwrap_or("Media")),
                     url,
                     drive_id: String::new(),
                     public_drive: false,
@@ -777,6 +876,15 @@ pub fn download(
         }
         let mut c = if item.drive_id.is_empty() {
             let mut c = video_command(tools, cookies);
+            if item.url.contains("facebook.com")
+                || item.url.contains("fb.watch")
+                || item.url.contains("fb.com")
+            {
+                c.args([
+                    "--user-agent",
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                ]);
+            }
             c.args([
                 "--newline",
                 "--progress",
@@ -786,7 +894,8 @@ pub fn download(
                 "--print",
                 "after_move:filepath",
             ]);
-            c.arg("-o").arg(dir.join("%(title).120B [%(id)s].%(ext)s"));
+            let clean_name = clean_title(&item.title);
+            c.arg("-o").arg(dir.join(format!("{clean_name}.%(ext)s")));
             if audio {
                 c.args([
                     "-f",
@@ -797,11 +906,11 @@ pub fn download(
                 ]);
             } else {
                 let format = if height == 0 {
-                    "bv*+ba/b".to_owned()
+                    "bestvideo+bestaudio/best".to_owned()
                 } else {
-                    format!("bv*[height<={height}]+ba/b[height<={height}]")
+                    format!("bestvideo[height<={height}]+bestaudio/best[height<={height}]/best")
                 };
-                c.args(["-f", &format, "--merge-output-format", "mkv"]);
+                c.args(["-f", &format, "--merge-output-format", "mp4"]);
             }
             c.args(["--", &item.url]);
             c

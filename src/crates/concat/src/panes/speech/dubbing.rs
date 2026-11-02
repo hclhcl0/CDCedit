@@ -17,6 +17,7 @@ pub struct Dubbing {
     pub gender: i32,
     pub show_paid: bool,
     pub mode: i32,
+    pub align_mode: i32,
     pub provider: i32,
     pub preferences_loaded: bool,
     pub options: cloud_tts::VoiceOptions,
@@ -235,7 +236,7 @@ impl SpeechPane {
         let previous_voice = self.dub.voice().to_owned();
         if matches!(
             action,
-            0 | 1 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 12 | 13 | 14 | 18..=25 | 37 | 40 | 42 | 43 | 44 | 45 | 47 | 48
+            0 | 1 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 12 | 13 | 14 | 18..=25 | 37 | 40 | 42 | 43 | 44 | 45 | 47 | 48 | 50
         ) {
             studio.close_source();
         }
@@ -641,6 +642,17 @@ impl SpeechPane {
                         }
                     },
                 );
+            }
+
+            50 => {
+                let new_mode = index.clamp(0, 1);
+                if self.dub.align_mode != new_mode {
+                    self.dub.align_mode = new_mode;
+                    for row in &mut self.dub.rows {
+                        row.audio = None;
+                    }
+                    self.dub.invalidate();
+                }
             }
 
             _ => {}
@@ -1049,6 +1061,7 @@ impl SpeechPane {
             self.message = error;
             return;
         }
+        let is_no_whisper = row.is_none() && self.dub.mode == 1 && self.dub.align_mode == 0;
         let merged = row.is_none() && self.dub.mode != 0;
         let project = studio
             .standalone_project_dir()
@@ -1071,7 +1084,12 @@ impl SpeechPane {
             return;
         }
         let local = if self.dub.provider == 0 {
-            match self.dub_local_request(text.clone(), studio) {
+            let sample_text = if is_no_whisper {
+                rows.first().map(|r| r.text.clone()).unwrap_or_else(|| text.clone())
+            } else {
+                text.clone()
+            };
+            match self.dub_local_request(sample_text, studio) {
                 Ok(r) => Some(r),
                 Err(e) => {
                     self.message = e;
@@ -1092,7 +1110,7 @@ impl SpeechPane {
                 studio.prefs.save(&studio.host.dirs);
             }
         }
-        let whisper = if merged {
+        let whisper = if merged && !is_no_whisper {
             match installed(&studio.settings.transcribers).get(self.dub.whisper) {
                 Some(m) => Some(m.id.clone()),
                 None => {
@@ -1134,6 +1152,7 @@ impl SpeechPane {
         let transcriber = Arc::clone(&studio.host.transcriber);
         let dirs = studio.host.dirs.clone();
         let mode = self.dub.mode;
+        let align_mode = self.dub.align_mode;
         let style_chain = self
             .style
             .and_then(|i| STYLES.get(i))
@@ -1152,6 +1171,91 @@ impl SpeechPane {
         spawn_in_project(
             move || {
                 cloud_tts::check_cancel(&cancel)?;
+                if is_no_whisper {
+                    let all_have_audio = rows.iter().all(|r| r.audio.is_some());
+                    for (i, cue) in rows.iter_mut().enumerate() {
+                        cloud_tts::check_cancel(&cancel)?;
+                        if !all_have_audio && cue.audio.is_some() {
+                            continue;
+                        }
+                        let cue_text = cue.text.trim();
+                        if cue_text.is_empty() {
+                            continue;
+                        }
+                        let res = if let Some(ref request) = local {
+                            let mut req = request.clone();
+                            req.text = cue_text.to_owned();
+                            speech
+                                .speak(&dirs, &req, report(epoch))
+                                .map(|r| PathBuf::from(r.path))
+                                .map_err(|e| e.to_string())
+                        } else {
+                            cloud_tts::synthesize(
+                                provider, &key, &model, &voice, cue_text, &project, &cancel, &options,
+                            )
+                        };
+                        let mut path = match res {
+                            Ok(p) => p,
+                            Err(e) => {
+                                cloud_tts::check_cancel(&cancel)?;
+                                let (preview, _) = if dubbing::missing_audio(&rows).is_empty() {
+                                    match dubbing::render(&rows, &project, &cancel) {
+                                        Ok(path) => (Some(path), None),
+                                        Err(_) => (None, None),
+                                    }
+                                } else {
+                                    (None, None)
+                                };
+                                return Ok(DubResult {
+                                    rows,
+                                    preview,
+                                    listen: false,
+                                    review_all: false,
+                                    notice: Some(format!("Dừng tại câu {}/{}: {}", i + 1, rows.len(), e)),
+                                });
+                            }
+                        };
+                        cloud_tts::check_cancel(&cancel)?;
+                        if !style_chain.is_empty() {
+                            let mut decoder = concat_media::AudioDecoder::open(
+                                &path,
+                                &concat_media::AudioOptions {
+                                    filters: vec![style_chain.clone()],
+                                    rate: 24000,
+                                    channels: 1,
+                                    format: concat_media::SampleFormat::F32,
+                                    ..Default::default()
+                                },
+                            )
+                            .map_err(|e| e.to_string())?;
+                            let samples = decoder.collect_f32().map_err(|e| e.to_string())?;
+                            path = cloud_tts::output(&project, &format!("dub-style-{i}"))?;
+                            cloud_tts::write_wav(&path, &samples, 24000)?;
+                        }
+                        let summary = media::probe(&path.to_string_lossy())?;
+                        let duration = summary.duration.ok_or("Generated audio has no duration")?;
+                        cue.audio = Some(path);
+                        cue.audio_start = 0.0;
+                        cue.audio_end = duration;
+                        cue.end = cue.start + duration;
+                    }
+                    cloud_tts::check_cancel(&cancel)?;
+                    let (preview, notice) = if dubbing::missing_audio(&rows).is_empty() {
+                        match dubbing::render(&rows, &project, &cancel) {
+                            Ok(path) => (Some(path), None),
+                            Err(error) => (None, Some(error)),
+                        }
+                    } else {
+                        (None, None)
+                    };
+                    return Ok(DubResult {
+                        rows,
+                        preview,
+                        listen: false,
+                        review_all: false,
+                        notice,
+                    });
+                }
                 let mut path = if let Some(request) = local {
                     PathBuf::from(speech.speak(&dirs, &request, report(epoch))?.path)
                 } else {
@@ -1222,7 +1326,7 @@ impl SpeechPane {
                     let cue = &mut rows[index];
                     cue.audio = Some(path);
                     cue.audio_start = 0.0;
-                    if mode == 0 {
+                    if mode == 0 || (mode == 1 && align_mode == 0) {
                         cue.audio_end = duration;
                         cue.end = cue.start + duration;
                     } else {
@@ -1272,6 +1376,18 @@ impl SpeechPane {
                     return;
                 } else {
                     self.dub.preview = None;
+                }
+            }
+        }
+        if index >= 0 {
+            if let Some(cue) = self.dub.rows.get(index as usize) {
+                if let Some(ref path) = cue.audio {
+                    if path.is_file() && (cue.audio_start <= 0.001 || cue.audio_start >= cue.audio_end) {
+                        let card = format!("dub-cue:{}:{}", index, path.display());
+                        let label = format!("{} · {}", index + 1, cue.text);
+                        studio.preview_file(&card, &label, path);
+                        return;
+                    }
                 }
             }
         }
@@ -1355,6 +1471,40 @@ impl SpeechPane {
                 if result.review_all || !result.listen {
                     self.dub.preview = result.preview.clone();
                     self.dub.reviewed = false;
+                }
+                if (!result.listen || result.review_all)
+                    && let Some(ref path) = self.dub.preview
+                    && studio.session.is_some()
+                {
+                    if let Ok(summary) = media::probe(&path.to_string_lossy()) {
+                        let already_in_media = studio
+                            .project()
+                            .media
+                            .iter()
+                            .any(|m| m.path == summary.path);
+                        if !already_in_media {
+                            let mut item = summary.to_new_media();
+                            let mode_tag = if self.dub.mode == 1 {
+                                if self.dub.align_mode == 0 {
+                                    "Không căn Whisper"
+                                } else {
+                                    "Có căn Whisper"
+                                }
+                            } else {
+                                "Lồng tiếng"
+                            };
+                            let dur = summary.duration.unwrap_or(0.0);
+                            item.name = format!("Lồng tiếng ({mode_tag}) · {dur:.1}s");
+                            item.origin = Some(MediaOrigin::Speech);
+                            let minted = studio.apply(Command::AddMedia { item });
+                            if minted.is_some() {
+                                studio.notify(
+                                    &format!("Đã thêm bản lồng tiếng ({mode_tag}) vào thư viện Media"),
+                                    false,
+                                );
+                            }
+                        }
+                    }
                 }
                 if result.listen {
                     if let Some(path) = result.preview {
@@ -1488,6 +1638,7 @@ impl SpeechPane {
                     self.dub.model(),
                     "gemini-3.8-flash-tts" | "gemini-3.8-flash-lite-tts"
                 ),
+            align_mode: self.dub.align_mode,
             pending_audio: if pending.is_empty() {
                 String::new()
             } else {

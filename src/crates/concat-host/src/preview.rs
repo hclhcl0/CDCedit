@@ -109,14 +109,19 @@ impl Monitor {
     /// A monitor that composites on `device` - the window's - so
     /// [`Monitor::texture_of`] yields textures the window shows as they
     /// are.
+    ///
+    /// `work` is the texture format the compositor will draw in: pass
+    /// `concat_render::work_format_for(&adapter)` computed in `Gpu::acquire`,
+    /// so an Intel integrated GPU that cannot blend into `Rgba16Float` falls
+    /// back to `Rgba8UnormSrgb` rather than compositing black frames.
     #[cfg(feature = "gpu")]
-    pub fn with_gpu(device: wgpu::Device, queue: wgpu::Queue) -> Self {
+    pub fn with_gpu(device: wgpu::Device, queue: wgpu::Queue, work: wgpu::TextureFormat) -> Self {
         Self {
             pool: Arc::clone(crate::scheduler().pool()),
             plan: Arc::new(Mutex::new(Vec::new())),
             early: Arc::new(Mutex::new(Vec::new())),
             gpu: Some(Arc::new(Mutex::new(
-                concat_render::WgpuCompositor::with_device(device, queue),
+                concat_render::WgpuCompositor::with_device_and_format(device, queue, work),
             ))),
         }
     }

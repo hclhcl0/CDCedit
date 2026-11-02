@@ -286,6 +286,11 @@ impl LinkImport {
                         self.thumbnails.clear();
                         self.message = t("links.disconnected");
                     }
+                    16 => {
+                        if let Some(item) = self.items.get_mut(index.max(0) as usize) {
+                            item.title = text;
+                        }
+                    }
                     _ => {}
                 }
             }
@@ -307,16 +312,17 @@ impl LinkImport {
                 .lines()
                 .filter(|s| !s.trim().is_empty())
                 .any(|s| {
-                    !matches!(
-                        link_import::source(s),
-                        Ok(link_import::Source::Drive { folder: false, .. })
-                    )
+                    match link_import::source(s) {
+                        Ok(link_import::Source::Drive { folder: false, .. }) => false,
+                        Ok(link_import::Source::Video(_)) => false,
+                        _ => true,
+                    }
                 })
         {
             self.message = t("links.mobileHint");
             return;
         }
-        if action != 9 && !mobile && !tools.ready() {
+        if action != 9 && !tools.ready() {
             self.message = t("links.installFirst");
             return;
         }

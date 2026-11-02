@@ -147,6 +147,11 @@ concat-project.workspace = true
 concat-export.workspace = true
 concat-host = { workspace = true, features = ["gpu"] }
 concat-speech = { workspace = true, features = ["chatterbox"] }
+# The render crate: accessed directly in gpu.rs to check the working texture
+# format the adapter supports (`work_format_for`) and expose the result through
+# `Gpu::work_format`, so the shared-device path uses the same format check as
+# the independent-device path opened by `WgpuCompositor::new`.
+concat-render.workspace = true
 # The Settings sheet's Automation page: the CDCedit API on a socket while the
 # window is open. JSON-RPC only; the gRPC feature stays with concat-cli.
 concat-server.workspace = true

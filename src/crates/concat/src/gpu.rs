@@ -16,6 +16,11 @@
 
 use std::sync::OnceLock;
 
+// For `work_format_for` and `COMPOSITOR_WORK`, used in `Gpu::acquire` to check
+// whether the adapter supports the compositor's preferred working format before
+// handing the device to the monitor.
+use concat_render::{COMPOSITOR_WORK, work_format_for};
+
 /// The adapter this run opened, as one line for Settings > About: name,
 /// backend, and whether it is a software rasteriser. Written once by
 /// [`Gpu::acquire`], because the adapter itself is moved into the monitor
@@ -38,6 +43,14 @@ pub struct Gpu {
     pub device: wgpu::Device,
     /// The one queue, so submissions from both sides are ordered.
     pub queue: wgpu::Queue,
+    /// The working texture format this adapter supports for the compositor:
+    /// `Rgba16Float` on every desktop GPU and modern iGPU, `Rgba8UnormSrgb`
+    /// on devices that cannot blend into half-float targets. Computed once
+    /// in [`Gpu::acquire`] from the adapter's reported format features and
+    /// passed through to [`WgpuCompositor::with_device_and_format`] so the
+    /// shared-device path gets the same format check the independent-device
+    /// path (`WgpuCompositor::new`) already performs.
+    pub work_format: wgpu::TextureFormat,
 }
 
 impl Gpu {
@@ -133,11 +146,29 @@ impl Gpu {
         device.on_uncaptured_error(std::sync::Arc::new(|error: wgpu::Error| {
             log::error!("the window's GPU device reported an error: {error}");
         }));
+        // Check whether this adapter can blend into the compositor's working
+        // format (Rgba16Float). Intel integrated GPUs on some driver versions
+        // report the format as non-blendable, which made every preview frame
+        // come out black when the shared-device path hardcoded WORK without
+        // checking. The result is carried in `Gpu` and forwarded to
+        // `WgpuCompositor::with_device_and_format` so the compositor draws in
+        // the right format from its very first frame.
+        let work_format = concat_render::work_format_for(&adapter);
+        if work_format != concat_render::COMPOSITOR_WORK {
+            log::warn!(
+                "GPU: {} cannot blend into {:?}; compositor will draw in {:?} \
+                 (colours outside Rec. 709 and light above white are clipped)",
+                info.name,
+                concat_render::COMPOSITOR_WORK,
+                work_format,
+            );
+        }
         Some(Gpu {
             instance,
             adapter,
             device,
             queue,
+            work_format,
         })
     }
 

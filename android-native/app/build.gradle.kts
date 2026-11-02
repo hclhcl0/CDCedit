@@ -40,6 +40,9 @@ android {
         // two sizes compare like for like. (AGP's default stores them
         // uncompressed for mmap, which is a bigger download.)
         jniLibs.useLegacyPackaging = true
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
     }
 }
 
@@ -53,4 +56,8 @@ dependencies {
     implementation("androidx.core:core-ktx:1.15.0")
     // UniFFI's Kotlin calls the engine through JNA.
     implementation("net.java.dev.jna:jna:5.15.0@aar")
+
+    // On-device native yt-dlp & FFmpeg for Android with Python 3.11 runtime
+    implementation("io.github.junkfood02.youtubedl-android:library:0.18.1")
+    implementation("io.github.junkfood02.youtubedl-android:ffmpeg:0.18.1")
 }
