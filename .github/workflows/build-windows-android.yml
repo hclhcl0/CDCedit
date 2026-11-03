@@ -1,4 +1,4 @@
-name: Build CDCedit EXE and APK
+name: Build CDCedit APK (arm64)
 
 on:
   push:
@@ -8,16 +8,16 @@ on:
       target:
         description: Platforms to build
         type: choice
-        options: [both, windows, android]
-        default: both
+        options: [android_arm64, both, windows, android_all]
+        default: android_arm64
 
 permissions:
   contents: read
   actions: read
 
 concurrency:
-  group: cdcedit-windows-android-${{ github.ref }}
-  cancel-in-progress: false
+  group: cdcedit-build-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   validate:
@@ -28,22 +28,23 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - run: python3 scripts/ci/check-bundled-assets.py
 
+  android:
+    if: ${{ github.event_name == 'push' || inputs.target != 'windows' }}
+    name: Android APK (arm64)
+    needs: validate
+    uses: ./.github/workflows/mobile.yml
+    with:
+      ref: ${{ github.sha }}
+      android_only: true
+      arm_only: ${{ github.event_name == 'push' || inputs.target == 'android_arm64' }}
+    secrets: inherit
+
   windows:
-    if: ${{ github.event_name == 'push' || inputs.target != 'android' }}
+    if: ${{ inputs.target == 'both' || inputs.target == 'windows' }}
     name: Windows EXE
     needs: validate
     uses: ./.github/workflows/build-app.yml
     with:
       ref: ${{ github.sha }}
       windows_only: true
-    secrets: inherit
-
-  android:
-    if: ${{ github.event_name == 'push' || inputs.target != 'windows' }}
-    name: Android APK
-    needs: validate
-    uses: ./.github/workflows/mobile.yml
-    with:
-      ref: ${{ github.sha }}
-      android_only: true
     secrets: inherit
