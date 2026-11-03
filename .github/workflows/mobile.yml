@@ -55,10 +55,6 @@ on:
         description: Build and smoke-test Android without iOS
         type: boolean
         default: false
-      arm_only:
-        description: Build only arm64 Android APK without x86_64 or emulator smoke tests
-        type: boolean
-        default: false
       ref:
         description: The ref to build, when it is not the one this runs on
         type: string
@@ -98,7 +94,6 @@ env:
 
 jobs:
   android:
-    if: ${{ !inputs.arm_only || matrix.ship }}
     name: Android ${{ matrix.abi }}
     runs-on: ubuntu-24.04
     timeout-minutes: 90
@@ -307,7 +302,6 @@ jobs:
   # detection crashed before any of the app's code, so it was never
   # tested at all.
   android-smoke:
-    if: ${{ !inputs.arm_only }}
     name: Android smoke (API ${{ matrix.api }})
     needs: android
     runs-on: ubuntu-24.04
@@ -369,7 +363,7 @@ jobs:
           if-no-files-found: warn
 
   ios:
-    if: ${{ !inputs.android_only && !inputs.arm_only }}
+    if: ${{ !inputs.android_only }}
     name: iOS arm64
     runs-on: macos-15
     timeout-minutes: 90
@@ -481,7 +475,7 @@ jobs:
   # device one. mobile-env.sh does not know the simulator yet, so the
   # build's environment is written out in the build step below.
   ios-simulator:
-    if: ${{ !inputs.android_only && !inputs.arm_only }}
+    if: ${{ !inputs.android_only }}
     name: iOS simulator smoke
     runs-on: macos-15
     timeout-minutes: 90
