@@ -720,7 +720,7 @@ pub fn import_capcut_draft_path(studio: &mut Studio, input_path: &Path) {
         .last_project_location
         .clone()
         .filter(|l| !l.is_empty() && Path::new(l).is_dir())
-        .unwrap_or(default_loc);
+        .unwrap_or_else(|| default_loc);
     let _ = std::fs::create_dir_all(&location);
 
     let info = match concat_host::projects::create(
