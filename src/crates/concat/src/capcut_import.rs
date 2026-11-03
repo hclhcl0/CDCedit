@@ -72,16 +72,41 @@ pub fn import_capcut_draft_path(studio: &mut Studio, input_path: &Path) {
     let target_path = extracted_dir.as_deref().unwrap_or(input_path);
 
     let (draft_file, draft_dir) = if target_path.is_dir() {
-        // Look for candidate draft files
-        let candidates = [
-            target_path.join("draft_content.json"),
-            target_path.join("draft_info.json"),
-            target_path.join("draft_meta_info.json"),
+        // Look for candidate draft files directly or 1 level down
+        let mut found = None;
+        let cand_names = [
+            "draft_content.json",
+            "draft_info.json",
+            "draft_meta_info.json",
+            "root_meta_info.json",
         ];
-        let found = candidates.into_iter().find(|p| p.is_file()).unwrap_or_else(|| {
-            target_path.join("draft_content.json")
-        });
-        (found, target_path.to_path_buf())
+        for name in &cand_names {
+            let p = target_path.join(name);
+            if p.is_file() {
+                found = Some((p, target_path.to_path_buf()));
+                break;
+            }
+        }
+        if found.is_none() {
+            if let Ok(entries) = std::fs::read_dir(target_path) {
+                for entry in entries.flatten() {
+                    let sub = entry.path();
+                    if sub.is_dir() {
+                        for name in &cand_names {
+                            let p = sub.join(name);
+                            if p.is_file() {
+                                found = Some((p, sub));
+                                break;
+                            }
+                        }
+                        if found.is_some() {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        found.unwrap_or_else(|| (target_path.join("draft_content.json"), target_path.to_path_buf()))
     } else if target_path.is_file() {
         let parent = target_path.parent().unwrap_or(Path::new(".")).to_path_buf();
         (target_path.to_path_buf(), parent)
@@ -195,8 +220,33 @@ pub fn import_capcut_draft_path(studio: &mut Studio, input_path: &Path) {
     let import_proj_name = format!("{clean_name}_imported");
 
     // 2. Video resolution & frame rate
-    let width = draft["canvas_config"]["width"].as_u64().unwrap_or(1920) as u32;
-    let height = draft["canvas_config"]["height"].as_u64().unwrap_or(1080) as u32;
+    let mut width = draft["canvas_config"]["width"]
+        .as_u64()
+        .or_else(|| draft["width"].as_u64())
+        .unwrap_or(0) as u32;
+    let mut height = draft["canvas_config"]["height"]
+        .as_u64()
+        .or_else(|| draft["height"].as_u64())
+        .unwrap_or(0) as u32;
+    if width == 0 || height == 0 {
+        let ratio = draft["ratio"]
+            .as_str()
+            .or_else(|| draft["canvas_config"]["ratio"].as_str())
+            .unwrap_or("");
+        if ratio == "9:16" {
+            width = 1080;
+            height = 1920;
+        } else if ratio == "1:1" {
+            width = 1080;
+            height = 1080;
+        } else if ratio == "4:3" {
+            width = 1440;
+            height = 1080;
+        } else {
+            width = 1920;
+            height = 1080;
+        }
+    }
     let fps = draft["fps"].as_f64().unwrap_or(30.0);
     let (rate_num, rate_den) = if (fps - 29.97).abs() < 0.05 {
         (30000, 1001)
@@ -228,6 +278,25 @@ pub fn import_capcut_draft_path(studio: &mut Studio, input_path: &Path) {
             let candidate2 = draft_dir.join("Resources").join(file_name);
             if candidate2.exists() {
                 return Some(candidate2.to_string_lossy().replace('\\', "/"));
+            }
+            let candidate3 = draft_dir.join("materials").join(file_name);
+            if candidate3.exists() {
+                return Some(candidate3.to_string_lossy().replace('\\', "/"));
+            }
+            #[cfg(target_os = "android")]
+            {
+                for folder in [
+                    "/storage/emulated/0/DCIM/Camera",
+                    "/storage/emulated/0/DCIM",
+                    "/storage/emulated/0/Download",
+                    "/storage/emulated/0/Movies",
+                    "/storage/emulated/0/Pictures",
+                ] {
+                    let cand = Path::new(folder).join(file_name);
+                    if cand.exists() {
+                        return Some(cand.to_string_lossy().replace('\\', "/"));
+                    }
+                }
             }
         }
         if !p.is_empty() {
@@ -639,12 +708,20 @@ pub fn import_capcut_draft_path(studio: &mut Studio, input_path: &Path) {
     };
 
     // 6. Write Concat Project to disk
+    let default_loc = if cfg!(target_os = "android") {
+        crate::studio::home_folder("CDCedit")
+    } else if cfg!(target_os = "ios") {
+        crate::studio::home_folder("Documents/CDCedit")
+    } else {
+        crate::studio::home_folder("Desktop")
+    };
     let location = studio
         .prefs
         .last_project_location
         .clone()
         .filter(|l| !l.is_empty() && Path::new(l).is_dir())
-        .unwrap_or_else(|| crate::studio::home_folder("Desktop"));
+        .unwrap_or(default_loc);
+    let _ = std::fs::create_dir_all(&location);
 
     let info = match concat_host::projects::create(
         &location,

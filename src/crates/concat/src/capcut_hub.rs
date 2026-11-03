@@ -181,21 +181,29 @@ pub fn list_capcut_drafts() -> Vec<CapCutDraft> {
 }
 
 fn extract_draft_name(dir: &Path) -> String {
-    let fallback = dir
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("Dự án CapCut")
-        .to_string();
+    let fallback = if dir.is_file() {
+        dir.file_stem()
+            .and_then(|n| n.to_str())
+            .unwrap_or("Dự án CapCut")
+            .to_string()
+    } else {
+        dir.file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("Dự án CapCut")
+            .to_string()
+    };
 
-    for meta_name in ["draft_meta_info.json", "draft_info.json", "draft_content.json"] {
-        let meta_file = dir.join(meta_name);
-        if meta_file.is_file() {
-            if let Ok(raw) = std::fs::read_to_string(&meta_file) {
-                if let Ok(val) = serde_json::from_str::<Value>(&raw) {
-                    if let Some(n) = val["draft_name"].as_str().or_else(|| val["name"].as_str()) {
-                        let trimmed = n.trim();
-                        if !trimmed.is_empty() {
-                            return trimmed.to_string();
+    if dir.is_dir() {
+        for meta_name in ["draft_meta_info.json", "draft_info.json", "draft_content.json"] {
+            let meta_file = dir.join(meta_name);
+            if meta_file.is_file() {
+                if let Ok(raw) = std::fs::read_to_string(&meta_file) {
+                    if let Ok(val) = serde_json::from_str::<Value>(&raw) {
+                        if let Some(n) = val["draft_name"].as_str().or_else(|| val["name"].as_str()) {
+                            let trimmed = n.trim();
+                            if !trimmed.is_empty() {
+                                return trimmed.to_string();
+                            }
                         }
                     }
                 }
@@ -226,6 +234,7 @@ pub fn is_capcut_draft(path: &Path) -> bool {
                 || n == "draft_info.json"
                 || n == "draft_meta_info.json"
                 || n == "project.json"
+                || path.extension().map_or(false, |ext| ext.eq_ignore_ascii_case("zip"))
         });
     }
     path.join("draft_content.json").is_file()

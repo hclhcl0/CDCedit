@@ -428,7 +428,7 @@ fn run(
 #[cfg(target_os = "android")]
 fn ensure_android_python(tools: &Tools, native_libs: &Path) {
     let py_home = tools.bin.parent().unwrap_or(&tools.bin).join("python");
-    let marker = py_home.join(".extracted_v4");
+    let marker = py_home.join(".extracted_v5");
     if marker.is_file() {
         return;
     }
@@ -465,25 +465,44 @@ fn ensure_android_python(tools: &Tools, native_libs: &Path) {
                                 if let Ok(mut outfile) = fs::File::create(&outpath) {
                                     let _ = std::io::copy(&mut f, &mut outfile);
                                 }
+                                #[cfg(unix)]
+                                {
+                                    use std::os::unix::fs::PermissionsExt;
+                                    let _ = fs::set_permissions(&outpath, fs::Permissions::from_mode(0o755));
+                                }
                             }
                         }
                     }
                 }
+                // Resolve symlinks to actual copied files so the Android dynamic linker
+                // never encounters relative or broken symlinks during DT_NEEDED dlopen.
                 for (outpath, target_str) in symlinks {
                     let _ = fs::remove_file(&outpath);
-                    #[cfg(unix)]
-                    {
+                    let parent = outpath.parent().unwrap_or(target_dir);
+                    let mut target_path = parent.join(&target_str);
+                    let mut depth = 0;
+                    while depth < 10 {
+                        if let Ok(link_target) = fs::read_link(&target_path) {
+                            target_path = if link_target.is_relative() {
+                                target_path.parent().unwrap_or(parent).join(link_target)
+                            } else {
+                                link_target
+                            };
+                            depth += 1;
+                        } else {
+                            break;
+                        }
+                    }
+                    if target_path.is_file() {
+                        let _ = fs::copy(&target_path, &outpath);
+                    } else {
+                        #[cfg(unix)]
                         let _ = std::os::unix::fs::symlink(&target_str, &outpath);
                     }
-                    if !outpath.is_file() {
-                        let target_path = if let Some(parent) = outpath.parent() {
-                            parent.join(&target_str)
-                        } else {
-                            PathBuf::from(&target_str)
-                        };
-                        if target_path.is_file() {
-                            let _ = fs::copy(&target_path, &outpath);
-                        }
+                    #[cfg(unix)]
+                    {
+                        use std::os::unix::fs::PermissionsExt;
+                        let _ = fs::set_permissions(&outpath, fs::Permissions::from_mode(0o755));
                     }
                 }
             }
@@ -508,6 +527,21 @@ fn ensure_android_python(tools: &Tools, native_libs: &Path) {
     ];
     if let Some(ff_zip) = ff_candidates.into_iter().find(|p| p.is_file()) {
         extract_zip(&ff_zip, &py_home);
+    }
+
+    // Unpack ytdlp zipapp into a directory so Python runs it directly as script/module
+    // without requiring zipimport decompression on startup.
+    let ytdlp_candidates = [
+        tools.bin.join("ytdlp"),
+        tools.bin.parent().unwrap_or(&tools.bin).join("app.cdcedit.editor").join("link-tools").join("ytdlp"),
+        tools.bin.parent().unwrap_or(&tools.bin).join("concat").join("link-tools").join("ytdlp"),
+        tools.bin.join("yt-dlp"),
+        native_libs.join("libytdlp.so"),
+    ];
+    if let Some(ytdlp_file) = ytdlp_candidates.into_iter().find(|p| p.is_file()) {
+        let ytdlp_pkg = py_home.join("ytdlp_pkg");
+        let _ = fs::create_dir_all(&ytdlp_pkg);
+        extract_zip(&ytdlp_file, &ytdlp_pkg);
     }
 
     let _ = fs::write(&marker, b"ok");
@@ -536,16 +570,32 @@ fn video_command(tools: &Tools, cookies: Option<&Path>) -> Command {
                 } else {
                     py_home.clone()
                 };
+                let ytdlp_pkg_main = py_home.join("ytdlp_pkg").join("__main__.py");
+                let ytdlp_arg = if ytdlp_pkg_main.is_file() {
+                    ytdlp_pkg_main
+                } else {
+                    ytdlp
+                };
                 let mut c = Command::new(&py_exe);
-                c.arg(&ytdlp);
+                c.arg(&ytdlp_arg);
                 c.env("PYTHONHOME", &usr_dir);
                 c.env("HOME", &usr_dir);
                 let usr_lib = usr_dir.join("lib");
+                let py_ver = usr_lib.join("python3.12");
+                let py_dyn = py_ver.join("lib-dynload");
+                let py_site = py_ver.join("site-packages");
+                c.env(
+                    "PYTHONPATH",
+                    format!("{}:{}:{}", py_ver.display(), py_dyn.display(), py_site.display()),
+                );
                 let cert = usr_dir.join("etc").join("tls").join("cert.pem");
                 if cert.is_file() {
                     c.env("SSL_CERT_FILE", &cert);
                 }
-                c.env("LD_LIBRARY_PATH", format!("{}:{}", usr_lib.display(), lib_dir.display()));
+                c.env(
+                    "LD_LIBRARY_PATH",
+                    format!("{}:{}:/system/lib64:/system/lib", usr_lib.display(), lib_dir.display()),
+                );
                 let tmp = tools.bin.parent().unwrap_or(&tools.bin).join("tmp");
                 let _ = fs::create_dir_all(&tmp);
                 c.env("TMPDIR", &tmp);
