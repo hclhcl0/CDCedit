@@ -85,7 +85,18 @@ public class ConcatFiles extends Fragment {
         if (folder == null) {
             return new String[] {null, "this phone has no media store to put it in"};
         }
-        return publish(activity, path, "video/mp4", folder,
+        String mime = "video/mp4";
+        String lower = path.toLowerCase();
+        if (lower.endsWith(".mkv")) {
+            mime = "video/x-matroska";
+        } else if (lower.endsWith(".webm")) {
+            mime = "video/webm";
+        } else if (lower.endsWith(".mov")) {
+            mime = "video/quicktime";
+        } else if (lower.endsWith(".3gp")) {
+            mime = "video/3gpp";
+        }
+        return publish(activity, path, mime, folder,
                 MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY));
     }
 
@@ -157,8 +168,19 @@ public class ConcatFiles extends Fragment {
             }
         }
         file.delete();
+        String relName = displayName(activity, uri);
+        try {
+            File publicFile = new File(Environment.getExternalStorageDirectory(), folder + "/" + relName);
+            android.media.MediaScannerConnection.scanFile(
+                activity.getApplicationContext(),
+                new String[] { publicFile.getAbsolutePath() },
+                new String[] { mime },
+                null
+            );
+        } catch (Exception ignored) {
+        }
         // The store may have renamed it: a second "name.mp4" is "name (1).mp4".
-        return new String[] {folder + "/" + displayName(activity, uri), null};
+        return new String[] {folder + "/" + relName, null};
     }
 
     /**

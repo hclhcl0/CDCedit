@@ -157,57 +157,118 @@ impl LinkImport {
                             )
                         };
                         if !files.is_empty() {
+                            let is_mobile = cfg!(any(target_os = "android", target_os = "ios"))
+                                || crate::platform::published_folder().is_some();
+                            let audio_only = self.audio;
+
                             if studio.session.is_some() {
-                                studio.handle(Msg::Media(MediaMsg::Import(files)));
-                            } else {
-                                let dl_str = crate::studio::home_folder("Downloads");
-                                let target_dir = if !dl_str.is_empty()
-                                    && std::path::Path::new(&dl_str).is_dir()
-                                {
-                                    PathBuf::from(dl_str)
-                                } else {
-                                    PathBuf::from(crate::studio::home_folder("Documents"))
-                                };
-                                let _ = std::fs::create_dir_all(&target_dir);
-                                let mut saved_paths = Vec::new();
-                                for file in &files {
-                                    let file_name = file
-                                        .file_name()
-                                        .map(|n| n.to_string_lossy().into_owned())
-                                        .unwrap_or_else(|| "downloaded.mp4".to_owned());
-                                    let mut dest = target_dir.join(&file_name);
-                                    if dest.exists() {
-                                        let (stem, ext) = match file_name.rfind('.') {
-                                            Some(dot) if dot > 0 => {
-                                                (&file_name[..dot], &file_name[dot..])
-                                            }
-                                            _ => (file_name.as_str(), ""),
-                                        };
-                                        for n in 2..1000 {
-                                            let candidate =
-                                                target_dir.join(format!("{stem} ({n}){ext}"));
-                                            if !candidate.exists() {
-                                                dest = candidate;
-                                                break;
+                                if is_mobile {
+                                    let pub_dir = studio.host.dirs.data.join("pub_staging");
+                                    let _ = std::fs::create_dir_all(&pub_dir);
+                                    for file in &files {
+                                        if let Some(file_name) = file.file_name() {
+                                            let pub_file = pub_dir.join(file_name);
+                                            if std::fs::copy(file, &pub_file).is_ok() {
+                                                if is_video_media(&pub_file, audio_only) {
+                                                    crate::platform::publish_export(pub_file, move |res| {
+                                                        log::info!("Published download to gallery: {res:?}");
+                                                    });
+                                                } else {
+                                                    let mime = media_audio_mime(&pub_file);
+                                                    crate::platform::publish_document(pub_file, mime, move |res| {
+                                                        log::info!("Published download to files: {res:?}");
+                                                    });
+                                                }
                                             }
                                         }
                                     }
-                                    if std::fs::copy(file, &dest).is_ok() {
-                                        let _ = std::fs::remove_file(file);
-                                        saved_paths.push(dest);
-                                    } else {
-                                        saved_paths.push(file.clone());
-                                    }
-                                }
-                                if let Some(first) = saved_paths.first() {
-                                    let _ = crate::platform::reveal(&first.to_string_lossy());
                                     let msg = format!(
-                                        "Đã tải {} file vào {}",
-                                        saved_paths.len(),
-                                        target_dir.display()
+                                        "Đã tải {} file và lưu vào Bộ sưu tập (Movies/CDCedit)",
+                                        files.len()
                                     );
                                     self.message = msg.clone();
                                     studio.notify(&msg, false);
+                                }
+                                studio.handle(Msg::Media(MediaMsg::Import(files)));
+                            } else {
+                                let mut handled_mobile = false;
+                                if is_mobile {
+                                    let mut pub_count = 0;
+                                    for file in &files {
+                                        let handed = if is_video_media(file, audio_only) {
+                                            crate::platform::publish_export(file.clone(), move |res| {
+                                                log::info!("Published download to gallery: {res:?}");
+                                            })
+                                        } else {
+                                            let mime = media_audio_mime(file);
+                                            crate::platform::publish_document(file.clone(), mime, move |res| {
+                                                log::info!("Published download to files: {res:?}");
+                                            })
+                                        };
+                                        if handed {
+                                            pub_count += 1;
+                                        }
+                                    }
+                                    if pub_count > 0 {
+                                        let msg = format!(
+                                            "Đã tải {} file và lưu vào Bộ sưu tập (Movies/CDCedit)",
+                                            pub_count
+                                        );
+                                        self.message = msg.clone();
+                                        studio.notify(&msg, false);
+                                        handled_mobile = true;
+                                    }
+                                }
+                                if !handled_mobile {
+                                    let dl_str = crate::studio::home_folder("Downloads");
+                                    let target_dir = if !dl_str.is_empty()
+                                        && std::path::Path::new(&dl_str).is_dir()
+                                    {
+                                        PathBuf::from(dl_str)
+                                    } else {
+                                        PathBuf::from(crate::studio::home_folder("Documents"))
+                                    };
+                                    let _ = std::fs::create_dir_all(&target_dir);
+                                    let mut saved_paths = Vec::new();
+                                    for file in &files {
+                                        let file_name = file
+                                            .file_name()
+                                            .map(|n| n.to_string_lossy().into_owned())
+                                            .unwrap_or_else(|| "downloaded.mp4".to_owned());
+                                        let mut dest = target_dir.join(&file_name);
+                                        if dest.exists() {
+                                            let (stem, ext) = match file_name.rfind('.') {
+                                                Some(dot) if dot > 0 => {
+                                                    (&file_name[..dot], &file_name[dot..])
+                                                }
+                                                _ => (file_name.as_str(), ""),
+                                            };
+                                            for n in 2..1000 {
+                                                let candidate =
+                                                    target_dir.join(format!("{stem} ({n}){ext}"));
+                                                if !candidate.exists() {
+                                                    dest = candidate;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                        if std::fs::copy(file, &dest).is_ok() {
+                                            let _ = std::fs::remove_file(file);
+                                            saved_paths.push(dest);
+                                        } else {
+                                            saved_paths.push(file.clone());
+                                        }
+                                    }
+                                    if let Some(first) = saved_paths.first() {
+                                        let _ = crate::platform::reveal(&first.to_string_lossy());
+                                        let msg = format!(
+                                            "Đã tải {} file vào {}",
+                                            saved_paths.len(),
+                                            target_dir.display()
+                                        );
+                                        self.message = msg.clone();
+                                        studio.notify(&msg, false);
+                                    }
                                 }
                             }
                         }
@@ -400,5 +461,40 @@ impl LinkImport {
                 studio.handle(Msg::Links(LinkMsg::Finished(generation, result)))
             },
         );
+    }
+}
+
+fn is_video_media(path: &std::path::Path, audio_only: bool) -> bool {
+    if audio_only {
+        return false;
+    }
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if matches!(
+        ext.as_str(),
+        "mp3" | "m4a" | "wav" | "aac" | "ogg" | "oga" | "flac" | "opus" | "wma"
+    ) {
+        return false;
+    }
+    true
+}
+
+fn media_audio_mime(path: &std::path::Path) -> &'static str {
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    match ext.as_str() {
+        "mp3" => "audio/mpeg",
+        "m4a" => "audio/mp4",
+        "wav" => "audio/wav",
+        "aac" => "audio/aac",
+        "ogg" | "oga" => "audio/ogg",
+        "flac" => "audio/flac",
+        _ => "audio/*",
     }
 }
