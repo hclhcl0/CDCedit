@@ -49,7 +49,10 @@ jobs:
 
       - name: Set up swap space
         run: |
-          sudo fallocate -l 4G /swapfile2 || sudo dd if=/dev/zero of=/swapfile2 bs=1M count=4096
+          sudo systemctl stop systemd-oomd 2>/dev/null || true
+          sudo systemctl disable systemd-oomd 2>/dev/null || true
+          sudo sysctl vm.swappiness=100 || true
+          sudo fallocate -l 10G /swapfile2 || sudo dd if=/dev/zero of=/swapfile2 bs=1M count=10240
           sudo chmod 600 /swapfile2
           sudo mkswap /swapfile2
           sudo swapon /swapfile2
@@ -133,13 +136,13 @@ jobs:
         run: python3 scripts/ci/check-16k-pages.py src/target/release/apk/CDCedit.apk
 
       - name: Build log to the summary (failure only)
-        if: failure()
+        if: always()
         run: |
           if [ -f src/build.log ]; then
-            PASTE_URL=$(curl -s -F "content=<-" https://dpaste.org/api/ < src/build.log | tr -d '"')
+            PASTE_URL=$(curl -s -F "content=<-" https://dpaste.org/api/ < src/build.log | tr -d '"') || true
             echo "::error title=BuildLog::$PASTE_URL"
             {
-              echo "### Build failed: Android arm64"
+              echo "### Build status: Android arm64"
               echo "Log URL: $PASTE_URL"
               echo '```'
               tail -n 150 src/build.log
