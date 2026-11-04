@@ -187,14 +187,14 @@ mod java {
                 jni::NativeMethod::from_raw_parts(
                     jni_str!("filesPicked"),
                     jni_str!("([Ljava/lang/String;)V"),
-                    super::picker::files_picked as *mut c_void,
+                    crate::picker::files_picked as *mut c_void,
                 )
             },
             unsafe {
                 jni::NativeMethod::from_raw_parts(
                     jni_str!("capcutTreeSynced"),
                     jni_str!("(I)V"),
-                    super::capcut_tree::tree_synced as *mut c_void,
+                    crate::capcut_tree::tree_synced as *mut c_void,
                 )
             },
         ];
@@ -616,7 +616,7 @@ mod storage {
 }
 
 #[cfg(target_os = "android")]
-pub(super) mod capcut_tree {
+pub(crate) mod capcut_tree {
     use jni::{jni_sig, jni_str, sys};
     use slint::android::AndroidApp;
 
@@ -648,7 +648,7 @@ pub(super) mod capcut_tree {
         }));
     }
 
-    pub(super) unsafe extern "system" fn tree_synced(
+    pub(crate) unsafe extern "system" fn tree_synced(
         _env: *mut sys::JNIEnv,
         _class: sys::jclass,
         count: sys::jint,
