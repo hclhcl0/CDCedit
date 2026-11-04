@@ -47,6 +47,17 @@ export component LinkImportDialog inherits Modal {
                 }
                 HorizontalLayout {
                     spacing:8px;
+                    Button {
+                        label: I18n.t("links.paste");
+                        ghost: true;
+                        enabled: !root.data.busy;
+                        clicked => {
+                            input.select-all();
+                            input.paste();
+                            root.draft = input.text;
+                            root.action(17, 0, input.text);
+                        }
+                    }
                     if !root.data.mobile: Button {label:root.data.ready ? I18n.t("links.updateTools") : I18n.t("links.installTools");enabled:!root.data.busy;ghost:true;clicked=>{root.action(9,0,"");}}
                     Button {label:I18n.t("links.inspect");enabled:(root.data.mobile || root.data.ready) && !root.data.busy;clicked=>{root.action(11,0,"");}}
                 }

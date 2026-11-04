@@ -352,6 +352,20 @@ impl LinkImport {
                             item.title = text;
                         }
                     }
+                    17 => {
+                        let mut pasted = text;
+                        if pasted.trim().is_empty() {
+                            if let Some(clip) = crate::platform::get_clipboard_text() {
+                                pasted = clip;
+                            }
+                        }
+                        if !pasted.trim().is_empty() {
+                            self.links = pasted;
+                            self.items.clear();
+                            self.selected.clear();
+                            self.thumbnails.clear();
+                        }
+                    }
                     _ => {}
                 }
             }

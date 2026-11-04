@@ -263,6 +263,43 @@ public class ConcatFiles extends Fragment {
         }
     }
 
+    /**
+     * Reads text from the Android system clipboard.
+     */
+    public static String getClipboardText(final Activity activity) {
+        if (activity == null) return null;
+        try {
+            final String[] result = new String[] {null};
+            final java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
+            activity.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        android.content.ClipboardManager cm =
+                            (android.content.ClipboardManager) activity.getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+                        if (cm != null && cm.hasPrimaryClip()) {
+                            ClipData clip = cm.getPrimaryClip();
+                            if (clip != null && clip.getItemCount() > 0) {
+                                CharSequence text = clip.getItemAt(0).coerceToText(activity);
+                                if (text != null && text.length() > 0) {
+                                    result[0] = text.toString();
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        Log.w(TAG, "getClipboardText error: " + e.getMessage());
+                    } finally {
+                        latch.countDown();
+                    }
+                }
+            });
+            latch.await(300, java.util.concurrent.TimeUnit.MILLISECONDS);
+            return result[0];
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     /** Registered from Rust: the picked files' paths, or none. */
     public static native void filesPicked(String[] paths);
 

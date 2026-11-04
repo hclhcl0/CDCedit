@@ -899,6 +899,20 @@ pub fn install_link_opener(opener: LinkOpener) {
     let _ = LINK_OPENER.set(opener);
 }
 
+pub type ClipboardReader = Box<dyn Fn() -> Option<String> + Send + Sync>;
+static CLIPBOARD_READER: std::sync::OnceLock<ClipboardReader> = std::sync::OnceLock::new();
+
+pub fn install_clipboard_reader(reader: ClipboardReader) {
+    let _ = CLIPBOARD_READER.set(reader);
+}
+
+pub fn get_clipboard_text() -> Option<String> {
+    if let Some(reader) = CLIPBOARD_READER.get() {
+        return reader();
+    }
+    None
+}
+
 /// Opens a web address in the system's browser: the launch screen's
 /// guides, the repository, the release notes. A desktop hands it to the
 /// platform's opener; Android to an ACTION_VIEW intent through the

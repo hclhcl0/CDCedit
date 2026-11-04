@@ -552,6 +552,37 @@ mod links {
     }
 }
 
+#[cfg(target_os = "android")]
+mod clipboard {
+    use jni::objects::JString;
+    use jni::{jni_sig, jni_str};
+    use slint::android::AndroidApp;
+
+    /// Hands the window's crate the way to read the system clipboard on Android.
+    pub fn install(app: &AndroidApp) {
+        let app = app.clone();
+        concat::install_clipboard_reader(Box::new(move || {
+            let answer = super::java::with_class(&app, |env, activity, class| {
+                let answer = env
+                    .call_static_method(
+                        class,
+                        jni_str!("getClipboardText"),
+                        jni_sig!("(Landroid/app/Activity;)Ljava/lang/String;"),
+                        &[activity.into()],
+                    )?
+                    .l()?;
+                if answer.is_null() {
+                    return Ok(None);
+                }
+                let answer = env.cast_local::<JString>(answer)?;
+                let s = answer.mutf8_chars(env)?.to_string();
+                Ok((!s.is_empty()).then_some(s))
+            });
+            answer.ok().flatten()
+        }));
+    }
+}
+
 /// Called by the activity's native glue; the name is the contract.
 #[cfg(target_os = "android")]
 #[unsafe(no_mangle)]
@@ -569,6 +600,7 @@ fn android_main(app: slint::android::AndroidApp) {
     publisher::install(&app);
     microphone::install(&app);
     links::install(&app);
+    clipboard::install(&app);
     native_libs::install(&app);
     if let Err(error) = concat::run() {
         log::error!("{error}");
