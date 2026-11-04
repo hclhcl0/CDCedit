@@ -51,8 +51,10 @@ cp "$tmp/lib_extracted/jni/$abi/libqjs.so" "$dest/"
 cp "$tmp/ff_extracted/jni/$abi/libffmpeg.so" "$dest/"
 cp "$tmp/ff_extracted/jni/$abi/libffprobe.so" "$dest/"
 
-# Non-ELF zip archives into assets
-cp "$tmp/lib_extracted/res/raw/ytdlp" "$assets/ytdlp"
+# Non-ELF zip archives into assets: fetch latest yt-dlp release (falls back to aar bundled version)
+echo "Fetching latest yt-dlp release..."
+curl -fsSL --retry 5 --retry-all-errors -o "$assets/ytdlp" \
+  "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp" || cp "$tmp/lib_extracted/res/raw/ytdlp" "$assets/ytdlp"
 cp "$tmp/lib_extracted/jni/$abi/libpython.zip.so" "$assets/python.zip"
 cp "$tmp/ff_extracted/jni/$abi/libffmpeg.zip.so" "$assets/ffmpeg.zip"
 

@@ -428,7 +428,7 @@ fn run(
 #[cfg(target_os = "android")]
 fn ensure_android_python(tools: &Tools, native_libs: &Path) {
     let py_home = tools.bin.parent().unwrap_or(&tools.bin).join("python");
-    let marker = py_home.join(".extracted_v5");
+    let marker = py_home.join(".extracted_v6");
     if marker.is_file() {
         return;
     }

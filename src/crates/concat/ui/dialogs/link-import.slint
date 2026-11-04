@@ -64,7 +64,7 @@ export component LinkImportDialog inherits Modal {
                 DialogRow {label:I18n.t("links.useAccount");Switch {checked:root.data.drive-auth;enabled:!root.data.busy && root.data.connected;toggled(on)=>{root.action(5,on ? 1 : 0,"");}}}
                 Text {text:I18n.t("links.driveHint");color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
             }
-            if !root.data.mobile: DialogSection {
+            DialogSection {
                 title:I18n.t("links.session");
                 HorizontalLayout {
                     spacing:8px;
