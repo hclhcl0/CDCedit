@@ -182,15 +182,24 @@ mod java {
         let class = JClass::cast_local(env, class)?;
         // SAFETY: the signature is the Java declaration's, and the
         // function below takes exactly what it names.
-        let method = unsafe {
-            jni::NativeMethod::from_raw_parts(
-                jni_str!("filesPicked"),
-                jni_str!("([Ljava/lang/String;)V"),
-                super::picker::files_picked as *mut c_void,
-            )
-        };
+        let methods = [
+            unsafe {
+                jni::NativeMethod::from_raw_parts(
+                    jni_str!("filesPicked"),
+                    jni_str!("([Ljava/lang/String;)V"),
+                    super::picker::files_picked as *mut c_void,
+                )
+            },
+            unsafe {
+                jni::NativeMethod::from_raw_parts(
+                    jni_str!("capcutTreeSynced"),
+                    jni_str!("(I)V"),
+                    super::capcut_tree::tree_synced as *mut c_void,
+                )
+            },
+        ];
         // SAFETY: as above.
-        unsafe { env.register_native_methods(&class, &[method]) }?;
+        unsafe { env.register_native_methods(&class, &methods) }?;
         env.new_global_ref(class)
     }
 }
@@ -607,8 +616,8 @@ mod storage {
 }
 
 #[cfg(target_os = "android")]
-mod capcut_tree {
-    use jni::{jni_sig, jni_str};
+pub(super) mod capcut_tree {
+    use jni::{jni_sig, jni_str, sys};
     use slint::android::AndroidApp;
 
     pub fn install(app: &AndroidApp) {
@@ -638,20 +647,17 @@ mod capcut_tree {
             });
         }));
     }
-}
 
-/// Native callback when CapCut folder synchronization completes.
-#[cfg(target_os = "android")]
-#[unsafe(no_mangle)]
-pub unsafe extern "system" fn Java_app_cdcedit_editor_ConcatFiles_capcutTreeSynced(
-    _env: *mut jni::sys::JNIEnv,
-    _class: jni::sys::jclass,
-    count: jni::sys::jint,
-) {
-    let count = count.max(0) as usize;
-    let _ = slint::invoke_from_event_loop(move || {
-        concat::on_capcut_tree_synced(count);
-    });
+    pub(super) unsafe extern "system" fn tree_synced(
+        _env: *mut sys::JNIEnv,
+        _class: sys::jclass,
+        count: sys::jint,
+    ) {
+        let count = count.max(0) as usize;
+        let _ = slint::invoke_from_event_loop(move || {
+            concat::on_capcut_tree_synced(count);
+        });
+    }
 }
 
 /// Called by the activity's native glue; the name is the contract.

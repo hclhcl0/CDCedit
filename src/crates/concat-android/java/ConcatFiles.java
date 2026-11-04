@@ -219,16 +219,20 @@ public class ConcatFiles extends Fragment {
         if (activity == null) return true;
         if (Build.VERSION.SDK_INT >= 30) {
             // Android 11+ (API 30+): Manage External Storage
-            if (Environment.isExternalStorageManager()) {
-                return true;
-            }
             try {
-                Intent intent = new Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+                java.lang.reflect.Method isManager = Environment.class.getMethod("isExternalStorageManager");
+                Boolean managed = (Boolean) isManager.invoke(null);
+                if (managed != null && managed.booleanValue()) {
+                    return true;
+                }
+            } catch (Exception ignored) {}
+            try {
+                Intent intent = new Intent("android.settings.MANAGE_APP_ALL_FILES_ACCESS_PERMISSION");
                 intent.setData(Uri.parse("package:" + activity.getPackageName()));
                 activity.startActivity(intent);
             } catch (Exception e) {
                 try {
-                    Intent intent = new Intent(android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
+                    Intent intent = new Intent("android.settings.MANAGE_ALL_FILES_ACCESS_PERMISSION");
                     activity.startActivity(intent);
                 } catch (Exception ignored) {}
             }

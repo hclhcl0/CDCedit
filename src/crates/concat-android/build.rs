@@ -22,7 +22,16 @@ fn main() {
     }
     std::fs::create_dir_all(&classes).expect("could not create the class directory");
 
-    let android_jar = android_build::android_jar(None).expect("no Android platform found");
+    let android_jar = if let Ok(jar) = std::env::var("ANDROID_JAR") {
+        let p = std::path::PathBuf::from(jar);
+        if p.is_file() {
+            p
+        } else {
+            android_build::android_jar(None).expect("no Android platform found")
+        }
+    } else {
+        android_build::android_jar(None).expect("no Android platform found")
+    };
     let compiled = android_build::JavaBuild::new()
         .file("java/ConcatFiles.java")
         .class_path(&android_jar)
