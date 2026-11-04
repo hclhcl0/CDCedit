@@ -913,6 +913,20 @@ pub fn get_clipboard_text() -> Option<String> {
     None
 }
 
+pub type StorageAccess = Box<dyn Fn() -> bool + Send + Sync>;
+static STORAGE_ACCESS: std::sync::OnceLock<StorageAccess> = std::sync::OnceLock::new();
+
+pub fn install_storage_access(access: StorageAccess) {
+    let _ = STORAGE_ACCESS.set(access);
+}
+
+pub fn ask_storage() -> bool {
+    if let Some(access) = STORAGE_ACCESS.get() {
+        return access();
+    }
+    true
+}
+
 /// Opens a web address in the system's browser: the launch screen's
 /// guides, the repository, the release notes. A desktop hands it to the
 /// platform's opener; Android to an ACTION_VIEW intent through the

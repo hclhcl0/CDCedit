@@ -358,8 +358,11 @@ impl StartPane {
             }
             StartMsg::ProjectTab(tab) => {
                 self.project_tab = tab;
-                if tab == 1 && studio.capcut_drafts.is_empty() {
-                    studio.refresh_capcut_drafts();
+                if tab == 1 {
+                    crate::platform::ask_storage();
+                    if studio.capcut_drafts.is_empty() {
+                        studio.refresh_capcut_drafts();
+                    }
                 }
             }
             StartMsg::Link(name) => {
@@ -373,6 +376,7 @@ impl StartPane {
                         return;
                     }
                     "import-capcut" => {
+                        crate::platform::ask_storage();
                         crate::capcut_import::import_capcut_dialog(studio);
                         return;
                     }

@@ -2304,6 +2304,13 @@ component WideHome inherits Rectangle {
                         font-size: Theme.fs-lg;
                         horizontal-alignment: center;
                     }
+                    Text {
+                        text: "💡 Mẹo: Bạn có thể chọn mở trực tiếp tệp draft_content.json, draft_info.json hoặc tệp .zip của dự án CapCut.";
+                        color: Theme.fg-subtle;
+                        font-size: Theme.fs;
+                        wrap: word-wrap;
+                        horizontal-alignment: center;
+                    }
                     HorizontalLayout {
                         alignment: center;
                         Button {
@@ -2613,10 +2620,18 @@ component NarrowHome inherits Rectangle {
                 if root.recents.length == 0 && root.project-tab == 1: VerticalLayout {
                     padding: 16px;
                     alignment: center;
+                    spacing: 8px;
                     Text {
                         text: "Chưa tìm thấy dự án CapCut nào tự động.";
                         color: Theme.fg-muted;
                         font-size: Theme.fs;
+                        horizontal-alignment: center;
+                    }
+                    Text {
+                        text: "💡 Mẹo: CapCut Mobile lưu trong thư mục riêng của hệ thống. Bạn có thể sao chép / nén thư mục dự án CapCut vào thư mục Download hoặc bấm nút trên để mở tệp JSON / ZIP.";
+                        color: Theme.fg-subtle;
+                        font-size: Theme.fs-sm;
+                        wrap: word-wrap;
                         horizontal-alignment: center;
                     }
                 }

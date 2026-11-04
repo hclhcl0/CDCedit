@@ -136,10 +136,38 @@ pub fn list_capcut_drafts() -> Vec<CapCutDraft> {
             }
         }
 
-        // Case B: Scan subdirectories for drafts
+        // Case B: Scan subdirectories and zip files for drafts
         if let Ok(entries) = std::fs::read_dir(&search_dir) {
             for entry in entries.flatten() {
                 let p = entry.path();
+                if p.is_file() && p.extension().map_or(false, |ext| ext.eq_ignore_ascii_case("zip")) {
+                    let norm = p.to_string_lossy().replace('\\', "/");
+                    if !seen_paths.contains(&norm.to_lowercase()) {
+                        seen_paths.insert(norm.to_lowercase());
+                        let name = p.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_else(|| "Dự án CapCut (ZIP)".to_string());
+                        let modified_at_millis = entry
+                            .metadata()
+                            .ok()
+                            .and_then(|m| m.modified().ok())
+                            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                            .map(|d| d.as_millis() as u64)
+                            .unwrap_or(0);
+                        let size_bytes = entry.metadata().map(|m| m.len()).unwrap_or(0);
+
+                        drafts.push(CapCutDraft {
+                            path: norm,
+                            name,
+                            cover_path: None,
+                            duration_sec: 0.0,
+                            size_bytes,
+                            modified_at_millis,
+                            width: 1920,
+                            height: 1080,
+                            exists: true,
+                        });
+                    }
+                    continue;
+                }
                 if !p.is_dir() {
                     continue;
                 }
@@ -233,6 +261,7 @@ pub fn is_capcut_draft(path: &Path) -> bool {
             n == "draft_content.json"
                 || n == "draft_info.json"
                 || n == "draft_meta_info.json"
+                || n == "template_content.json"
                 || n == "project.json"
                 || path.extension().map_or(false, |ext| ext.eq_ignore_ascii_case("zip"))
         });
@@ -240,7 +269,9 @@ pub fn is_capcut_draft(path: &Path) -> bool {
     path.join("draft_content.json").is_file()
         || path.join("draft_info.json").is_file()
         || path.join("draft_meta_info.json").is_file()
+        || path.join("template_content.json").is_file()
         || path.join("Timelines").is_dir()
+        || path.join("history").is_dir()
 }
 
 /// Filter and sort CapCut drafts for the start screen grid.

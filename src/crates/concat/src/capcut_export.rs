@@ -101,8 +101,11 @@ pub fn capcut_drafts_dirs() -> Vec<PathBuf> {
             let p12 = base.join("Movies/CapCut");
             let p13 = base.join("Documents/CapCut");
             let p14 = base.join("DCIM/CapCut");
+            let p15 = base.join("Download");
+            let p16 = base.join("Documents");
+            let p17 = base.join("Movies");
 
-            for cand in [p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14] {
+            for cand in [p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17] {
                 if cand.is_dir() && !dirs.contains(&cand) {
                     dirs.push(cand);
                 }

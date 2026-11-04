@@ -78,6 +78,7 @@ pub fn import_capcut_draft_path(studio: &mut Studio, input_path: &Path) {
             "draft_content.json",
             "draft_info.json",
             "draft_meta_info.json",
+            "template_content.json",
             "root_meta_info.json",
         ];
         for name in &cand_names {
@@ -271,17 +272,17 @@ pub fn import_capcut_draft_path(studio: &mut Studio, input_path: &Path) {
             return Some(p_norm);
         }
         if let Some(file_name) = Path::new(&p_norm).file_name() {
-            let candidate1 = draft_dir.join(file_name);
-            if candidate1.exists() {
-                return Some(candidate1.to_string_lossy().replace('\\', "/"));
-            }
-            let candidate2 = draft_dir.join("Resources").join(file_name);
-            if candidate2.exists() {
-                return Some(candidate2.to_string_lossy().replace('\\', "/"));
-            }
-            let candidate3 = draft_dir.join("materials").join(file_name);
-            if candidate3.exists() {
-                return Some(candidate3.to_string_lossy().replace('\\', "/"));
+            for sub_cand in [
+                draft_dir.join(file_name),
+                draft_dir.join("Resources").join(file_name),
+                draft_dir.join("materials").join(file_name),
+                draft_dir.join("media").join(file_name),
+                draft_dir.join("audio").join(file_name),
+                draft_dir.join("video").join(file_name),
+            ] {
+                if sub_cand.exists() {
+                    return Some(sub_cand.to_string_lossy().replace('\\', "/"));
+                }
             }
             #[cfg(target_os = "android")]
             {
@@ -291,6 +292,7 @@ pub fn import_capcut_draft_path(studio: &mut Studio, input_path: &Path) {
                     "/storage/emulated/0/Download",
                     "/storage/emulated/0/Movies",
                     "/storage/emulated/0/Pictures",
+                    "/storage/emulated/0/CapCut",
                 ] {
                     let cand = Path::new(folder).join(file_name);
                     if cand.exists() {
@@ -310,10 +312,14 @@ pub fn import_capcut_draft_path(studio: &mut Studio, input_path: &Path) {
     if let Some(videos) = materials["videos"].as_array() {
         for v in videos {
             let capcut_id = v["id"].as_str().unwrap_or_default().to_string();
-            let raw_path = v["path"].as_str().unwrap_or_default();
-            let Some(real_path) = resolve_file_path(raw_path) else {
-                continue;
-            };
+            let raw_path = v["path"]
+                .as_str()
+                .or_else(|| v["extra_info"].as_str())
+                .or_else(|| v["file_path"].as_str())
+                .or_else(|| v["origin_path"].as_str())
+                .or_else(|| v["material_name"].as_str())
+                .unwrap_or_default();
+            let real_path = resolve_file_path(raw_path).unwrap_or_else(|| raw_path.to_string());
 
             let name = v["material_name"].as_str().map(|s| s.to_string()).unwrap_or_else(|| {
                 Path::new(&real_path)
@@ -331,7 +337,8 @@ pub fn import_capcut_draft_path(studio: &mut Studio, input_path: &Path) {
             let concat_id = format!("m{media_counter}");
             media_counter += 1;
 
-            let media_item = if let Ok(summary) = concat_host::media::probe(&real_path) {
+            let exists = Path::new(&real_path).exists();
+            let media_item = if exists && let Ok(summary) = concat_host::media::probe(&real_path) {
                 let new_m = summary.to_new_media();
                 MediaItem {
                     id: concat_id.clone(),
@@ -368,7 +375,7 @@ pub fn import_capcut_draft_path(studio: &mut Studio, input_path: &Path) {
                     audio_codec: if has_audio { Some("aac".into()) } else { None },
                     has_audio,
                     audio_tracks: Vec::new(),
-                    placeholder: false,
+                    placeholder: !exists,
                     origin: None,
                     color_range: None,
                     color_space: ColorSpace::Sdr,
@@ -381,14 +388,98 @@ pub fn import_capcut_draft_path(studio: &mut Studio, input_path: &Path) {
         }
     }
 
+    // Images (CapCut mobile stores photos here as well)
+    if let Some(images) = materials["images"].as_array() {
+        for img in images {
+            let capcut_id = img["id"].as_str().unwrap_or_default().to_string();
+            if media_map.contains_key(&capcut_id) {
+                continue;
+            }
+            let raw_path = img["path"]
+                .as_str()
+                .or_else(|| img["extra_info"].as_str())
+                .or_else(|| img["file_path"].as_str())
+                .or_else(|| img["origin_path"].as_str())
+                .or_else(|| img["material_name"].as_str())
+                .unwrap_or_default();
+            let real_path = resolve_file_path(raw_path).unwrap_or_else(|| raw_path.to_string());
+
+            let name = img["material_name"].as_str().map(|s| s.to_string()).unwrap_or_else(|| {
+                Path::new(&real_path)
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_else(|| format!("photo_{media_counter}"))
+            });
+            let dur_us = img["duration"].as_i64().unwrap_or(5_000_000);
+            let duration_sec = dur_us as f64 / 1_000_000.0;
+            let item_w = img["width"].as_u64().unwrap_or(width as u64) as u32;
+            let item_h = img["height"].as_u64().unwrap_or(height as u64) as u32;
+
+            let concat_id = format!("m{media_counter}");
+            media_counter += 1;
+
+            let exists = Path::new(&real_path).exists();
+            let media_item = if exists && let Ok(summary) = concat_host::media::probe(&real_path) {
+                let new_m = summary.to_new_media();
+                MediaItem {
+                    id: concat_id.clone(),
+                    path: new_m.path,
+                    name: new_m.name,
+                    duration: new_m.duration.or(Some(duration_sec)),
+                    kind: MediaKind::Image,
+                    width: new_m.width.or(Some(item_w)),
+                    height: new_m.height.or(Some(item_h)),
+                    frame_rate: None,
+                    frame_rate_fraction: None,
+                    video_codec: None,
+                    audio_codec: None,
+                    has_audio: false,
+                    audio_tracks: Vec::new(),
+                    placeholder: false,
+                    origin: None,
+                    color_range: None,
+                    color_space: new_m.color_space,
+                    extra: Default::default(),
+                }
+            } else {
+                MediaItem {
+                    id: concat_id.clone(),
+                    path: real_path,
+                    name: name.clone(),
+                    duration: Some(duration_sec),
+                    kind: MediaKind::Image,
+                    width: Some(item_w),
+                    height: Some(item_h),
+                    frame_rate: None,
+                    frame_rate_fraction: None,
+                    video_codec: None,
+                    audio_codec: None,
+                    has_audio: false,
+                    audio_tracks: Vec::new(),
+                    placeholder: !exists,
+                    origin: None,
+                    color_range: None,
+                    color_space: ColorSpace::Sdr,
+                    extra: Default::default(),
+                }
+            };
+
+            media_map.insert(capcut_id, (concat_id, true, name));
+            media_list.push(media_item);
+        }
+    }
+
     // Audios
     if let Some(audios) = materials["audios"].as_array() {
         for a in audios {
             let capcut_id = a["id"].as_str().unwrap_or_default().to_string();
-            let raw_path = a["path"].as_str().unwrap_or_default();
-            let Some(real_path) = resolve_file_path(raw_path) else {
-                continue;
-            };
+            let raw_path = a["path"]
+                .as_str()
+                .or_else(|| a["extra_info"].as_str())
+                .or_else(|| a["file_path"].as_str())
+                .or_else(|| a["name"].as_str())
+                .unwrap_or_default();
+            let real_path = resolve_file_path(raw_path).unwrap_or_else(|| raw_path.to_string());
 
             let name = a["name"].as_str().map(|s| s.to_string()).unwrap_or_else(|| {
                 Path::new(&real_path)
@@ -402,7 +493,8 @@ pub fn import_capcut_draft_path(studio: &mut Studio, input_path: &Path) {
             let concat_id = format!("m{media_counter}");
             media_counter += 1;
 
-            let media_item = if let Ok(summary) = concat_host::media::probe(&real_path) {
+            let exists = Path::new(&real_path).exists();
+            let media_item = if exists && let Ok(summary) = concat_host::media::probe(&real_path) {
                 let new_m = summary.to_new_media();
                 MediaItem {
                     id: concat_id.clone(),
@@ -439,7 +531,7 @@ pub fn import_capcut_draft_path(studio: &mut Studio, input_path: &Path) {
                     audio_codec: Some("aac".into()),
                     has_audio: true,
                     audio_tracks: Vec::new(),
-                    placeholder: false,
+                    placeholder: !exists,
                     origin: None,
                     color_range: None,
                     color_space: ColorSpace::Sdr,
@@ -460,7 +552,13 @@ pub fn import_capcut_draft_path(studio: &mut Studio, input_path: &Path) {
             let content_str = t["content"].as_str().unwrap_or_default();
             let parsed: Value = serde_json::from_str(content_str).unwrap_or(Value::Null);
 
-            let text_body = parsed["text"].as_str().unwrap_or_default().to_string();
+            let text_body = if !parsed["text"].as_str().unwrap_or_default().is_empty() {
+                parsed["text"].as_str().unwrap_or_default().to_string()
+            } else if !content_str.is_empty() && !content_str.starts_with('{') {
+                content_str.to_string()
+            } else {
+                t["text"].as_str().unwrap_or("Phụ đề").to_string()
+            };
             let styles = parsed["styles"].as_array();
             let first_style = styles.and_then(|s| s.get(0));
 
@@ -667,6 +765,30 @@ pub fn import_capcut_draft_path(studio: &mut Studio, input_path: &Path) {
                         clip.flip_h = flip_h;
                         clip.flip_v = flip_v;
                         clips.push(Arc::new(clip));
+                    } else if track_type == "video" || track_type == "audio" {
+                        let is_audio = track_type == "audio";
+                        let fallback_id = format!("m_fallback_{mat_id}");
+                        let kind = if is_audio { ClipKind::Audio } else { ClipKind::Video };
+                        let mut clip = Clip::blank(
+                            &clip_id,
+                            &track_id,
+                            kind,
+                            format!("Clip {clip_counter}"),
+                            start,
+                            duration,
+                        );
+                        clip.media_id = fallback_id.clone();
+                        clip.source_start = source_start;
+                        clip.speed = speed;
+                        clip.volume = volume;
+                        clip.opacity = opacity;
+                        clip.scale = scale;
+                        clip.rotation = rotation;
+                        clip.offset_x = offset_x;
+                        clip.offset_y = offset_y;
+                        clip.flip_h = flip_h;
+                        clip.flip_v = flip_v;
+                        clips.push(Arc::new(clip));
                     }
                 }
             }
@@ -709,19 +831,43 @@ pub fn import_capcut_draft_path(studio: &mut Studio, input_path: &Path) {
 
     // 6. Write Concat Project to disk
     let default_loc = if cfg!(target_os = "android") {
-        crate::studio::home_folder("CDCedit")
+        let home_candidate = crate::studio::home_folder("CDCedit");
+        if !home_candidate.is_empty() && Path::new(&home_candidate).is_dir() {
+            home_candidate
+        } else {
+            let android_p = Path::new("/storage/emulated/0/CDCedit");
+            if android_p.is_dir() || std::fs::create_dir_all(android_p).is_ok() {
+                android_p.to_string_lossy().into_owned()
+            } else {
+                let p = studio.host.dirs.data.join("Projects");
+                let _ = std::fs::create_dir_all(&p);
+                p.to_string_lossy().into_owned()
+            }
+        }
     } else if cfg!(target_os = "ios") {
         crate::studio::home_folder("Documents/CDCedit")
     } else {
         crate::studio::home_folder("Desktop")
     };
-    let location = studio
+    let mut location = studio
         .prefs
         .last_project_location
         .clone()
         .filter(|l| !l.is_empty() && Path::new(l).is_dir())
         .unwrap_or_else(|| default_loc);
-    let _ = std::fs::create_dir_all(&location);
+
+    if location.is_empty() || std::fs::create_dir_all(&location).is_err() {
+        let p = studio.host.dirs.data.join("Projects");
+        let _ = std::fs::create_dir_all(&p);
+        location = p.to_string_lossy().into_owned();
+    }
+
+    let mut import_proj_name = format!("{clean_name}_imported");
+    let mut counter = 2;
+    while Path::new(&location).join(&import_proj_name).exists() {
+        import_proj_name = format!("{clean_name}_imported ({counter})");
+        counter += 1;
+    }
 
     let info = match concat_host::projects::create(
         &location,

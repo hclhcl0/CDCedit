@@ -58,6 +58,7 @@ import java.util.List;
 public class ConcatFiles extends Fragment {
     private static final int REQUEST_PICK = 0xC0C4;
     private static final int REQUEST_MICROPHONE = 0xC0C5;
+    private static final int REQUEST_STORAGE = 0xC0C6;
     private static final String TAG = "concat-files";
 
     /**
@@ -205,6 +206,48 @@ public class ConcatFiles extends Fragment {
             }
         });
         return false;
+    }
+
+    /**
+     * Checks and requests storage permissions on Android.
+     */
+    public static boolean askStorage(final Activity activity) {
+        if (activity == null) return true;
+        if (Build.VERSION.SDK_INT >= 30) {
+            // Android 11+ (API 30+): Manage External Storage
+            if (Environment.isExternalStorageManager()) {
+                return true;
+            }
+            try {
+                Intent intent = new Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+                intent.setData(Uri.parse("package:" + activity.getPackageName()));
+                activity.startActivity(intent);
+            } catch (Exception e) {
+                try {
+                    Intent intent = new Intent(android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
+                    activity.startActivity(intent);
+                } catch (Exception ignored) {}
+            }
+            return false;
+        } else if (Build.VERSION.SDK_INT >= 23) {
+            // Android 6 - 10: Standard storage permissions
+            if (activity.checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE)
+                    == PackageManager.PERMISSION_GRANTED) {
+                return true;
+            }
+            activity.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    activity.requestPermissions(
+                            new String[] {
+                                Manifest.permission.READ_EXTERNAL_STORAGE,
+                                Manifest.permission.WRITE_EXTERNAL_STORAGE
+                            }, REQUEST_STORAGE);
+                }
+            });
+            return false;
+        }
+        return true;
     }
 
     /**

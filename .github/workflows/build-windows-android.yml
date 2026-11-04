@@ -42,9 +42,14 @@ jobs:
       CARGO_PROFILE_RELEASE_PACKAGE_CONCAT_CODEGEN_UNITS: "4"
       CARGO_BUILD_JOBS: "2"
     steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/share/boost /opt/ghc /usr/local/share/powershell 2>/dev/null || true
+          df -h
+
       - name: Set up swap space
         run: |
-          sudo fallocate -l 10G /swapfile2 || sudo dd if=/dev/zero of=/swapfile2 bs=1M count=10240
+          sudo fallocate -l 4G /swapfile2 || sudo dd if=/dev/zero of=/swapfile2 bs=1M count=4096
           sudo chmod 600 /swapfile2
           sudo mkswap /swapfile2
           sudo swapon /swapfile2

@@ -583,6 +583,29 @@ mod clipboard {
     }
 }
 
+#[cfg(target_os = "android")]
+mod storage {
+    use jni::{jni_sig, jni_str};
+    use slint::android::AndroidApp;
+
+    /// Hands the window's crate the way to check/request storage permissions on Android.
+    pub fn install(app: &AndroidApp) {
+        let app = app.clone();
+        concat::install_storage_access(Box::new(move || {
+            super::java::with_class(&app, |env, activity, class| {
+                env.call_static_method(
+                    class,
+                    jni_str!("askStorage"),
+                    jni_sig!("(Landroid/app/Activity;)Z"),
+                    &[activity.into()],
+                )?
+                .z()
+            })
+            .unwrap_or(true)
+        }));
+    }
+}
+
 /// Called by the activity's native glue; the name is the contract.
 #[cfg(target_os = "android")]
 #[unsafe(no_mangle)]
@@ -601,6 +624,7 @@ fn android_main(app: slint::android::AndroidApp) {
     microphone::install(&app);
     links::install(&app);
     clipboard::install(&app);
+    storage::install(&app);
     native_libs::install(&app);
     if let Err(error) = concat::run() {
         log::error!("{error}");
