@@ -9675,10 +9675,18 @@ impl Studio {
     }
 
     pub fn export_capcut_project(&mut self) {
+        if self.phone {
+            self.notify("Chức năng xuất dự án CapCut chỉ hỗ trợ trên máy tính (PC).", true);
+            return;
+        }
         crate::capcut_export::export_studio_to_capcut(self, false);
     }
 
     pub fn export_capcut_project_and_launch(&mut self) {
+        if self.phone {
+            self.notify("Chức năng xuất dự án CapCut chỉ hỗ trợ trên máy tính (PC).", true);
+            return;
+        }
         crate::capcut_export::export_studio_to_capcut(self, true);
     }
 
@@ -9820,10 +9828,18 @@ impl Studio {
     }
 
     pub fn import_capcut_project(&mut self) {
+        if self.phone {
+            self.notify("Chức năng đọc dự án CapCut chỉ hỗ trợ trên máy tính (PC).", true);
+            return;
+        }
         crate::capcut_import::import_capcut_dialog(self);
     }
 
     pub fn refresh_capcut_drafts(&mut self) {
+        if self.phone {
+            self.capcut_drafts.clear();
+            return;
+        }
         self.capcut_drafts = crate::capcut_hub::list_capcut_drafts();
     }
 

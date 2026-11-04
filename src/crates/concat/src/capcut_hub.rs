@@ -24,6 +24,12 @@ pub struct CapCutDraft {
 
 /// Discover all CapCut drafts on this computer.
 pub fn list_capcut_drafts() -> Vec<CapCutDraft> {
+    #[cfg(target_os = "android")]
+    {
+        return Vec::new();
+    }
+    #[cfg(not(target_os = "android"))]
+    {
     let mut drafts = Vec::new();
     let mut seen_paths = std::collections::HashSet::new();
 
@@ -206,6 +212,7 @@ pub fn list_capcut_drafts() -> Vec<CapCutDraft> {
     // Sort newest first by default
     drafts.sort_by(|a, b| b.modified_at_millis.cmp(&a.modified_at_millis));
     drafts
+    }
 }
 
 fn extract_draft_name(dir: &Path) -> String {

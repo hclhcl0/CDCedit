@@ -317,7 +317,7 @@ impl StartPane {
             // inside it would go unseen.
             StartMsg::OpenRecent(path) => {
                 let p = Path::new(&path);
-                if crate::capcut_hub::is_capcut_draft(p) {
+                if !studio.phone && crate::capcut_hub::is_capcut_draft(p) {
                     crate::capcut_import::import_capcut_draft_path(studio, p);
                     return;
                 }
@@ -334,7 +334,7 @@ impl StartPane {
                 }
             }
             StartMsg::ForgetRecent(path) => {
-                if self.project_tab == 1 {
+                if !studio.phone && self.project_tab == 1 {
                     studio.capcut_drafts.retain(|d| d.path != path);
                     return;
                 }
@@ -357,10 +357,12 @@ impl StartPane {
                 };
             }
             StartMsg::ProjectTab(tab) => {
+                if studio.phone {
+                    self.project_tab = 0;
+                    return;
+                }
                 self.project_tab = tab;
                 if tab == 1 {
-                    crate::platform::ask_storage();
-                    crate::platform::sync_capcut_tree();
                     if studio.capcut_drafts.is_empty() {
                         studio.refresh_capcut_drafts();
                     }
@@ -377,12 +379,12 @@ impl StartPane {
                         return;
                     }
                     "grant-capcut-tree" => {
-                        crate::platform::pick_capcut_tree();
                         return;
                     }
                     "import-capcut" => {
-                        crate::platform::ask_storage();
-                        crate::capcut_import::import_capcut_dialog(studio);
+                        if !studio.phone {
+                            crate::capcut_import::import_capcut_dialog(studio);
+                        }
                         return;
                     }
                     "tool-captions" => {

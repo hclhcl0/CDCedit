@@ -76,58 +76,7 @@ pub fn capcut_drafts_dirs() -> Vec<PathBuf> {
     }
     #[cfg(target_os = "android")]
     {
-        let bases = [
-            PathBuf::from("/storage/emulated/0"),
-            PathBuf::from("/sdcard"),
-        ];
-        for base in &bases {
-            if !base.is_dir() {
-                continue;
-            }
-            // 1. CapCut Mobile (international app)
-            let p1 = base.join("Android/data/com.lemon.lvoverseas/files/newdrafts");
-            let p2 = base.join("Android/data/com.lemon.lvoverseas/files/drafts");
-            let p3 = base.join("Android/data/com.lemon.lvoverseas/files/draft");
-            let p4 = base.join("Android/data/com.lemon.lvoverseas/files/Projects/com.lveditor.draft");
-            // 2. JianYing (Chinese CapCut variant)
-            let p5 = base.join("Android/data/com.lemon.lv/files/newdrafts");
-            let p6 = base.join("Android/data/com.lemon.lv/files/drafts");
-            let p7 = base.join("Android/data/com.lemon.lv/files/draft");
-            // 3. Shared & Public folders
-            let p8 = base.join("CapCut");
-            let p9 = base.join("CapCut/Projects");
-            let p10 = base.join("CapCut/User Data/Projects/com.lveditor.draft");
-            let p11 = base.join("Download/CapCut");
-            let p12 = base.join("Movies/CapCut");
-            let p13 = base.join("Documents/CapCut");
-            let p14 = base.join("DCIM/CapCut");
-            let p15 = base.join("Download");
-            let p16 = base.join("Documents");
-            let p17 = base.join("Movies");
-
-            for cand in [p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17] {
-                if cand.is_dir() && !dirs.contains(&cand) {
-                    dirs.push(cand);
-                }
-            }
-        }
-        // 4. App specific data directories
-        if let Ok(home) = std::env::var("HOME") {
-            let home_dir = PathBuf::from(home);
-            for sub in ["CapCut", "Imported/CapCut", "CDCedit/CapCut", "Projects/CapCut"] {
-                let cand = home_dir.join(sub);
-                if cand.is_dir() && !dirs.contains(&cand) {
-                    dirs.push(cand);
-                }
-            }
-        }
-        if let Ok(xdg) = std::env::var("XDG_DATA_HOME") {
-            let xdg_dir = PathBuf::from(xdg);
-            let cand = xdg_dir.join("concat").join("CapCut");
-            if cand.is_dir() && !dirs.contains(&cand) {
-                dirs.push(cand);
-            }
-        }
+        // CapCut import/export is disabled on mobile
     }
     dirs
 }
@@ -201,17 +150,7 @@ pub fn default_capcut_drafts_dir() -> Option<PathBuf> {
     }
     #[cfg(target_os = "android")]
     {
-        let dirs = capcut_drafts_dirs();
-        if let Some(first) = dirs.into_iter().next() {
-            return Some(first);
-        }
-        let fallback = PathBuf::from("/storage/emulated/0/CapCut");
-        if fallback.is_dir() {
-            return Some(fallback);
-        }
-        if let Ok(home) = std::env::var("HOME") {
-            return Some(PathBuf::from(home).join("CapCut"));
-        }
+        return None;
     }
     None
 }
@@ -249,18 +188,7 @@ pub fn capcut_root_meta_file() -> Option<PathBuf> {
     }
     #[cfg(target_os = "android")]
     {
-        for dir in capcut_drafts_dirs() {
-            let meta = dir.join("root_meta_info.json");
-            if meta.is_file() {
-                return Some(meta);
-            }
-            if let Some(parent) = dir.parent() {
-                let p_meta = parent.join("root_meta_info.json");
-                if p_meta.is_file() {
-                    return Some(p_meta);
-                }
-            }
-        }
+        return None;
     }
     None
 }

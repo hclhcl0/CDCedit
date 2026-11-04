@@ -933,7 +933,7 @@ export component SettingsDialog inherits Modal {
                     Field { value: root.data.eleven-api-key; placeholder: "key1; key2; key3"; secret: true; technical: true; edited(text) => { root.eleven-api-key-edited(text); } }
                 }
 
-                DialogSection {
+                if !root.phone: DialogSection {
                     title: "Xuất phụ đề sang CapCut";
                     hint: "Tùy chỉnh thông số phụ đề khi xuất dự án sang CapCut PC (cỡ chữ, tỉ lệ biến đổi, vị trí Y, độ dày viền đen)";
                     open: true;

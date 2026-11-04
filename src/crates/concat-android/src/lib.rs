@@ -182,24 +182,15 @@ mod java {
         let class = JClass::cast_local(env, class)?;
         // SAFETY: the signature is the Java declaration's, and the
         // function below takes exactly what it names.
-        let methods = [
-            unsafe {
-                jni::NativeMethod::from_raw_parts(
-                    jni_str!("filesPicked"),
-                    jni_str!("([Ljava/lang/String;)V"),
-                    crate::picker::files_picked as *mut c_void,
-                )
-            },
-            unsafe {
-                jni::NativeMethod::from_raw_parts(
-                    jni_str!("capcutTreeSynced"),
-                    jni_str!("(I)V"),
-                    crate::capcut_tree::tree_synced as *mut c_void,
-                )
-            },
-        ];
+        let method = unsafe {
+            jni::NativeMethod::from_raw_parts(
+                jni_str!("filesPicked"),
+                jni_str!("([Ljava/lang/String;)V"),
+                super::picker::files_picked as *mut c_void,
+            )
+        };
         // SAFETY: as above.
-        unsafe { env.register_native_methods(&class, &methods) }?;
+        unsafe { env.register_native_methods(&class, &[method]) }?;
         env.new_global_ref(class)
     }
 }
@@ -616,52 +607,6 @@ mod storage {
 }
 
 #[cfg(target_os = "android")]
-pub(crate) mod capcut_tree {
-    use jni::{jni_sig, jni_str, sys};
-    use slint::android::AndroidApp;
-
-    pub fn install(app: &AndroidApp) {
-        let app1 = app.clone();
-        concat::install_capcut_tree_picker(Box::new(move || {
-            let _ = super::java::with_class(&app1, |env, activity, class| {
-                env.call_static_method(
-                    class,
-                    jni_str!("pickCapCutFolder"),
-                    jni_sig!("(Landroid/app/Activity;)V"),
-                    &[activity.into()],
-                )?;
-                Ok(())
-            });
-        }));
-
-        let app2 = app.clone();
-        concat::install_capcut_tree_syncer(Box::new(move || {
-            let _ = super::java::with_class(&app2, |env, activity, class| {
-                env.call_static_method(
-                    class,
-                    jni_str!("syncSavedCapCutTree"),
-                    jni_sig!("(Landroid/app/Activity;)V"),
-                    &[activity.into()],
-                )?;
-                Ok(())
-            });
-        }));
-    }
-
-    pub(crate) unsafe extern "system" fn tree_synced(
-        _env: *mut sys::JNIEnv,
-        _class: sys::jclass,
-        count: sys::jint,
-    ) {
-        let count = count.max(0) as usize;
-        let _ = slint::invoke_from_event_loop(move || {
-            concat::on_capcut_tree_synced(count);
-        });
-    }
-}
-
-/// Called by the activity's native glue; the name is the contract.
-#[cfg(target_os = "android")]
 #[unsafe(no_mangle)]
 fn android_main(app: slint::android::AndroidApp) {
     // Directories first: the log file is written into one of them.
@@ -679,7 +624,6 @@ fn android_main(app: slint::android::AndroidApp) {
     links::install(&app);
     clipboard::install(&app);
     storage::install(&app);
-    capcut_tree::install(&app);
     native_libs::install(&app);
     if let Err(error) = concat::run() {
         log::error!("{error}");

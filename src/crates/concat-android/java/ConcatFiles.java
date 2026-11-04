@@ -11,13 +11,11 @@ import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
-import android.provider.DocumentsContract;
 import android.provider.MediaStore;
 import android.provider.OpenableColumns;
 import android.util.Log;
@@ -62,7 +60,6 @@ public class ConcatFiles extends Fragment {
     private static final int REQUEST_PICK = 0xC0C4;
     private static final int REQUEST_MICROPHONE = 0xC0C5;
     private static final int REQUEST_STORAGE = 0xC0C6;
-    private static final int REQUEST_CAPCUT_TREE = 0xC0C7;
     private static final String TAG = "concat-files";
 
     /**
@@ -354,9 +351,6 @@ public class ConcatFiles extends Fragment {
     /** Registered from Rust: the picked files' paths, or none. */
     public static native void filesPicked(String[] paths);
 
-    /** Registered from Rust: reports when CapCut tree sync finishes with the number of drafts found. */
-    public static native void capcutTreeSynced(int count);
-
     /**
      * Shows the picker, offering the MIME types in {@code types} - comma
      * separated, "video/*,audio/*" - or every file when it is empty. From
@@ -391,33 +385,6 @@ public class ConcatFiles extends Fragment {
 
     @Override
     public void onActivityResult(int request, int result, Intent data) {
-        if (request == REQUEST_CAPCUT_TREE) {
-            final Activity activity = getActivity();
-            try {
-                getFragmentManager().beginTransaction().remove(this).commitAllowingStateLoss();
-            } catch (Exception ignored) {}
-            if (result == Activity.RESULT_OK && data != null && data.getData() != null && activity != null) {
-                final Uri treeUri = data.getData();
-                try {
-                    int flags = data.getFlags() & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-                    activity.getContentResolver().takePersistableUriPermission(treeUri, flags);
-                    SharedPreferences prefs = activity.getSharedPreferences("concat_capcut", Context.MODE_PRIVATE);
-                    prefs.edit().putString("capcut_tree_uri", treeUri.toString()).apply();
-                } catch (Exception e) {
-                    Log.w(TAG, "takePersistableUriPermission: " + e.getMessage());
-                }
-                new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        int synced = syncTreeDrafts(activity, treeUri);
-                        capcutTreeSynced(synced);
-                    }
-                }, "capcut-tree-sync").start();
-            } else {
-                capcutTreeSynced(0);
-            }
-            return;
-        }
         if (request != REQUEST_PICK) {
             return;
         }
@@ -544,177 +511,5 @@ public class ConcatFiles extends Fragment {
             } catch (IOException ignored) {
             }
         }
-    }
-
-    /**
-     * Prompts the user to pick/grant access to CapCut's data folder using Storage Access Framework (SAF).
-     */
-    public static void pickCapCutFolder(final Activity activity) {
-        if (activity == null) return;
-        activity.runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                ConcatFiles fragment = new ConcatFiles();
-                activity.getFragmentManager()
-                        .beginTransaction()
-                        .add(fragment, TAG)
-                        .commitAllowingStateLoss();
-                activity.getFragmentManager().executePendingTransactions();
-
-                Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    Uri initialUri = Uri.parse("content://com.android.externalstorage.documents/document/primary%3AAndroid%2Fdata%2Fcom.lemon.lvoverseas%2Ffiles");
-                    intent.putExtra("android.provider.extra.INITIAL_URI", initialUri);
-                }
-                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
-                try {
-                    fragment.startActivityForResult(intent, REQUEST_CAPCUT_TREE);
-                } catch (Exception e) {
-                    Log.w(TAG, "pickCapCutFolder error: " + e.getMessage());
-                }
-            }
-        });
-    }
-
-    /**
-     * Synchronizes any previously granted CapCut tree folder in the background.
-     */
-    public static void syncSavedCapCutTree(final Activity activity) {
-        if (activity == null) return;
-        SharedPreferences prefs = activity.getSharedPreferences("concat_capcut", Context.MODE_PRIVATE);
-        String saved = prefs.getString("capcut_tree_uri", null);
-        if (saved == null || saved.isEmpty()) return;
-        final Uri uri = Uri.parse(saved);
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                int synced = syncTreeDrafts(activity, uri);
-                if (synced > 0) {
-                    capcutTreeSynced(synced);
-                }
-            }
-        }, "capcut-saved-tree-sync").start();
-    }
-
-    private static class DocItem {
-        final String docId;
-        final String name;
-        final boolean isDir;
-        DocItem(String docId, String name, boolean isDir) {
-            this.docId = docId;
-            this.name = name;
-            this.isDir = isDir;
-        }
-    }
-
-    private static List<DocItem> listDocChildren(ContentResolver cr, Uri treeUri, String parentDocId) {
-        List<DocItem> list = new ArrayList<DocItem>();
-        Cursor cursor = null;
-        try {
-            Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, parentDocId);
-            cursor = cr.query(childrenUri, new String[] {
-                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-                DocumentsContract.Document.COLUMN_MIME_TYPE
-            }, null, null, null);
-            if (cursor != null) {
-                while (cursor.moveToNext()) {
-                    String docId = cursor.getString(0);
-                    String name = cursor.getString(1);
-                    String mime = cursor.getString(2);
-                    boolean isDir = DocumentsContract.Document.MIME_TYPE_DIR.equals(mime);
-                    list.add(new DocItem(docId, name, isDir));
-                }
-            }
-        } catch (Exception ignored) {
-        } finally {
-            if (cursor != null) cursor.close();
-        }
-        return list;
-    }
-
-    private static void copyDraftFiles(ContentResolver cr, Uri treeUri, List<DocItem> files, File targetDir) {
-        targetDir.mkdirs();
-        for (DocItem f : files) {
-            String lower = f.name.toLowerCase();
-            if (lower.endsWith(".json") || lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".png")) {
-                File dest = new File(targetDir, f.name);
-                if (!dest.exists() || dest.length() == 0) {
-                    try {
-                        Uri docUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, f.docId);
-                        InputStream in = cr.openInputStream(docUri);
-                        if (in != null) {
-                            FileOutputStream out = new FileOutputStream(dest);
-                            byte[] buffer = new byte[8192];
-                            int read;
-                            while ((read = in.read(buffer)) != -1) {
-                                out.write(buffer, 0, read);
-                            }
-                            out.close();
-                            in.close();
-                        }
-                    } catch (Exception ignored) {}
-                }
-            }
-        }
-    }
-
-    public static int syncTreeDrafts(Activity activity, Uri treeUri) {
-        if (activity == null || treeUri == null) return 0;
-        int count = 0;
-        try {
-            ContentResolver cr = activity.getContentResolver();
-            String rootDocId = DocumentsContract.getTreeDocumentId(treeUri);
-
-            File destBase = new File(activity.getExternalFilesDir(null), "CapCut");
-            destBase.mkdirs();
-
-            List<DocItem> rootChildren = listDocChildren(cr, treeUri, rootDocId);
-            boolean isDirectDraft = false;
-            for (DocItem item : rootChildren) {
-                if (item.name.equals("draft_content.json") || item.name.equals("draft_info.json")) {
-                    isDirectDraft = true;
-                    break;
-                }
-            }
-
-            if (isDirectDraft) {
-                File targetDir = new File(destBase, "Imported_CapCut_Draft");
-                copyDraftFiles(cr, treeUri, rootChildren, targetDir);
-                return 1;
-            }
-
-            DocItem draftsFolder = null;
-            for (DocItem item : rootChildren) {
-                if (item.isDir && (item.name.equalsIgnoreCase("newdrafts") || item.name.equalsIgnoreCase("drafts") || item.name.equalsIgnoreCase("draft"))) {
-                    draftsFolder = item;
-                    break;
-                }
-            }
-
-            List<DocItem> draftFolders = (draftsFolder != null)
-                ? listDocChildren(cr, treeUri, draftsFolder.docId)
-                : rootChildren;
-
-            for (DocItem draftDir : draftFolders) {
-                if (!draftDir.isDir) continue;
-                List<DocItem> draftFiles = listDocChildren(cr, treeUri, draftDir.docId);
-                boolean isDraft = false;
-                for (DocItem f : draftFiles) {
-                    if (f.name.equals("draft_content.json") || f.name.equals("draft_info.json") || f.name.equals("draft_meta_info.json") || f.name.equals("template_content.json")) {
-                        isDraft = true;
-                        break;
-                    }
-                }
-                if (isDraft) {
-                    File targetDraftDir = new File(destBase, draftDir.name);
-                    copyDraftFiles(cr, treeUri, draftFiles, targetDraftDir);
-                    count++;
-                }
-            }
-        } catch (Exception e) {
-            Log.w(TAG, "syncTreeDrafts error: " + e.getMessage());
-        }
-        return count;
     }
 }

@@ -60,9 +60,8 @@ pub use platform::{
 };
 #[cfg(target_os = "android")]
 pub use platform::{
-    CapCutTreePicker, CapCutTreeSyncer, ClipboardReader, LinkOpener, StorageAccess,
-    install_capcut_tree_picker, install_capcut_tree_syncer, install_clipboard_reader,
-    install_link_opener, install_storage_access, pick_capcut_tree, sync_capcut_tree,
+    ClipboardReader, LinkOpener, StorageAccess,
+    install_clipboard_reader, install_link_opener, install_storage_access,
 };
 #[cfg(any(target_os = "android", target_os = "ios"))]
 pub use platform::{MicrophoneAccess, install_microphone_access};
@@ -2690,11 +2689,13 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
                         "export" => state.handle(Msg::Export(ExportMsg::Open)),
                         "export-capcut" => state.export_capcut_project(),
                         "import-capcut" => state.import_capcut_project(),
-                        "grant-capcut-tree" => crate::platform::pick_capcut_tree(),
+                        "grant-capcut-tree" => {},
                         "capcut-hub" => {
-                            let _ = state.close_project();
-                            state.start.project_tab = 1;
-                            state.refresh_capcut_drafts();
+                            if !state.phone {
+                                let _ = state.close_project();
+                                state.start.project_tab = 1;
+                                state.refresh_capcut_drafts();
+                            }
                         },
                         "template" => state.save_template(),
                         "speech" => state.handle(Msg::Speech(SpeechMsg::Open)),
@@ -3093,25 +3094,6 @@ const EXPORT_PATIENCE: std::time::Duration = std::time::Duration::from_secs(10);
 /// `export.failed`, the callers hung up (#431). A render stops at its next
 /// frame and removes its files on the way out; one that does not stop
 /// within [`EXPORT_PATIENCE`] does not keep the quit from quitting.
-/// Notifies the UI and studio when CapCut tree sync finishes.
-pub fn on_capcut_tree_synced(count: usize) {
-    host::Shell::with(|shell, _| {
-        let mut studio = shell.studio.borrow_mut();
-        studio.refresh_capcut_drafts();
-        if count > 0 {
-            studio.notify(
-                &format!("✨ Đã đồng bộ thành công {count} dự án từ CapCut Mobile!"),
-                false,
-            );
-        } else {
-            studio.notify(
-                "Đã kiểm tra thư mục CapCut (không có dự án mới hoặc thư mục trống).",
-                false,
-            );
-        }
-    });
-}
-
 fn stop_exports() {
     let mut held = None;
     Shell::with(|shell, _| {

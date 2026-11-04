@@ -927,32 +927,6 @@ pub fn ask_storage() -> bool {
     true
 }
 
-pub type CapCutTreePicker = Box<dyn Fn() + Send + Sync>;
-static CAPCUT_TREE_PICKER: std::sync::OnceLock<CapCutTreePicker> = std::sync::OnceLock::new();
-
-pub fn install_capcut_tree_picker(picker: CapCutTreePicker) {
-    let _ = CAPCUT_TREE_PICKER.set(picker);
-}
-
-pub fn pick_capcut_tree() {
-    if let Some(picker) = CAPCUT_TREE_PICKER.get() {
-        picker();
-    }
-}
-
-pub type CapCutTreeSyncer = Box<dyn Fn() + Send + Sync>;
-static CAPCUT_TREE_SYNCER: std::sync::OnceLock<CapCutTreeSyncer> = std::sync::OnceLock::new();
-
-pub fn install_capcut_tree_syncer(syncer: CapCutTreeSyncer) {
-    let _ = CAPCUT_TREE_SYNCER.set(syncer);
-}
-
-pub fn sync_capcut_tree() {
-    if let Some(syncer) = CAPCUT_TREE_SYNCER.get() {
-        syncer();
-    }
-}
-
 /// Opens a web address in the system's browser: the launch screen's
 /// guides, the repository, the release notes. A desktop hands it to the
 /// platform's opener; Android to an ACTION_VIEW intent through the

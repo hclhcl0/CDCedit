@@ -2315,10 +2315,6 @@ component WideHome inherits Rectangle {
                         alignment: center;
                         spacing: 12px;
                         Button {
-                            label: "🔗 Cấp quyền đọc trực tiếp CapCut Mobile";
-                            clicked => { root.link("grant-capcut-tree"); }
-                        }
-                        Button {
                             label: "Mở tệp / thư mục dự án CapCut (JSON / ZIP)...";
                             clicked => { root.link("import-capcut"); }
                         }
@@ -2579,18 +2575,8 @@ component NarrowHome inherits Rectangle {
 
                 SectionHead {
                     height: 28px;
-                    text: root.project-tab == 1 ? "Dự án CapCut" : I18n.t("start.recentProjects");
+                    text: I18n.t("start.recentProjects");
                     count: "\{root.recents-total}";
-
-                    VerticalLayout {
-                        alignment: center;
-                        SegmentedControl {
-                            width: 180px;
-                            options: ["CDCedit", "CapCut"];
-                            current: root.project-tab;
-                            changed(index) => { root.project-tab-changed(index); }
-                        }
-                    }
                 }
 
                 if root.searchable: VerticalLayout {
@@ -2604,47 +2590,11 @@ component NarrowHome inherits Rectangle {
 
                 Rectangle { height: 10px; }
 
-                if root.project-tab == 1: VerticalLayout {
-                    padding-bottom: 6px;
-                    spacing: 8px;
-                    HorizontalLayout {
-                        alignment: center;
-                        spacing: 8px;
-                        Button {
-                            label: "🔗 Cấp quyền đọc trực tiếp CapCut Mobile";
-                            clicked => { root.link("grant-capcut-tree"); }
-                        }
-                        Button {
-                            label: "📂 Mở tệp JSON / ZIP...";
-                            clicked => { root.link("import-capcut"); }
-                        }
-                    }
-                }
-
-                if root.recents.length == 0 && root.project-tab == 0: Text {
+                if root.recents.length == 0: Text {
                     text: I18n.t1("start.noMatches", root.query);
                     color: Theme.fg-muted;
                     font-size: Theme.fs-lg;
                     wrap: word-wrap;
-                }
-
-                if root.recents.length == 0 && root.project-tab == 1: VerticalLayout {
-                    padding: 16px;
-                    alignment: center;
-                    spacing: 8px;
-                    Text {
-                        text: "Chưa tìm thấy dự án CapCut nào tự động.";
-                        color: Theme.fg-muted;
-                        font-size: Theme.fs;
-                        horizontal-alignment: center;
-                    }
-                    Text {
-                        text: "💡 Bấm nút '🔗 Cấp quyền đọc trực tiếp CapCut Mobile' ở trên ➔ Chọn 'Sử dụng thư mục này' để app tự động nạp tất cả dự án CapCut mà không cần sao chép thủ công!";
-                        color: Theme.accent;
-                        font-size: Theme.fs-sm;
-                        wrap: word-wrap;
-                        horizontal-alignment: center;
-                    }
                 }
 
                 for project in root.recents: ProjectRow {
