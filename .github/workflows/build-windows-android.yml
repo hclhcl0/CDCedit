@@ -1,4 +1,4 @@
-name: Build CDCedit APK (arm64)
+name: Build CDCedit EXE and APK
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
       windows:
         description: Also build Windows EXE
         type: boolean
-        default: false
+        default: true
 
 permissions:
   contents: write
@@ -166,7 +166,6 @@ jobs:
           if-no-files-found: error
 
   windows:
-    if: ${{ inputs.windows }}
     name: Windows EXE
     needs: validate
     uses: ./.github/workflows/build-app.yml

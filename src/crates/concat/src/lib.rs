@@ -2691,7 +2691,7 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
                         "import-capcut" => state.import_capcut_project(),
                         "grant-capcut-tree" => {},
                         "capcut-hub" => {
-                            if !state.phone {
+                            if !state.meters.phone {
                                 let _ = state.close_project();
                                 state.start.project_tab = 1;
                                 state.refresh_capcut_drafts();

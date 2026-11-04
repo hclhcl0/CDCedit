@@ -218,7 +218,7 @@ pub fn import_capcut_draft_path(studio: &mut Studio, input_path: &Path) {
         .chars()
         .map(|c| if c.is_alphanumeric() || c == '_' || c == '-' || c == ' ' { c } else { '_' })
         .collect();
-    let import_proj_name = format!("{clean_name}_imported");
+    let _import_proj_name = format!("{clean_name}_imported");
 
     // 2. Video resolution & frame rate
     let mut width = draft["canvas_config"]["width"]

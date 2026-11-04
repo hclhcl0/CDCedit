@@ -61,6 +61,7 @@ pub fn to_us(seconds: f64) -> i64 {
 
 /// Detect all candidate CapCut drafts directories on the current machine or mobile device.
 pub fn capcut_drafts_dirs() -> Vec<PathBuf> {
+    #[allow(unused_mut)]
     let mut dirs = Vec::new();
     #[cfg(target_os = "windows")]
     {

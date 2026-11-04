@@ -9675,7 +9675,7 @@ impl Studio {
     }
 
     pub fn export_capcut_project(&mut self) {
-        if self.phone {
+        if self.meters.phone {
             self.notify("Chức năng xuất dự án CapCut chỉ hỗ trợ trên máy tính (PC).", true);
             return;
         }
@@ -9683,7 +9683,7 @@ impl Studio {
     }
 
     pub fn export_capcut_project_and_launch(&mut self) {
-        if self.phone {
+        if self.meters.phone {
             self.notify("Chức năng xuất dự án CapCut chỉ hỗ trợ trên máy tính (PC).", true);
             return;
         }
@@ -9828,7 +9828,7 @@ impl Studio {
     }
 
     pub fn import_capcut_project(&mut self) {
-        if self.phone {
+        if self.meters.phone {
             self.notify("Chức năng đọc dự án CapCut chỉ hỗ trợ trên máy tính (PC).", true);
             return;
         }
@@ -9836,7 +9836,7 @@ impl Studio {
     }
 
     pub fn refresh_capcut_drafts(&mut self) {
-        if self.phone {
+        if self.meters.phone {
             self.capcut_drafts.clear();
             return;
         }
