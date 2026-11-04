@@ -606,6 +606,54 @@ mod storage {
     }
 }
 
+#[cfg(target_os = "android")]
+mod capcut_tree {
+    use jni::{jni_sig, jni_str};
+    use slint::android::AndroidApp;
+
+    pub fn install(app: &AndroidApp) {
+        let app1 = app.clone();
+        concat::install_capcut_tree_picker(Box::new(move || {
+            let _ = super::java::with_class(&app1, |env, activity, class| {
+                env.call_static_method(
+                    class,
+                    jni_str!("pickCapCutFolder"),
+                    jni_sig!("(Landroid/app/Activity;)V"),
+                    &[activity.into()],
+                )?;
+                Ok(())
+            });
+        }));
+
+        let app2 = app.clone();
+        concat::install_capcut_tree_syncer(Box::new(move || {
+            let _ = super::java::with_class(&app2, |env, activity, class| {
+                env.call_static_method(
+                    class,
+                    jni_str!("syncSavedCapCutTree"),
+                    jni_sig!("(Landroid/app/Activity;)V"),
+                    &[activity.into()],
+                )?;
+                Ok(())
+            });
+        }));
+    }
+}
+
+/// Native callback when CapCut folder synchronization completes.
+#[cfg(target_os = "android")]
+#[unsafe(no_mangle)]
+pub unsafe extern "system" fn Java_app_cdcedit_editor_ConcatFiles_capcutTreeSynced(
+    _env: *mut jni::sys::JNIEnv,
+    _class: jni::sys::jclass,
+    count: jni::sys::jint,
+) {
+    let count = count.max(0) as usize;
+    let _ = slint::invoke_from_event_loop(move || {
+        concat::on_capcut_tree_synced(count);
+    });
+}
+
 /// Called by the activity's native glue; the name is the contract.
 #[cfg(target_os = "android")]
 #[unsafe(no_mangle)]
@@ -625,6 +673,7 @@ fn android_main(app: slint::android::AndroidApp) {
     links::install(&app);
     clipboard::install(&app);
     storage::install(&app);
+    capcut_tree::install(&app);
     native_libs::install(&app);
     if let Err(error) = concat::run() {
         log::error!("{error}");

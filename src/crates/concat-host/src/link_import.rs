@@ -419,6 +419,12 @@ fn run(
         log::error!("Download process failed with status {status:?}: {last_err}");
         if !last_err.is_empty() {
             let clean = last_err.trim_start_matches("ERROR:").trim();
+            if clean.contains("Cannot parse data") && clean.contains("facebook") {
+                return Err("Facebook chặn tải không đăng nhập (Reels/video riêng tư). Vui lòng thử video công khai khác hoặc chọn file cookies.txt ở mục Phiên đăng nhập.".into());
+            }
+            if clean.contains("Sign in to confirm you’re not a bot") || clean.contains("Sign in to confirm you're not a bot") {
+                return Err("YouTube yêu cầu xác minh tài khoản. Vui lòng thêm cookies.txt hoặc thử lại sau.".into());
+            }
             return Err(format!("Source request failed: {clean}"));
         }
         return Err("Source request failed. Check link access, sign in when required, or update download tools.".into());
@@ -1028,12 +1034,6 @@ pub fn inspect(
                     Source::Video(u) | Source::Drive { url: u, .. } => u,
                 };
                 let mut c = video_command(tools, cookies);
-                if url.contains("facebook.com") || url.contains("fb.watch") || url.contains("fb.com") {
-                    c.args([
-                        "--user-agent",
-                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                    ]);
-                }
                 c.args(["--skip-download", "--dump-single-json", "--", &url]);
                 let bytes = run(c, cancel, Duration::from_secs(90), &mut |_, _| {})?;
                 let v: Value =
@@ -1131,15 +1131,6 @@ pub fn download(
         }
         let mut c = if item.drive_id.is_empty() {
             let mut c = video_command(tools, cookies);
-            if item.url.contains("facebook.com")
-                || item.url.contains("fb.watch")
-                || item.url.contains("fb.com")
-            {
-                c.args([
-                    "--user-agent",
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                ]);
-            }
             c.args([
                 "--newline",
                 "--progress",

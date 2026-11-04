@@ -360,6 +360,7 @@ impl StartPane {
                 self.project_tab = tab;
                 if tab == 1 {
                     crate::platform::ask_storage();
+                    crate::platform::sync_capcut_tree();
                     if studio.capcut_drafts.is_empty() {
                         studio.refresh_capcut_drafts();
                     }
@@ -373,6 +374,10 @@ impl StartPane {
                         studio.handle(crate::panes::Msg::Settings(SettingsMsg::PageChanged(
                             SHORTCUTS_PAGE,
                         )));
+                        return;
+                    }
+                    "grant-capcut-tree" => {
+                        crate::platform::pick_capcut_tree();
                         return;
                     }
                     "import-capcut" => {

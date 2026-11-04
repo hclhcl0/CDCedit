@@ -2313,6 +2313,11 @@ component WideHome inherits Rectangle {
                     }
                     HorizontalLayout {
                         alignment: center;
+                        spacing: 12px;
+                        Button {
+                            label: "🔗 Cấp quyền đọc trực tiếp CapCut Mobile";
+                            clicked => { root.link("grant-capcut-tree"); }
+                        }
                         Button {
                             label: "Mở tệp / thư mục dự án CapCut (JSON / ZIP)...";
                             clicked => { root.link("import-capcut"); }
@@ -2601,10 +2606,16 @@ component NarrowHome inherits Rectangle {
 
                 if root.project-tab == 1: VerticalLayout {
                     padding-bottom: 6px;
+                    spacing: 8px;
                     HorizontalLayout {
                         alignment: center;
+                        spacing: 8px;
                         Button {
-                            label: "📂 Mở tệp / thư mục dự án CapCut (JSON / ZIP)...";
+                            label: "🔗 Cấp quyền đọc trực tiếp CapCut Mobile";
+                            clicked => { root.link("grant-capcut-tree"); }
+                        }
+                        Button {
+                            label: "📂 Mở tệp JSON / ZIP...";
                             clicked => { root.link("import-capcut"); }
                         }
                     }
@@ -2628,8 +2639,8 @@ component NarrowHome inherits Rectangle {
                         horizontal-alignment: center;
                     }
                     Text {
-                        text: "💡 Mẹo: CapCut Mobile lưu trong thư mục riêng của hệ thống. Bạn có thể sao chép / nén thư mục dự án CapCut vào thư mục Download hoặc bấm nút trên để mở tệp JSON / ZIP.";
-                        color: Theme.fg-subtle;
+                        text: "💡 Bấm nút '🔗 Cấp quyền đọc trực tiếp CapCut Mobile' ở trên ➔ Chọn 'Sử dụng thư mục này' để app tự động nạp tất cả dự án CapCut mà không cần sao chép thủ công!";
+                        color: Theme.accent;
                         font-size: Theme.fs-sm;
                         wrap: word-wrap;
                         horizontal-alignment: center;
