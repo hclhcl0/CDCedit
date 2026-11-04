@@ -205,8 +205,18 @@ impl MonitorPane {
                 self.quality.insert(id, (index.max(0) as usize).min(2));
                 self.request(studio);
             }
-            MonitorMsg::Opened => self.failed = false,
-            MonitorMsg::Closed => self.image = slint::Image::default(),
+            MonitorMsg::Opened => {
+                self.failed = false;
+                self.busy = false;
+                self.wanted = false;
+                self.asked = None;
+            }
+            MonitorMsg::Closed => {
+                self.image = slint::Image::default();
+                self.busy = false;
+                self.wanted = false;
+                self.asked = None;
+            }
         }
     }
 
@@ -238,8 +248,13 @@ impl MonitorPane {
             return;
         }
         if self.busy {
-            self.wanted = true;
-            return;
+            if self.asked.is_some_and(|at| at.elapsed() > std::time::Duration::from_millis(1000)) {
+                log::warn!("preview: frame request timed out (>1000ms), recovering busy flag");
+                self.busy = false;
+            } else {
+                self.wanted = true;
+                return;
+            }
         }
         let moving =
             studio.playing || studio.source.as_ref().is_some_and(|source| source.playing);
