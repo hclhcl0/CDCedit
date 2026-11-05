@@ -98,7 +98,14 @@ class MainActivity : ComponentActivity() {
             if (it.moveToFirst()) name = it.getString(0) ?: name
         }
         val media = File(filesDir, "media").apply { mkdirs() }
-        val target = File(media, name)
+        val baseName = name.substringBeforeLast(".")
+        val extension = if (name.contains(".")) name.substringAfterLast(".") else "mp4"
+        var target = File(media, name)
+        var counter = 1
+        while (target.exists()) {
+            target = File(media, "${baseName}_$counter.$extension")
+            counter++
+        }
         contentResolver.openInputStream(uri)!!.use { input ->
             target.outputStream().use { input.copyTo(it, 1 shl 20) }
         }
