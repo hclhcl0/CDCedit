@@ -67,3 +67,5 @@ test.log
 
 # Locally packaged applications
 /downloads/
+/build-output/
+

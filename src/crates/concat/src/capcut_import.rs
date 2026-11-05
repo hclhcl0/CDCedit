@@ -862,6 +862,24 @@ pub fn import_capcut_draft_path(studio: &mut Studio, input_path: &Path) {
         location = p.to_string_lossy().into_owned();
     }
 
+    let existing_imported = Path::new(&location).join(format!("{clean_name}_imported"));
+    if concat_host::projects::is_project(&existing_imported) {
+        if let Ok(info) = concat_host::projects::open(existing_imported.to_str().unwrap_or("")) {
+            match studio.open_project(info) {
+                Ok(()) => {
+                    studio.notify(
+                        &format!("📂 Đã mở dự án '{clean_name}_imported' có sẵn trên máy."),
+                        false,
+                    );
+                    return;
+                }
+                Err(e) => {
+                    log::warn!("Could not open existing imported project, creating new one: {e}");
+                }
+            }
+        }
+    }
+
     let mut import_proj_name = format!("{clean_name}_imported");
     let mut counter = 2;
     while Path::new(&location).join(&import_proj_name).exists() {
