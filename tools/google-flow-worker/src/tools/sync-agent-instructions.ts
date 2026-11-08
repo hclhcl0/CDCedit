@@ -8,7 +8,7 @@ export const syncAgentInstructions = defineTool({
   description:
     'Configures project-level Agent instructions in Google Flow: locks character visual identities with reference images, enforces slow cinematic camera pacing, and sets negative constraints for all future generations.',
   input: {
-    project_url: z.url(),
+    project_url: z.string().optional(),
     instructions: z.array(
       z.object({
         title: z.string().describe('Title of the instruction (e.g. Character: Nam)'),

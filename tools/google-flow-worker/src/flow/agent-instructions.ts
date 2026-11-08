@@ -11,7 +11,7 @@ export interface AgentInstructionItem {
 }
 
 export interface SyncAgentInstructionsArgs {
-  projectUrl: string;
+  projectUrl?: string | undefined;
   instructions: AgentInstructionItem[];
 }
 
@@ -20,7 +20,11 @@ export async function syncProjectAgentInstructions(
   page: Page,
   args: SyncAgentInstructionsArgs,
 ): Promise<{ success: boolean; syncedCount: number; message: string }> {
-  await ensureOnProject(page, args.projectUrl, ctx.log);
+  if (args.projectUrl && args.projectUrl.trim()) {
+    await ensureOnProject(page, args.projectUrl.trim(), ctx.log);
+  } else if (!page.url().includes('/project/')) {
+    throw new FlowError('PROJECT_NOT_FOUND', 'Hãy mở hoặc nhập URL dự án Google Flow trước khi đồng bộ Agent instructions.');
+  }
 
   // 1. Open Agent instructions drawer
   const sparkBtn = page.locator('button[aria-label*="Agent instructions"], button:has-text("article_spark")').first();

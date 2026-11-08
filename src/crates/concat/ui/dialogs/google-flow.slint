@@ -193,7 +193,7 @@ export component GoogleFlowDialog inherits Rectangle {
                     }
                     HorizontalLayout {spacing:4px;
                         Button {label:"AI viết hồ sơ nhân vật";primary:true;enabled:root.data.ai-ready && !root.data.busy;clicked=>{root.action(42,0,"");}}
-                        Button {label:"✨ AI Khóa Agent Instructions vào Flow";primary:true;enabled:root.data.desktop && !root.data.busy && root.data.url != "";clicked=>{root.action(160,0,"");}}
+                        Button {label:"✨ AI Khóa Agent Instructions vào Flow";primary:true;enabled:root.data.desktop && !root.data.busy && root.data.ai-ready;clicked=>{root.action(160,0,"");}}
                     }
                     Text {text:"Dùng tên nhân vật trong cảnh. Mỗi hồ sơ giữ tên, ngoại hình, trang phục và giọng nói nhất quán.";color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
                     Button {label:"+ Thêm nhân vật";enabled:!root.data.busy;clicked=>{root.action(28,0,"");}}
@@ -417,7 +417,7 @@ export component GoogleFlowDialog inherits Rectangle {
                         spacing:10px;
                         Button {label:"⚡ TỰ ĐỘNG CHẠY TOÀN BỘ KỊCH BẢN";primary:true;enabled:root.data.desktop && !root.data.busy && root.data.scene-rows.length>0;clicked=>{root.action(150,0,"");}}
                         Button {label:root.data.busy ? "Đang xử lý…" : "▶ Tạo riêng cảnh này";ghost:true;enabled:root.data.desktop && !root.data.busy;clicked=>{root.action(13,0,"");}}
-                        Button {label:"✨ Khóa Agent Instructions";ghost:true;enabled:root.data.desktop && !root.data.busy && root.data.url != "";clicked=>{root.action(160,0,"");}}
+                        Button {label:"✨ Khóa Agent Instructions";ghost:true;enabled:root.data.desktop && !root.data.busy && root.data.ai-ready;clicked=>{root.action(160,0,"");}}
                     }
                     HorizontalLayout {
                         spacing:12px;

@@ -429,7 +429,14 @@ impl Flow {
             open: self.open,
             busy: self.busy,
             credit: true,
-            url: self.settings.url.as_str().into(),
+            url: {
+                let u = self.settings.url.trim();
+                if !u.is_empty() {
+                    u.into()
+                } else {
+                    self.effective_project_url(studio).as_str().into()
+                }
+            },
             prompt: self.settings.prompt.as_str().into(),
             reference: self.settings.reference.as_str().into(),
             model: self.settings.model as i32,
@@ -1297,6 +1304,37 @@ impl Flow {
             self.settings.url.trim().into()
         })
     }
+    fn effective_project_url(&self, studio: &Studio) -> String {
+        if valid_project_url(&self.settings.url) {
+            return self.settings.url.trim().to_string();
+        }
+        if let Ok(account) = studio
+            .settings
+            .flow_accounts
+            .config
+            .get(&self.settings.source_account_id)
+        {
+            if valid_project_url(&account.project_url) {
+                return account.project_url.trim().to_string();
+            }
+        }
+        if let Ok(account) = studio
+            .settings
+            .flow_accounts
+            .config
+            .get("primary")
+        {
+            if valid_project_url(&account.project_url) {
+                return account.project_url.trim().to_string();
+            }
+        }
+        for plan in &self.settings.plans {
+            if valid_project_url(&plan.project_url) {
+                return plan.project_url.trim().to_string();
+            }
+        }
+        String::new()
+    }
     fn request_for(
         &self,
         index: usize,
@@ -2098,15 +2136,18 @@ impl Flow {
                                             return;
                                         }
                                     };
+                                    let project_url = self.effective_project_url(studio);
                                     self.active_account = account.id.clone();
                                     self.busy = true;
                                     self.generation += 1;
                                     let g = self.generation;
                                     self.message = format!("Đang đồng bộ {} chỉ dẫn vào Agent instructions của Flow...", sync_items.len());
-                                    let args = json!({
-                                        "project_url": self.settings.url,
+                                    let mut args = json!({
                                         "instructions": sync_items,
                                     });
+                                    if !project_url.is_empty() {
+                                        args["project_url"] = json!(project_url);
+                                    }
                                     spawn_in_project(
                                         move || {
                                             crate::flow_worker::call_account(&dir, &account, "flow_sync_agent_instructions", args, false)
@@ -3856,13 +3897,20 @@ impl Flow {
                     self.message = format!("{state} tự động đưa clip vào Timeline sau khi hoàn tất.");
                 }
                 160 => {
-                    if !valid_project_url(&self.settings.url) {
-                        self.message = "Nhập liên kết dự án Flow hợp lệ trước khi đồng bộ Agent instructions.".into();
-                        return;
+                    let project_url = self.effective_project_url(studio);
+                    if self.settings.url.trim().is_empty() && !project_url.is_empty() {
+                        self.settings.url = project_url;
                     }
                     let keys = studio.prefs.gemini_api_key.expose().to_owned();
                     if concat_speech::api_keys::parse(&keys).is_empty() {
                         self.message = "Thêm Gemini API key trong Cài đặt trước khi dùng AI.".into();
+                        return;
+                    }
+                    if self.settings.brief.trim().is_empty()
+                        && self.settings.screenplay.trim().is_empty()
+                        && self.settings.characters.is_empty()
+                    {
+                        self.message = "Nhập kịch bản, ý tưởng hoặc thêm nhân vật để AI có dữ liệu tạo Agent instructions.".into();
                         return;
                     }
                     let registry = self.settings.character_context();
