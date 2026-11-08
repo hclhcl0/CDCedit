@@ -40,6 +40,7 @@ import { ExportData, ExportDialog, ExportPhase } from "dialogs/export.slint";
 import {
     ModelData,
     SettingsData,
+    FlowAccountRow,
     SettingsDialog,
     SystemFactData,
 } from "dialogs/settings.slint";
@@ -53,6 +54,7 @@ import { ConfirmData, ConfirmDialog } from "dialogs/confirm.slint";
 import { TranslationDialog, TranslationData, TranslationRowData } from "dialogs/translation.slint";
 import { GeminiStudioDialog, GeminiStudioData, GeminiTurnData, GeminiVoiceData } from "dialogs/gemini-studio.slint";
 import { LinkImportData, LinkImportItem, LinkImportDialog } from "dialogs/link-import.slint";
+import { FlowData, FlowFile, FlowSceneRow, FlowCastRow, FlowDialogueRow, FlowAsset, FlowRemoteCharacter, GoogleFlowDialog } from "dialogs/google-flow.slint";
 import { CaptionsDialog, CaptionsSheetData, CaptionReviewRow } from "dialogs/captions.slint";
 import { SpeechDialog, SpeechSheetData, DubbingData, DubbingRowData } from "dialogs/speech.slint";
 import { NewVoiceData, NewVoiceDialog } from "dialogs/new-voice.slint";
@@ -382,6 +384,7 @@ export component App inherits Window {
 
     callback settings-closed();
     callback settings-page-changed(index: int);
+    callback settings-flow-account-action(int,string,string);
     callback settings-show-log();
     callback settings-language-changed(index: int);
     callback settings-gemini-api-key-edited(text: string);
@@ -446,6 +449,8 @@ export component App inherits Window {
     /// words - or any words - read aloud. Their option lists come from what
     /// is installed, so they are handed over as models.
     in property <LinkImportData> link-import;
+    in property <FlowData> flow-data;
+    callback flow-action(int,int,string);
     in property <GeminiStudioData> gemini-studio;
     in property <TranslationData> translation;
     callback translation-action(action:int,index:int,text:string,value:float);
@@ -684,6 +689,7 @@ export component App inherits Window {
                 if (root.translation.open) {root.translation-action(1,0,"",0);return accept;}
                 if (root.gemini-studio.open) {root.gemini-studio-action(1,0,"",0);return accept;}
                 if (root.link-import.open) {root.link-import-action(1,0,"");return accept;}
+                if (root.flow-data.open) {root.flow-action(1,0,"");return accept;}
                 if (root.relink.open) { root.relink-dismiss(); return accept; }
                 if (root.new-voice.open) {
                     if (!root.new-voice.saving) { root.new-voice-closed(); }
@@ -786,6 +792,7 @@ export component App inherits Window {
                 add-pane(kind) => { Editor.dock-add(kind); }
                 export-clicked => { root.export-clicked(); }
                 open-in-capcut => { root.open-in-capcut(); }
+                open-flow => { Editor.inspector-mode=4;root.flow-action(0,0,""); }
             }
 
             if root.on-start: StartScreen {
@@ -819,6 +826,8 @@ export component App inherits Window {
             // editor.slint.
             if !root.on-start && !root.phone: Workspace {
                 vertical-stretch: 1;
+                flow-data:root.flow-data;
+                flow-action(action,index,text)=>{root.flow-action(action,index,text);}
             }
 
             // The phone's editor reads the same global; only the shell round
@@ -1072,6 +1081,7 @@ export component App inherits Window {
         focus-keys => { keys.focus(); }
         closed => { root.settings-closed(); }
         page-changed(index) => { root.settings-page-changed(index); }
+        flow-account-action(action,id,text) => { root.settings-flow-account-action(action,id,text); }
         shortcut-capture(id) => { root.settings-shortcut-capture(id); }
         shortcut-reset(id) => { root.settings-shortcut-reset(id); }
         shortcut-reset-all => { root.settings-shortcut-reset-all(); }
@@ -1191,6 +1201,7 @@ export component App inherits Window {
         data:root.link-import;
         action(action,index,text)=>{root.link-import-action(action,index,text);}
     }
+
 
     GeminiStudioDialog {
         

@@ -94,6 +94,9 @@ export component PaneBody inherits VerticalLayout {
 // the scroller is worse than losing kinetic scrolling, and a wheel is what a
 // desktop editor is driven with anyway.
 export component PaneScroll inherits Rectangle {
+    /// Reset the viewport when the owning workflow changes pages.
+    in property <int> reset-token;
+    changed reset-token => { root.offset = 0px; }
     /// A finger drags the column as well: a press that no control took -
     /// on a label, a note, a heading, the air between rows - scrolls. Not
     /// a Flickable, which would take the drag off a control as well; a
@@ -134,6 +137,8 @@ export component PaneScroll inherits Rectangle {
         }
 
         content := VerticalLayout {
+            x: 0;
+            width: parent.width;
             y: root.at;
             height: self.preferred-height;
 

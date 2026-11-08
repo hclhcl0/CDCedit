@@ -5,6 +5,7 @@ import { Theme } from "../theme/theme.slint";
 import { Editor } from "../editor.slint";
 import { ColSplitter, RowSplitter } from "splitter.slint";
 import { Seat } from "seat.slint";
+import { FlowData } from "../dialogs/google-flow.slint";
 
 // The editor shell: whatever arrangement of views the layout tree currently
 // describes, drawn out of the two lists Rust publishes.
@@ -19,6 +20,8 @@ import { Seat } from "seat.slint";
 // So there is nothing to lay out here and nothing to arbitrate. The one thing
 // this side knows and Rust does not is how big it is, which is why it says so.
 export component Workspace inherits Rectangle {
+    in property <FlowData> flow-data;
+    callback flow-action(int,int,string);
     // One value for the margin and the gutters, so the border around the
     // workspace and the space between any two panes read as the same gap.
     // 8px; 12px read as loose.
@@ -41,8 +44,11 @@ export component Workspace inherits Rectangle {
         y: seat.y;
         width: seat.width;
         height: seat.height;
+        visible: seat.width > 0px && seat.height > 0px;
         kind: seat.kind;
         index: seat.index;
+        flow-data:root.flow-data;
+        flow-action(action,index,text)=>{root.flow-action(action,index,text);}
 
         picked(kind) => { Editor.dock-set(seat.index, kind); }
         dropped-on(from, side) => { Editor.dock-dropped(from, seat.index, side); }

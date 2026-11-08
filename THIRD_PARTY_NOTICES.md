@@ -254,6 +254,32 @@ carries; a mirrored file is a verbatim copy, never a modification. Nothing
 in the mirror is bundled with the app, and Concat claims no rights over any
 of it.
 
+## Optional Google Flow worker
+
+The desktop Google Flow integration uses ParkSangGwon/google-flow-mcp 0.3.1,
+licensed under MIT, with local model-selection changes. Source and the original
+license are in `tools/google-flow-worker/`. Its npm dependencies retain their
+own licenses. Packaged Windows builds include the Node.js runtime and its
+license/third-party notices as `google-flow-worker/LICENSE.node.txt`.
+
+This is an unofficial integration and is not endorsed by Google.
+
+The saved-character read/download adapter also adapts protocol structures from
+RohaanA/google-flow-mcp, commit a357dc36b8b9c2e8c85c809e4d80210149652fd0,
+MIT, copyright (c) 2026 Muhammad Rohaan Atique. Its license is retained and
+packaged as `tools/google-flow-worker/LICENSE.characters`.
+
+## Screenwriting skill adaptation
+
+The Flow text-generation prompt adapts the beat-sheet-builder,
+character-profile-writer, scene-writer and dialogue-polisher skills from
+ur-grue/autopunk-media-skills, commit
+39e119bfef25957223d6c44fccab0329e936d2f6, MIT, copyright (c) 2026 ur-grue.
+The original skills are in `.agents/skills/`; adaptation details and upstream
+links are in `docs/SCREENWRITING_SKILLS.md`. The original license is retained at
+`docs/licenses/autopunk-media-skills-MIT.txt` and packaged beside the desktop app
+under `licenses/`. Original example stories are not used as generated content.
+
 ## Effect preview photograph
 
 The effect catalogue cards are drawn from a photograph by Sou Jest on

@@ -19,7 +19,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use concat_host::models::SourcePreference;
 use concat_host::updates::{self, Fixed, Installed, Release, Standing, Version};
-use slint::{ModelRc, SharedString, VecModel};
+use slint::{Model, ModelRc, SharedString, VecModel};
 
 use crate::close_window;
 use crate::host::{on_ui, spawn};
@@ -34,6 +34,8 @@ use crate::ui::{ModelData, SettingsData, ShortcutData};
 /// Everything that can happen to the settings sheet.
 #[derive(Clone, Debug)]
 pub enum SettingsMsg {
+    FlowAccountAction(i32, String, String),
+    FlowAccountFinished(String, Result<serde_json::Value, String>),
     /// The preferences read back on launch, and applied.
     Restore,
     /// The sheet is asked for: the menu, the tray or the shortcut.
@@ -234,6 +236,8 @@ pub fn installed(models: &[ModelState]) -> Vec<&ModelState> {
 /// The settings sheet's state.
 #[derive(Default)]
 pub struct SettingsPane {
+    pub(crate) flow_accounts: crate::flow_accounts::Accounts,
+    flow_rows: Rc<VecModel<crate::ui::FlowAccountRow>>,
     pub open: bool,
     pub tab: i32,
     /// The Shortcuts page's row listening for its next key: the action
@@ -280,7 +284,222 @@ impl SettingsPane {
     /// this runs the studio's copy of the pane is a blank it must not read.
     pub fn update(&mut self, msg: SettingsMsg, studio: &mut Studio) {
         match msg {
+            SettingsMsg::FlowAccountAction(action, id, text) => {
+                let root = studio.host.dirs.data.join("google-flow");
+                match action {
+                    0 => self.flow_accounts.add(),
+                    1 => {
+                        self.flow_accounts.draft.accounts.retain(|a| a.id != id);
+                        self.flow_accounts.message =
+                            "Đã bỏ khỏi bản nháp. Lưu để áp dụng; dữ liệu Chrome không bị xóa."
+                                .into();
+                    }
+                    2 => {
+                        if studio.flow.accounts_locked()
+                            && self.flow_accounts.draft.accounts
+                                != self.flow_accounts.config.accounts
+                        {
+                            self.flow_accounts.message="Chờ hàng đợi/tác vụ Flow hoàn tất trước khi thay đổi danh sách hoặc kết nối tài khoản.".into();
+                            return;
+                        }
+                        let changing_busy = self.flow_accounts.config.accounts.iter().any(|a| {
+                            self.flow_accounts
+                                .draft
+                                .accounts
+                                .iter()
+                                .find(|other| other.id == a.id)
+                                != Some(a)
+                                && (crate::flow_worker::in_use(&a.state_dir(&root))
+                                    || studio.flow.account_in_use(&a.id)
+                                    || self.flow_accounts.pending.contains(&a.id))
+                        });
+                        if changing_busy {
+                            self.flow_accounts.message="Tài khoản đang xử lý tác vụ. Chờ hoàn tất trước khi đổi/xóa kết nối.".into();
+                            return;
+                        }
+                        if let Err(e) = self.flow_accounts.save(&root) {
+                            self.flow_accounts.message = e;
+                        } else {
+                            crate::flow_worker::set_limit(self.flow_accounts.config.limit());
+                        }
+                    }
+                    3 | 4 => {
+                        let draft_changed = self.flow_accounts.draft.accounts
+                            != self.flow_accounts.config.accounts
+                            || self.flow_accounts.draft.parallel_accounts
+                                != self.flow_accounts.config.parallel_accounts
+                            || self.flow_accounts.draft.total_slots
+                                != self.flow_accounts.config.total_slots
+                            || !self.flow_accounts.port_edits.is_empty();
+                        if draft_changed {
+                            if studio.flow.accounts_locked()
+                                && self.flow_accounts.draft.accounts
+                                    != self.flow_accounts.config.accounts
+                            {
+                                self.flow_accounts.message="Chờ hàng đợi/tác vụ Flow hoàn tất trước khi thay đổi danh sách hoặc kết nối tài khoản.".into();
+                                return;
+                            }
+                            let changing_busy = self.flow_accounts.config.accounts.iter().any(|a| {
+                                self.flow_accounts
+                                    .draft
+                                    .accounts
+                                    .iter()
+                                    .find(|other| other.id == a.id)
+                                    != Some(a)
+                                    && (crate::flow_worker::in_use(&a.state_dir(&root))
+                                        || studio.flow.account_in_use(&a.id)
+                                        || self.flow_accounts.pending.contains(&a.id))
+                            });
+                            if changing_busy {
+                                self.flow_accounts.message="Tài khoản đang xử lý tác vụ. Chờ hoàn tất trước khi đổi/xóa kết nối.".into();
+                                return;
+                            }
+                            if let Err(e) = self.flow_accounts.save(&root) {
+                                self.flow_accounts.message = e;
+                                return;
+                            }
+                            crate::flow_worker::set_limit(self.flow_accounts.config.limit());
+                        }
+                        let account = match self.flow_accounts.config.get(&id) {
+                            Ok(a) => a.clone(),
+                            Err(e) => {
+                                self.flow_accounts.message = e;
+                                return;
+                            }
+                        };
+                        if studio.flow.accounts_locked()
+                            || self.flow_accounts.pending.len() >= 4
+                            || self.flow_accounts.pending.contains(&id)
+                            || studio.flow.account_in_use(&id)
+                            || crate::flow_worker::in_use(&account.state_dir(&root))
+                        {
+                            self.flow_accounts.message="Tài khoản hoặc lượt kết nối đang bận. Chờ tác vụ hiện tại hoàn tất.".into();
+                            return;
+                        }
+                        self.flow_accounts.pending.insert(id.clone());
+                        self.flow_accounts.states.insert(
+                            id.clone(),
+                            if action == 3 {
+                                "Đang mở / kết nối Chrome…".into()
+                            } else {
+                                "Đang kiểm tra kết nối…".into()
+                            },
+                        );
+                        let args = if action == 3 && !account.project_url.trim().is_empty() {
+                            serde_json::json!({ "open_url": account.project_url.trim() })
+                        } else {
+                            serde_json::json!({})
+                        };
+                        crate::host::spawn_flow(
+                            move || {
+                                crate::flow_worker::call_account(
+                                    &root,
+                                    &account,
+                                    if action == 3 {
+                                        "flow_connect"
+                                    } else {
+                                        "flow_status"
+                                    },
+                                    args,
+                                    false,
+                                )
+                            },
+                            move |studio, _, _, result| {
+                                studio.handle(Msg::Settings(SettingsMsg::FlowAccountFinished(
+                                    id, result,
+                                )));
+                                studio.handle(Msg::Flow(crate::panes::flow::FlowMsg::QueueTick));
+                            },
+                        );
+                    }
+                    20 => {
+                        self.flow_accounts.draft.parallel_accounts =
+                            text.parse::<usize>().unwrap_or(1).clamp(1, 4);
+                        if !studio.flow.accounts_locked() && self.flow_accounts.save(&root).is_ok()
+                        {
+                            crate::flow_worker::set_limit(self.flow_accounts.config.limit());
+                        }
+                    }
+                    21 => {
+                        self.flow_accounts.draft.total_slots =
+                            text.parse::<usize>().unwrap_or(1).clamp(1, 4);
+                        if !studio.flow.accounts_locked() && self.flow_accounts.save(&root).is_ok()
+                        {
+                            crate::flow_worker::set_limit(self.flow_accounts.config.limit());
+                        }
+                    }
+                    _ => {
+                        if let Some(a) = self
+                            .flow_accounts
+                            .draft
+                            .accounts
+                            .iter_mut()
+                            .find(|a| a.id == id)
+                        {
+                            match action {
+                                10 => a.name = text,
+                                11 => a.mode = text.parse::<usize>().unwrap_or(0).min(2),
+                                12 => a.user_data_dir = text,
+                                13 => a.profile_directory = text,
+                                14 => {
+                                    self.flow_accounts
+                                        .port_edits
+                                        .insert(id.clone(), text.clone());
+                                    if let Ok(port) = text.trim().parse::<u16>() {
+                                        a.port = port;
+                                    }
+                                }
+                                15 => a.project_url = text,
+                                16 => a.enabled = text == "1",
+                                17 => a.chrome_path = text,
+                                _ => {}
+                            }
+                            if !studio.flow.accounts_locked()
+                                && !studio.flow.account_in_use(&id)
+                                && !self.flow_accounts.pending.contains(&id)
+                                && self.flow_accounts.save(&root).is_ok()
+                            {
+                                crate::flow_worker::set_limit(self.flow_accounts.config.limit());
+                            }
+                        }
+                    }
+                }
+            }
+            SettingsMsg::FlowAccountFinished(id, result) => {
+                self.flow_accounts.pending.remove(&id);
+                let status = match result {
+                    Ok(value) => {
+                        let connected = value
+                            .get("connected")
+                            .and_then(|v| v.as_bool())
+                            .unwrap_or(true);
+                        if !connected {
+                            "Chưa mở Chrome · bấm Kết nối / mở Chrome".into()
+                        } else if value["logged_in"] == true {
+                            if let Some(pid) =
+                                value["project_id"].as_str().filter(|s| !s.is_empty())
+                            {
+                                format!(
+                                    "Đã kết nối & đăng nhập · dự án {}",
+                                    &pid[..pid.len().min(8)]
+                                )
+                            } else {
+                                "Đã kết nối & đăng nhập Google Flow".into()
+                            }
+                        } else if value["logged_in"] == false {
+                            "Đã mở Chrome · cần đăng nhập Google Flow trong cửa sổ Chrome".into()
+                        } else {
+                            "Chrome đang kết nối".into()
+                        }
+                    }
+                    Err(e) => format!("Lỗi: {e}"),
+                };
+                self.flow_accounts.states.insert(id, status);
+            }
             SettingsMsg::Restore => {
+                self.flow_accounts
+                    .load(&studio.host.dirs.data.join("google-flow"));
+                crate::flow_worker::set_limit(self.flow_accounts.config.limit());
                 concat_host::performance::set_low_resource(studio.prefs.low_resource());
                 self.language = studio
                     .languages
@@ -971,7 +1190,71 @@ impl SettingsPane {
 
     /// The sheet as Slint shows it.
     pub fn data(&self, studio: &Studio) -> SettingsData {
+        // Update rows in place so an edit does not recreate the focused field.
+        let rows = self
+            .flow_accounts
+            .draft
+            .accounts
+            .iter()
+            .map(|a| {
+                let busy = self.flow_accounts.pending.contains(&a.id)
+                    || studio.flow.account_in_use(&a.id)
+                    || crate::flow_worker::in_use(
+                        &a.state_dir(&studio.host.dirs.data.join("google-flow")),
+                    );
+                crate::ui::FlowAccountRow {
+                    id: a.id.as_str().into(),
+                    name: a.name.as_str().into(),
+                    enabled: a.enabled,
+                    mode: a.mode as i32,
+                    user_data_dir: a.user_data_dir.as_str().into(),
+                    profile_directory: a.profile_directory.as_str().into(),
+                    chrome_path: a.chrome_path.as_str().into(),
+                    port: self
+                        .flow_accounts
+                        .port_edits
+                        .get(&a.id)
+                        .cloned()
+                        .unwrap_or_else(|| a.port.to_string())
+                        .into(),
+                    project_url: a.project_url.as_str().into(),
+                    busy: busy || studio.flow.accounts_locked(),
+                    status: if self.flow_accounts.pending.contains(&a.id) {
+                        "Đang kết nối…".into()
+                    } else if busy {
+                        "Đang xử lý · 1 luồng".into()
+                    } else if studio.flow.accounts_locked() {
+                        "Giữ cấu hình trong khi hàng đợi chạy".into()
+                    } else {
+                        self.flow_accounts
+                            .states
+                            .get(&a.id)
+                            .cloned()
+                            .or_else(|| {
+                                a.detected_email(&studio.host.dirs.data.join("google-flow"))
+                                    .map(|email| format!("Đã đăng nhập sẵn: {email}"))
+                            })
+                            .unwrap_or_else(|| "Chưa kiểm tra phiên".into())
+                            .into()
+                    },
+                }
+            })
+            .collect::<Vec<_>>();
+        while self.flow_rows.row_count() > rows.len() {
+            self.flow_rows.remove(self.flow_rows.row_count() - 1);
+        }
+        for (i, row) in rows.into_iter().enumerate() {
+            if i >= self.flow_rows.row_count() {
+                self.flow_rows.push(row);
+            } else if self.flow_rows.row_data(i).as_ref() != Some(&row) {
+                self.flow_rows.set_row_data(i, row);
+            }
+        }
         SettingsData {
+            flow_accounts: ModelRc::from(self.flow_rows.clone()),
+            flow_max_accounts: self.flow_accounts.draft.parallel_accounts as i32,
+            flow_total_slots: self.flow_accounts.draft.total_slots as i32,
+            flow_message: self.flow_accounts.message.as_str().into(),
             open: self.open,
             tab: self.tab,
             // The keymap's rows as the page draws them: the chord each

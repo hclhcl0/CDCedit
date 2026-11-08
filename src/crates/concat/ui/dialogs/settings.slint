@@ -14,6 +14,8 @@ import { Select } from "../primitives/select.slint";
 import { PaneScroll } from "../workspace/pane.slint";
 import { HairlineSplitter } from "../workspace/splitter.slint";
 import { Editor } from "../editor.slint";
+import { Switch } from "../inspector/controls.slint";
+export struct FlowAccountRow {id:string,name:string,enabled:bool,mode:int,user-data-dir:string,profile-directory:string,chrome-path:string,port:string,project-url:string,busy:bool,status:string}
 
 // Settings: a fixed-height sheet with a column of pages down the side. The
 // model rows keep two things apart — a downloaded model is a *choice* and so
@@ -65,6 +67,10 @@ export struct ShortcutData {
 }
 
 export struct SettingsData {
+    flow-accounts:[FlowAccountRow],
+    flow-max-accounts:int,
+    flow-total-slots:int,
+    flow-message:string,
     open: bool,
     /// 0 General, 1 Appearance, 2 Transcriber, 3 Speech, 4 Remote, 5 About,
     /// 6 Version, 7 Shortcuts
@@ -651,6 +657,7 @@ export component SettingsDialog inherits Modal {
     in property <string> system-report;
 
     callback page-changed(index: int);
+    callback flow-account-action(int,string,string);
     /// Opens the folder this run's log is being written into.
     callback show-log();
     callback language-changed(index: int);
@@ -743,6 +750,7 @@ export component SettingsDialog inherits Modal {
         {label: I18n.t("settings.shortcuts"), glyph: Glyph.keyboard, page: 7, desk: true},
         {label: I18n.t("common.transcriber"), glyph: Glyph.waveform, page: 2, desk: false},
         {label: I18n.t("common.speech"), glyph: Glyph.music, page: 3, desk: false},
+        {label: "Google Flow", glyph: Glyph.sparkle, page: 8, desk: true},
         {label: I18n.t("settings.automation"), glyph: Glyph.lock, page: 4, desk: true},
         {label: I18n.t("settings.version"), glyph: Glyph.tag, page: 6, desk: true},
         {label: I18n.t("settings.about"), glyph: Glyph.sparkle, page: 5, desk: false},
@@ -907,6 +915,49 @@ export component SettingsDialog inherits Modal {
             height: parent.height - body.strip;
             finger: root.phone;
 
+            if root.data.tab == 8 && !root.phone: VerticalLayout {
+                DialogSection {
+                    first:true;title:"Google Flow · Tài khoản & Chrome";
+                    Text {text:"Mỗi tài khoản dùng một profile và một luồng riêng. Đăng nhập trực tiếp trong Chrome; không nhập mật khẩu vào Concat.";color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
+                    HorizontalLayout {spacing:8px;
+                        VerticalLayout {spacing:4px;
+                            Text {text:"Tài khoản chạy đồng thời";color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
+                            Select {options:["1 tài khoản","2 tài khoản","3 tài khoản","4 tài khoản"];current:root.data.flow-max-accounts - 1;changed(index)=>{root.flow-account-action(20,"",""+(index+1));}}
+                        }
+                        VerticalLayout {spacing:4px;
+                            Text {text:"Tổng luồng tối đa";color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
+                            Select {options:["1 luồng","2 luồng","3 luồng","4 luồng"];current:root.data.flow-total-slots - 1;changed(index)=>{root.flow-account-action(21,"",""+(index+1));}}
+                        }
+                    }
+                    Text {text:"Mỗi profile hiện hỗ trợ 1 luồng. Tổng tác vụ thực chạy còn phụ thuộc số tài khoản bật và tài khoản gắn với nhân vật/giọng.";color:Theme.fg-muted;font-size:Theme.fs-xs;wrap:word-wrap;}
+                    HorizontalLayout {spacing:6px;
+                        Button {label:"+ Thêm tài khoản";clicked=>{root.flow-account-action(0,"","");}}
+                        Button {label:"Lưu cấu hình";primary:true;clicked=>{root.flow-account-action(2,"","");}}
+                    }
+                    if root.data.flow-message!="": Text {text:root.data.flow-message;color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
+                }
+                for account in root.data.flow-accounts: DialogSection {
+                    title:account.name;
+                    HorizontalLayout {spacing:8px;
+                        Switch {checked:account.enabled;enabled:!account.busy;toggled(on)=>{root.flow-account-action(16,account.id,on ? "1" : "0");}}
+                        Text {text:account.status;color:Theme.fg-muted;font-size:Theme.fs-xs;wrap:word-wrap;horizontal-stretch:1;vertical-alignment:center;}
+                    }
+                    Field {value:account.name;placeholder:"Tên hiển thị tài khoản";enabled:!account.busy;edited(text)=>{root.flow-account-action(10,account.id,text);}}
+                    Select {options:["Profile riêng của Concat","Chrome đang mở (CDP)","Profile có sẵn · thư mục riêng"];current:account.mode;enabled:!account.busy;changed(index)=>{root.flow-account-action(11,account.id,""+index);}}
+                    if account.mode==2: Field {value:account.user-data-dir;placeholder:"Thư mục user-data-dir Chrome có sẵn";enabled:!account.busy;edited(text)=>{root.flow-account-action(12,account.id,text);}}
+                    if account.mode!=1: Select {options:["Chọn nhanh tên profile…","Default","Profile 1","Profile 2","Profile 3","Profile 4","Profile 5","Profile 6","Profile 9","Profile 10","Profile 11","Profile 12","Profile 13"];current:0;enabled:!account.busy;changed(index)=>{if index>0 {root.flow-account-action(13,account.id,self.options[index]);self.current=0;}}}
+                    if account.mode!=1: Field {value:account.profile-directory;placeholder:"Tên profile: Default hoặc Profile 1";enabled:!account.busy;edited(text)=>{root.flow-account-action(13,account.id,text);}}
+                    Field {value:account.port;placeholder:"Cổng CDP riêng: 9337, 9338…";enabled:!account.busy;edited(text)=>{root.flow-account-action(14,account.id,text);}}
+                    if account.mode!=1: Field {value:account.chrome-path;placeholder:"Đường dẫn chrome.exe (để trống = mặc định)";enabled:!account.busy;edited(text)=>{root.flow-account-action(17,account.id,text);}}
+                    Field {value:account.project-url;placeholder:"URL dự án Flow mặc định của tài khoản (tùy chọn)";enabled:!account.busy;edited(text)=>{root.flow-account-action(15,account.id,text);}}
+                    Text {text:account.mode==1 ? "Kết nối cổng CDP trên máy này. Chrome mở bình thường chưa bật CDP sẽ chưa kết nối được; không tự mở profile khác." : "Giữ phiên đăng nhập trong profile đã chọn. Không sao chép cookie từ Chrome cá nhân. Lưu cấu hình trước khi kết nối.";color:Theme.fg-muted;font-size:Theme.fs-xs;wrap:word-wrap;}
+                    HorizontalLayout {spacing:6px;
+                        Button {label:"Kết nối / mở Chrome";enabled:account.enabled && !account.busy;clicked=>{root.flow-account-action(3,account.id,"");}}
+                        Button {label:"Kiểm tra";ghost:true;enabled:account.enabled && !account.busy;clicked=>{root.flow-account-action(4,account.id,"");}}
+                        Button {label:"Bỏ tài khoản";ghost:true;enabled:!account.busy;clicked=>{root.flow-account-action(1,account.id,"");}}
+                    }
+                }
+            }
             if root.data.tab == 0: VerticalLayout {
                 DialogSection {
                     ruled: false;

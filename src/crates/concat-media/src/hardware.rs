@@ -209,6 +209,12 @@ pub fn hardware_wins(device: HwDevice, codec: ffmpeg::codec::Id, format: Pixel) 
     if device == HwDevice::MediaCodec {
         return mediacodec_decoder(codec, format).is_some();
     }
+    // On Windows (Direct3D 11) and Linux (VAAPI), GPU hardware decoding
+    // is vastly faster than software decoding for all standard video formats
+    // (H.264, HEVC, VP9, etc.) and avoids pinning the CPU at 80-100%.
+    if matches!(device, HwDevice::D3d11va | HwDevice::Vaapi) {
+        return true;
+    }
     // SAFETY: a descriptor points into libavutil's static table, and every
     // pixel format has at least one component.
     let deep = format
@@ -712,7 +718,7 @@ mod tests {
         use ffmpeg::codec::Id;
         let vt = HwDevice::VideoToolbox;
         assert!(!hardware_wins(vt, Id::H264, Pixel::YUV420P));
-        assert!(!hardware_wins(HwDevice::D3d11va, Id::H264, Pixel::YUV420P));
+        assert!(hardware_wins(HwDevice::D3d11va, Id::H264, Pixel::YUV420P));
         assert!(hardware_wins(vt, Id::H264, Pixel::YUV420P10LE));
         assert!(hardware_wins(vt, Id::HEVC, Pixel::YUV420P));
         assert!(hardware_wins(vt, Id::HEVC, Pixel::YUV420P10LE));

@@ -219,7 +219,21 @@ fn main() {
         config.define("GGML_CPU_ALL_VARIANTS", "OFF");
     }
 
-    if cfg!(target_os = "windows") {
+    if target.contains("android") {
+        let ndk = env::var("ANDROID_NDK_HOME")
+            .or_else(|_| env::var("ANDROID_NDK_ROOT"))
+            .or_else(|_| env::var("ANDROID_NDK"))
+            .unwrap_or_default();
+        if !ndk.is_empty() {
+            let toolchain = PathBuf::from(&ndk).join("build/cmake/android.toolchain.cmake");
+            if toolchain.exists() {
+                config.define("CMAKE_TOOLCHAIN_FILE", toolchain);
+                let abi = if target.contains("x86_64") { "x86_64" } else { "arm64-v8a" };
+                config.define("ANDROID_ABI", abi);
+                config.define("ANDROID_PLATFORM", "android-26");
+            }
+        }
+    } else if target.contains("windows") {
         config.cxxflag("/utf-8");
         println!("cargo:rustc-link-lib=advapi32");
     }

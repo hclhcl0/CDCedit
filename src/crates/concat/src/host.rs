@@ -226,6 +226,22 @@ pub fn spawn_in_project<T: Send + 'static>(
     spawn_detached(move || deliver(Some(epoch), work(), then));
 }
 
+/// Long Flow waits use their own threads so playback's three workers remain free.
+pub fn spawn_flow<T: Send + 'static>(
+    work: impl FnOnce() -> T + Send + 'static,
+    then: impl FnOnce(&mut Studio, &App, &Models, T) + Send + 'static,
+) {
+    std::thread::spawn(move || deliver(None, work(), then));
+}
+/// Flow work is bounded by the account scheduler and scoped to the originating project.
+pub fn spawn_flow_in_project<T: Send + 'static>(
+    work: impl FnOnce() -> T + Send + 'static,
+    then: impl FnOnce(&mut Studio, &App, &Models, T) + Send + 'static,
+) {
+    let epoch = project_epoch();
+    std::thread::spawn(move || deliver(Some(epoch), work(), then));
+}
+
 /// [`spawn_in_project`] for the monitor's frames. While playback runs a
 /// frame arrives every few dozen milliseconds and changes nothing but the
 /// picture, so only the picture is published then; the transport's own

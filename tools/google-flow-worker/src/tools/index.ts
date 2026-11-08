@@ -1,0 +1,33 @@
+import type { AnyTool } from '../server/tool.js';
+import { connect } from './connect.js';
+import { generateImage } from './generate-image.js';
+import { generateVideo } from './generate-video.js';
+import { generateVids } from './generate-vids.js';
+import { inspect } from './inspect.js';
+import { mediaDownload } from './media-download.js';
+import { projectOpen } from './project-open.js';
+import { sceneAdd } from './scene-add.js';
+import { sceneExtend } from './scene-extend.js';
+import { sceneStatus } from './scene-status.js';
+import { screenshot } from './screenshot.js';
+import { status } from './status.js';
+import { charactersList, characterDownload } from './characters.js';
+import { syncAgentInstructions } from './sync-agent-instructions.js';
+
+export const tools: readonly AnyTool[] = [
+  connect,
+  status,
+  charactersList,
+  characterDownload,
+  screenshot,
+  inspect,
+  projectOpen,
+  generateVideo,
+  generateVids,
+  generateImage,
+  mediaDownload,
+  sceneAdd,
+  sceneStatus,
+  sceneExtend,
+  syncAgentInstructions,
+];

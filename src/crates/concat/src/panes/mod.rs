@@ -17,6 +17,7 @@
 pub mod captions;
 pub mod export;
 pub mod gemini_studio;
+pub mod flow;
 pub mod glide;
 pub mod link_import;
 pub mod media_bin;
@@ -35,6 +36,7 @@ pub mod voiceover;
 /// One thing that happened, to one pane.
 #[derive(Debug)]
 pub enum Msg {
+    Flow(flow::FlowMsg),
     Translation(translation::TranslationMsg),
     Gemini(gemini_studio::GeminiMsg),
     /// Link downloader sheet.
@@ -73,6 +75,7 @@ pub enum Msg {
 /// project's name, a server's token - and an outcome by its path or its
 /// count rather than its data.
 pub fn activity(msg: &Msg) -> Option<Activity> {
+    if let Msg::Flow(_) = msg { return None; }
     use captions::CaptionsMsg;
     use export::ExportMsg;
     use log::Level::{Debug, Info};

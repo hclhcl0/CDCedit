@@ -148,6 +148,8 @@ export component CaptionsForm inherits VerticalLayout {
     }
 
     if !root.data.reviewing: VerticalLayout {
+        padding-left: root.is-pane ? 12px : 0px;
+        padding-right: root.is-pane ? 12px : 0px;
         padding-bottom: 12px;
 
         if !root.data.running && !root.from-voice: DialogSection {
@@ -500,7 +502,7 @@ export component CaptionsForm inherits VerticalLayout {
             Rectangle {
                 height: root.data.gemini-two-speakers ? 68px : 44px;
                 border-radius: Theme.r;
-                background: Theme.dark ? #141416 : #1e293b;
+                background: Theme.dark ? #141416 : #0f172a;
                 border-width: 1px;
                 border-color: Theme.dark ? Theme.line : #334155;
                 clip: true;

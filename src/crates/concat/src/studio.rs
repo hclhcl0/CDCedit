@@ -856,6 +856,7 @@ pub struct Studio {
     pub media: crate::panes::media_bin::MediaBin,
     pub link_import: crate::panes::link_import::LinkImport,
     pub gemini_studio: crate::panes::gemini_studio::GeminiStudio,
+    pub flow: crate::panes::flow::Flow,
     pub translation: crate::panes::translation::Translation,
     /// Decoded art by media id, and the ids a worker is decoding for.
     pub peaks: HashMap<String, Arc<Pyramid>>,
@@ -948,6 +949,7 @@ pub struct Studio {
 
     // ── the workspace ──
     pub dock: Dock,
+    pub flow_workspace: crate::dock::FlowWorkspace,
     /// The dock not showing: the compact one while the window is wide,
     /// the wide one while it is compact. Swapped with `dock` as the
     /// window crosses `COMPACT_WIDTH`, so each keeps its shape.
@@ -2391,6 +2393,7 @@ impl Studio {
             media: crate::panes::media_bin::MediaBin::default(),
             link_import: crate::panes::link_import::LinkImport::default(),
             gemini_studio: crate::panes::gemini_studio::GeminiStudio::default(),
+            flow: crate::panes::flow::Flow::default(),
             translation: crate::panes::translation::Translation::default(),
             peaks: HashMap::new(),
             strips: HashMap::new(),
@@ -2439,6 +2442,7 @@ impl Studio {
             dock_aside: crate::dock::compact_dock(),
             compact: false,
             workspace: (0.0, 0.0),
+            flow_workspace: crate::dock::FlowWorkspace::default(),
             divider_press: None,
             gesture: Gesture::None,
             stage_guides: Vec::new(),
@@ -9033,8 +9037,12 @@ impl Studio {
                 }
                 self.link_import = crate::panes::link_import::LinkImport::default();
                 self.gemini_studio = crate::panes::gemini_studio::GeminiStudio::default();
+                self.flow = crate::panes::flow::Flow::default();
                 self.translation = crate::panes::translation::Translation::default();
                 self.session = Some(session);
+                self.handle(crate::panes::Msg::Flow(
+                    crate::panes::flow::FlowMsg::Action(0, 0, String::new()),
+                ));
                 // The relink dialog belongs to the project that opened it;
                 // this project's own check follows below.
                 self.relink = Default::default();
@@ -9273,6 +9281,7 @@ impl Studio {
         }
         self.link_import = crate::panes::link_import::LinkImport::default();
         self.gemini_studio = crate::panes::gemini_studio::GeminiStudio::default();
+        self.flow = crate::panes::flow::Flow::default();
         self.translation = crate::panes::translation::Translation::default();
         self.session = None;
         // Whatever a worker still brings back for this project is dropped
@@ -9369,6 +9378,11 @@ impl Studio {
                 let mut pane = std::mem::take(&mut self.translation);
                 pane.update(msg, self);
                 self.translation = pane;
+            }
+            crate::panes::Msg::Flow(msg) => {
+                let mut pane = std::mem::take(&mut self.flow);
+                pane.update(msg, self);
+                self.flow = pane;
             }
             crate::panes::Msg::Gemini(msg) => {
                 let mut pane = std::mem::take(&mut self.gemini_studio);
@@ -9916,7 +9930,8 @@ impl Studio {
         self.publish_dock(app, models);
     }
 
-    pub fn publish_dock(&self, _app: &App, models: &Models) {
+    pub fn publish_dock(&self, app: &App, models: &Models) {
+        app.global::<Editor>().set_flow_workspace_mode(self.flow_workspace.mode);
         let out = self.dock_layout();
         sync(&models.seats, out.seats);
         sync(&models.dividers, out.dividers);
@@ -9943,6 +9958,7 @@ impl Studio {
     /// Shows the compact dock, or the wide one, keeping whichever is put
     /// away whole; see `COMPACT_WIDTH`.
     pub fn set_compact(&mut self, compact: bool) {
+        if self.flow_workspace.mode != 0 { return; }
         if compact != self.compact {
             std::mem::swap(&mut self.dock, &mut self.dock_aside);
             self.compact = compact;
@@ -9964,6 +9980,7 @@ impl Studio {
                 &mut out,
             );
         }
+        self.flow_workspace.apply(&mut out, width, height);
         out
     }
 
@@ -9972,6 +9989,14 @@ impl Studio {
     }
 
     pub fn split_ratio(&self, index: usize) -> Option<f32> {
+        if self.flow_workspace.mode != 0 {
+            // The visible divider may have been clamped by a narrow window.
+            // Start a drag at that position rather than the stored preference.
+            let layout = self.dock_layout();
+            let divider = layout.dividers.get(index)?;
+            let extent = *layout.extents.get(index)?;
+            return (extent > 0.0).then_some((divider.x - SEAT_GAP) / extent);
+        }
         match self.dock.at(&self.dock.split_path(index)?) {
             Dock::Split { ratio, .. } => Some(*ratio),
             _ => None,
@@ -12223,6 +12248,7 @@ impl Studio {
                 .collect(),
         );
         app.set_link_import(self.link_import.data(self));
+        app.set_flow_data(self.flow.data(self));
         app.set_gemini_studio(self.gemini_studio.data(self));
         app.set_translation(self.translation.data(self));
         app.set_captions(self.captions.data(self));

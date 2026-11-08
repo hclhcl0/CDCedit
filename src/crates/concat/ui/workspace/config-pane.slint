@@ -1,6 +1,8 @@
 import { CaptionsForm } from "../dialogs/captions.slint";
 import { SpeechForm } from "../dialogs/speech.slint";
 import { Editor } from "../editor.slint";
+import { FlowData, GoogleFlowDialog } from "../dialogs/google-flow.slint";
+import { Button } from "../primitives/modal.slint";
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Jareer Abdullah and Concat contributors
 
@@ -126,6 +128,8 @@ component InspectorModeTab inherits Rectangle {
 }
 
 export component ConfigPane inherits Rectangle {
+    in property <FlowData> flow-data;
+    callback flow-action(int,int,string);
     // ── the demo-era seams, kept so main.rs keeps compiling ──────────────
     // The meter/mute machinery has nothing to drive since the demo effects
     // panel left the pane; the properties stay declared because app.slint
@@ -146,6 +150,30 @@ export component ConfigPane inherits Rectangle {
     /// The selected clip's media's audio tracks; see Editor.audio-tracks.
     in property <[string]> audio-tracks;
     property <bool> has-selection: root.selected.present;
+    property <bool> can-show-properties: root.has-selection
+        && (root.selected.kind == ClipKind.video || root.selected.kind == ClipKind.audio);
+    // Selection values also change during playback; only a different clip opens the inspector.
+    property <string> properties-selection: root.can-show-properties ? root.selected.id : "";
+    function show-flow() {
+        Editor.inspector-mode = 4;
+        root.mode = 4;
+        root.flow-action(0,0,"");
+    }
+    changed properties-selection => {
+        if root.can-show-properties {
+            if root.mode == 4 { root.flow-action(1,0,""); }
+            Editor.inspector-mode = 0;
+            root.mode = 0;
+        } else if root.mode == 0 {
+            root.show-flow();
+        }
+    }
+    changed mode => {
+        if root.mode != 4 && Editor.flow-workspace-mode != 0 {
+            Editor.flow-workspace-changed(0, root.pane-seat);
+        }
+        if root.mode == 0 && !root.can-show-properties { root.show-flow(); }
+    }
     /// The transition selected on its own on the lanes, when no clip is.
     in property <SelectedTransitionData> transition;
     in property <[AppliedParamData]> transition-knobs;
@@ -171,7 +199,7 @@ export component ConfigPane inherits Rectangle {
     callback pane-picked(kind: PaneKind);
     /// Which seat this pane is in. It travels no further than the corner
     /// button, whose drag payload has to say where it is being taken from.
-    in-out property <int> mode: Editor.inspector-mode;
+    in-out property <int> mode <=> Editor.inspector-mode;
     in property <int> pane-seat;
     /// False when this is the last panel on screen. Travels the same way, and
     /// only greys the one row that would close it.
@@ -446,6 +474,7 @@ export component ConfigPane inherits Rectangle {
     init => {
         root.tabs-shown = root.strip-labels();
         root.jump();
+        if root.mode == 0 && !root.can-show-properties { root.show-flow(); }
     }
 
     Pane {
@@ -469,25 +498,33 @@ export component ConfigPane inherits Rectangle {
                 padding-bottom: 6px;
                 spacing: 4px;
 
+                // Workflow order; mode IDs remain stable for shortcuts and host callbacks.
                 InspectorModeTab {
-                    glyph: Glyph.sliders;
-                    label: "Thuộc tính";
-                    current: root.mode == 0;
-                    clicked => { Editor.inspector-mode = 0; root.mode = 0; }
-                }
-
-                InspectorModeTab {
-                    glyph: Glyph.subtitles;
-                    label: "Phụ đề AI";
-                    current: root.mode == 1;
-                    clicked => { Editor.inspector-mode = 1; root.mode = 1; }
+                    glyph: Glyph.sparkle;
+                    label: "Flow Studio";
+                    current: root.mode == 4;
+                    clicked => { Editor.inspector-mode = 4; root.mode = 4; root.flow-action(0,0,""); }
                 }
 
                 InspectorModeTab {
                     glyph: Glyph.audio-studio;
                     label: "Lồng tiếng AI";
                     current: root.mode == 2;
-                    clicked => { Editor.inspector-mode = 2; root.mode = 2; }
+                    clicked => { if root.mode==4 {root.flow-action(1,0,"");} Editor.inspector-mode = 2; root.mode = 2; }
+                }
+
+                InspectorModeTab {
+                    glyph: Glyph.subtitles;
+                    label: "Phụ đề AI";
+                    current: root.mode == 1;
+                    clicked => { if root.mode==4 {root.flow-action(1,0,"");} Editor.inspector-mode = 1; root.mode = 1; }
+                }
+
+                if root.can-show-properties: InspectorModeTab {
+                    glyph: Glyph.sliders;
+                    label: "Thuộc tính";
+                    current: root.mode == 0;
+                    clicked => { if root.mode==4 {root.flow-action(1,0,"");} Editor.inspector-mode = 0; root.mode = 0; }
                 }
 
                 VerticalLayout {
@@ -502,7 +539,35 @@ export component ConfigPane inherits Rectangle {
                 }
             }
         }
+        if root.mode == 4: HorizontalLayout {
+            padding: 8px; spacing: 6px;
+            Button { label: "Gọn"; primary: Editor.flow-workspace-mode == 0;
+                clicked => { Editor.flow-workspace-changed(0, root.pane-seat); } }
+            Button { label: "Rộng"; primary: Editor.flow-workspace-mode == 1;
+                clicked => { Editor.flow-workspace-changed(1, root.pane-seat); } }
+            Button { label: "Toàn vùng"; primary: Editor.flow-workspace-mode == 2;
+                clicked => { Editor.flow-workspace-changed(2, root.pane-seat); } }
+            if root.width > 650px: Text {
+                text: Editor.flow-workspace-mode == 0 ? "Kéo đường chia bên trái để đổi độ rộng"
+                    : Editor.flow-workspace-mode == 1 ? "Flow và khung xem trước · kéo đường chia để điều chỉnh"
+                    : "Flow chiếm toàn vùng làm việc · chọn Gọn để quay lại";
+                color: Theme.fg-muted; font-size: Theme.fs-sm;
+                vertical-alignment: center; horizontal-stretch: 1;
+                overflow: elide;
+            }
+        }
         // ── details ──────────────────────────────────────────────────────
+        if root.mode==4: GoogleFlowDialog {
+            vertical-stretch:1;data:root.flow-data;
+            tab <=> Editor.flow-step;
+            action(action,index,text)=>{
+                root.flow-action(action,index,text);
+                if action==1 {
+                    if root.can-show-properties { Editor.inspector-mode=0;root.mode=0; }
+                    else { root.show-flow(); }
+                }
+            }
+        }
         if root.mode == 0 && !root.has-selection && !root.on-transition: Rectangle {
             // The same 52px as the panes either side of it; see PaneHeader.
             height: 52px;

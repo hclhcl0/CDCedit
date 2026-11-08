@@ -68,4 +68,11 @@ test.log
 # Locally packaged applications
 /downloads/
 /build-output/
+/src/crates/concat-android/assets/
 
+# Node.js dependencies & builds
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+*.log

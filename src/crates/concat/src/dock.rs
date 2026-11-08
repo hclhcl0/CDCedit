@@ -196,6 +196,73 @@ pub struct DockLayout {
     pub extents: Vec<f32>,
 }
 
+/// A temporary view over the dock. The original tree and seat identities stay
+/// intact, so expanding Flow never discards input focus, drafts or split ratios.
+pub struct FlowWorkspace {
+    pub mode: i32,
+    pub seat: usize,
+    pub preview_ratio: f32,
+}
+impl Default for FlowWorkspace {
+    fn default() -> Self {
+        Self {
+            mode: 0,
+            seat: 0,
+            preview_ratio: 0.3,
+        }
+    }
+}
+impl FlowWorkspace {
+    pub fn apply(&self, out: &mut DockLayout, width: f32, height: f32) {
+        if self.mode == 0
+            || out
+                .seats
+                .get(self.seat)
+                .is_none_or(|s| s.kind != PaneKind::Inspector)
+        {
+            return;
+        }
+        let w = (width - SEAT_GAP * 2.0).max(0.0);
+        let h = (height - SEAT_GAP * 2.0).max(0.0);
+        let preview = (self.mode == 1 && w >= 700.0)
+            .then(|| out.seats.iter().position(|s| s.kind == PaneKind::Preview))
+            .flatten();
+        for seat in &mut out.seats {
+            seat.width = 0.0;
+            seat.height = 0.0;
+        }
+        out.dividers.clear();
+        out.extents.clear();
+        let mut left = SEAT_GAP;
+        let mut flow_width = w;
+        if let Some(index) = preview {
+            let usable = (w - SEAT_GAP).max(0.0);
+            let head = (usable * self.preview_ratio).clamp(240.0, usable - 440.0);
+            let seat = &mut out.seats[index];
+            seat.x = SEAT_GAP;
+            seat.y = SEAT_GAP;
+            seat.width = head;
+            seat.height = h;
+            out.dividers.push(DockDivider {
+                index: 0,
+                columns: true,
+                x: SEAT_GAP + head,
+                y: SEAT_GAP,
+                width: SEAT_GAP,
+                height: h,
+            });
+            out.extents.push(usable);
+            left += head + SEAT_GAP;
+            flow_width = usable - head;
+        }
+        let seat = &mut out.seats[self.seat];
+        seat.x = left;
+        seat.y = SEAT_GAP;
+        seat.width = flow_width;
+        seat.height = h;
+    }
+}
+
 pub fn lay_out(node: &Dock, (x, y, w, h): (f32, f32, f32, f32), out: &mut DockLayout) {
     match node {
         Dock::Leaf(kind) => out.seats.push(SeatBox {
@@ -327,4 +394,68 @@ pub fn nearest_row(heights: &[f32], y: f32) -> i32 {
         top += height;
     }
     best
+}
+
+#[cfg(test)]
+mod flow_workspace_tests {
+    use super::*;
+
+    fn layout(tree: &Dock, focus: &FlowWorkspace, width: f32) -> DockLayout {
+        let mut out = DockLayout::default();
+        lay_out(tree, (8.0, 8.0, width - 16.0, 704.0), &mut out);
+        focus.apply(&mut out, width, 720.0);
+        out
+    }
+
+    #[test]
+    fn flow_expansion_preserves_seat_identity_and_restores_the_original_dock() {
+        let tree = default_dock();
+        let original = layout(&tree, &FlowWorkspace::default(), 1440.0);
+        let mut focus = FlowWorkspace {
+            mode: 1,
+            seat: 3,
+            preview_ratio: 0.3,
+        };
+        let wide = layout(&tree, &focus, 1440.0);
+        assert_eq!(wide.seats.len(), original.seats.len());
+        for (before, after) in original.seats.iter().zip(&wide.seats) {
+            assert_eq!(before.index, after.index);
+            assert_eq!(before.kind, after.kind);
+        }
+        assert!(wide.seats[3].width > 900.0);
+        assert!(wide.seats[1].width >= 240.0);
+        assert_eq!(wide.seats[0].width, 0.0);
+        assert_eq!(wide.dividers.len(), 1);
+        focus.mode = 2;
+        let full = layout(&tree, &focus, 1440.0);
+        assert_eq!(full.seats[3].width, 1424.0);
+        assert!(full.dividers.is_empty());
+        focus.mode = 0;
+        let restored = layout(&tree, &focus, 1440.0);
+        for (before, after) in original.seats.iter().zip(restored.seats) {
+            assert_eq!(
+                (before.x, before.y, before.width, before.height),
+                (after.x, after.y, after.width, after.height)
+            );
+        }
+    }
+
+    #[test]
+    fn wide_flow_adapts_to_narrow_windows_and_missing_preview_without_invalid_bounds() {
+        let tree = default_dock();
+        let mut focus = FlowWorkspace {
+            mode: 1,
+            seat: 3,
+            preview_ratio: 0.99,
+        };
+        let narrow = layout(&tree, &focus, 640.0);
+        assert_eq!(narrow.seats[3].width, 624.0);
+        assert!(narrow.dividers.is_empty());
+        let clamped = layout(&tree, &focus, 1000.0);
+        assert!(clamped.seats[3].width >= 440.0);
+        focus.seat = 0;
+        let only = layout(&Dock::Leaf(PaneKind::Inspector), &focus, 1000.0);
+        assert_eq!(only.seats[0].width, 984.0);
+        assert!(only.dividers.is_empty());
+    }
 }

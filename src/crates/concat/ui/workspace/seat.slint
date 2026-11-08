@@ -7,6 +7,7 @@ import { DockSide } from "../dock.slint";
 import { PaneKind } from "pane-switcher.slint";
 import { Editor } from "../editor.slint";
 import { ConfigPane } from "config-pane.slint";
+import { FlowData } from "../dialogs/google-flow.slint";
 import { MediaPane, SourcePreview } from "media-pane.slint";
 import { PreviewPane } from "preview-pane.slint";
 import { TimelinePane } from "timeline-pane.slint";
@@ -24,6 +25,8 @@ import { KeyframesPane } from "keyframes-pane.slint";
 // the Editor global rather than a property passed down from the workspace,
 // which is what stops this file being four hundred lines times four seats.
 export component Seat inherits Rectangle {
+    in property <FlowData> flow-data;
+    callback flow-action(int,int,string);
     /// What to show here.
     in property <PaneKind> kind;
     /// Which box this is, 0..3. Travels in the drag payload so a drop can say
@@ -226,6 +229,8 @@ export component Seat inherits Rectangle {
         }
 
     if root.kind == PaneKind.inspector: ConfigPane {
+            flow-data:root.flow-data;
+            flow-action(action,index,text)=>{root.flow-action(action,index,text);}
             x: 0;
             y: 0;
             width: root.width;

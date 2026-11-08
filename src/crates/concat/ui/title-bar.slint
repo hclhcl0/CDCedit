@@ -5,6 +5,7 @@ import { I18n } from "i18n.slint";
 import { Theme } from "theme/theme.slint";
 import { Glyph, Icon } from "icons.slint";
 import { AddPaneButton, PaneKind } from "workspace/pane-switcher.slint";
+import { Button } from "primitives/modal.slint";
 
 // The custom title bar.
 //
@@ -149,6 +150,7 @@ export component TitleBar inherits Rectangle {
     callback add-pane(kind: PaneKind);
     callback export-clicked();
     callback open-in-capcut();
+    callback open-flow();
 
     height: 32px;
     // The window's ground, not a panel's: the strip is the frame the panes
@@ -276,9 +278,16 @@ export component TitleBar inherits Rectangle {
             }
         }
 
-        if !root.minimal: VerticalLayout {
+        VerticalLayout {
             alignment: center;
             padding-left: 4px;
+
+            Button {label:"Google Flow";glyph:Glyph.sparkle;ghost:true;clicked=>{root.open-flow();}}
+        }
+
+        if !root.minimal: VerticalLayout {
+            alignment:center;
+            padding-left:4px;
 
             capcut-button := Rectangle {
                 width: capcut-label.width + capcut-icon.width + 26px;

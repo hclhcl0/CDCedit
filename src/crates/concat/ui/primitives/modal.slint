@@ -695,6 +695,7 @@ export component DialogRow inherits Rectangle {
 // A single-line field. No border: the ground carries it, and the accent ring
 // only appears once it is being typed into.
 export component Field inherits Rectangle {
+    in property <bool> enabled: true;
     /// The value the caller owns. One-way: what is typed comes back through
     /// `edited`, and this is re-seeded from whatever the caller does with it.
     in property <string> value;
@@ -785,6 +786,7 @@ export component Field inherits Rectangle {
         clip: true;
 
         input := TextInput {
+            enabled:root.enabled;
             // Where the text would sit to keep the caret in view; clamped
             // below so a short text stays put and a long one never leaves
             // empty field after its end.

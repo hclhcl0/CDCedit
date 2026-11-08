@@ -121,6 +121,8 @@ pub(crate) fn fetch_model(
 }
 
 pub mod gemini;
+pub mod flow_content;
+pub mod flow_image;
 
 pub mod cloud_tts;
 pub mod dubbing;

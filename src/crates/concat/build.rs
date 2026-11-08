@@ -5,6 +5,13 @@
 //! the build for Settings > About.
 
 fn main() {
+    // The generated desktop window also needs a larger run-time main stack
+    // on Windows (the compiler thread below only protects build-time work).
+    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows")
+        && std::env::var("CARGO_CFG_TARGET_ENV").as_deref() == Ok("msvc")
+    {
+        println!("cargo:rustc-link-arg-bin=cdcedit=/STACK:33554432");
+    }
     // Fonts and images are compiled into the binary rather than read off disk
     // at run time.
     //

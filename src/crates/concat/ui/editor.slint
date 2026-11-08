@@ -545,7 +545,8 @@ export global Editor {
     in-out property <string> keys-preview-axis;
 
     // ── AI Studio & Inspector Mode ──
-    in-out property <int> inspector-mode: 0; // 0 = Clip Properties, 1 = Captions Studio, 2 = Voice & Dubbing Studio, 3 = Media Library
+    in-out property <int> inspector-mode: 0; // 0 = Clip Properties, 1 = Captions Studio, 2 = Voice & Dubbing Studio, 3 = Media Library, 4 = Flow Studio
+    in-out property <int> flow-step: 0;
     in-out property <int> voice-sub-mode: 0; // 0 = Gemini Studio, 1 = Video Dubbing & Translation, 2 = Live Voiceover
     in-out property <CaptionsSheetData> captions-data;
     in-out property <[string]> caption-models;
@@ -607,4 +608,6 @@ export global Editor {
     callback gemini-studio-action(int, int, string, float);
     callback translation-action(int, int, string, float);
     callback voiceover-action(string);
+    in-out property <int> flow-workspace-mode: 0;
+    callback flow-workspace-changed(int, int);
 }

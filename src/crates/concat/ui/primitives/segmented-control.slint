@@ -77,7 +77,9 @@ export component SegmentedControl inherits Rectangle {
         width: root.seg-w;
         height: root.height - 2 * root.inset;
         border-radius: Theme.r-sm;
-        background: Theme.field-hover;
+        background: Theme.dark ? Theme.field-hover : #ffffff;
+        border-width: Theme.dark ? 0px : 1px;
+        border-color: Theme.dark ? Colors.transparent : #cbd5e1;
 
         animate x, width { duration: 180ms; easing: cubic-bezier(0.4, 0, 0.2, 1); }
     }

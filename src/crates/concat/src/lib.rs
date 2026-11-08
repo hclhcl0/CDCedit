@@ -39,6 +39,8 @@ pub mod capcut_hub;
 mod chips;
 mod dock;
 mod fonts;
+mod flow_worker;
+mod flow_accounts;
 mod format;
 mod gpu;
 mod grading;
@@ -777,6 +779,20 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
     }));
 
     // ── the workspace's arrangement ──
+    editor.on_flow_workspace_changed(on_dock!(|state, mode: i32, seat: i32| {
+        let mode = mode.clamp(0, 2);
+        let seat = seat.max(0) as usize;
+        if mode != 0 && state.dock.kind_at(seat) != Some(PaneKind::Inspector) {
+            return;
+        }
+        state.flow_workspace.mode = mode;
+        state.flow_workspace.seat = seat;
+        state.divider_press = None;
+        if mode == 0 {
+            let compact = state.workspace.0 < studio::COMPACT_WIDTH;
+            state.set_compact(compact);
+        }
+    }));
     editor.on_workspace_resized(on_dock!(|state, width: f32, height: f32| {
         state.workspace = (width, height);
         // A narrow window - a phone, a tablet held upright, a desktop
@@ -788,6 +804,7 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
         state.set_compact(width < studio::COMPACT_WIDTH);
     }));
     editor.on_dock_set(on_dock!(|state, seat: i32, kind: PaneKind| {
+        state.flow_workspace.mode = 0;
         let Some(path) = state.dock.leaf_path(seat.max(0) as usize) else {
             return;
         };
@@ -796,6 +813,7 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
         }
     }));
     editor.on_dock_dropped(on_dock!(|state, from: i32, onto: i32, side: DockSide| {
+        state.flow_workspace.mode = 0;
         let (from, onto) = (from.max(0) as usize, onto.max(0) as usize);
         if from == onto {
             return;
@@ -824,16 +842,19 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
         state.dock.remove_leaf(&from_path);
     }));
     editor.on_dock_add(on_dock!(|state, kind: PaneKind| {
+        state.flow_workspace.mode = 0;
         add_pane(&mut state, kind);
     }));
     // Not on a phone or in the compact dock: there the two seats are the
     // monitor and the timeline, and a third would squeeze both.
     editor.on_key_mark_opened(on_dock!(|state| {
+        state.flow_workspace.mode = 0;
         if !state.compact && !state.meters.phone && !state.dock.contains(PaneKind::Keyframes) {
             add_pane(&mut state, PaneKind::Keyframes);
         }
     }));
     editor.on_dock_remove(on_dock!(|state, seat: i32| {
+        state.flow_workspace.mode = 0;
         let Some(path) = state.dock.leaf_path(seat.max(0) as usize) else {
             return;
         };
@@ -851,6 +872,13 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
             return;
         };
         if held != index.max(0) as usize || extent <= 0.0 {
+            return;
+        }
+        if state.flow_workspace.mode != 0 {
+            if state.flow_workspace.mode == 1 && held == 0 && extent >= 680.0 {
+                state.flow_workspace.preview_ratio =
+                    (from + delta / extent).clamp(240.0 / extent, 1.0 - 440.0 / extent);
+            }
             return;
         }
         let Some(path) = state.dock.split_path(held) else {
@@ -2598,6 +2626,12 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
         state.handle(Msg::Gemini(crate::panes::gemini_studio::GeminiMsg::Action(
             action, index, text.to_string(), value,
         )));
+    }));
+    app.on_settings_flow_account_action(on_window!(|state, action:i32,id:SharedString,text:SharedString| {
+        state.handle(Msg::Settings(SettingsMsg::FlowAccountAction(action,id.to_string(),text.to_string())));
+    }));
+    app.on_flow_action(on_window!(|state, action: i32, index: i32, text: SharedString| {
+        state.handle(Msg::Flow(crate::panes::flow::FlowMsg::Action(action,index,text.to_string())));
     }));
     editor.on_translation_action(on_window!(|state, action: i32, index: i32, text: SharedString, value: f32| {
         state.handle(Msg::Translation(crate::panes::translation::TranslationMsg::Action(

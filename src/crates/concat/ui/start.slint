@@ -1631,10 +1631,10 @@ export component AiToolThumbCard inherits Rectangle {
             background: root.active 
                 ? root.accent.with-alpha(Theme.dark ? 0.2 : 0.12) 
                 : (touch.has-hover 
-                    ? (Theme.dark ? #222b3d : Theme.launch-field-active) 
-                    : (Theme.dark ? #131722 : Theme.launch-well));
+                    ? (Theme.dark ? #222b3d : #f1f5f9) 
+                    : (Theme.dark ? #131722 : #f8fafc));
             border-width: 1px;
-            border-color: root.active ? root.accent.with-alpha(0.6) : Theme.line;
+            border-color: root.active ? root.accent.with-alpha(0.6) : (Theme.dark ? Theme.line : #e2e8f0);
             clip: true;
 
             // Background glow accent
@@ -1657,7 +1657,7 @@ export component AiToolThumbCard inherits Rectangle {
                     ? root.accent 
                     : (touch.has-hover 
                         ? (Theme.dark ? Colors.white : root.accent) 
-                        : (Theme.dark ? Theme.fg-muted : root.accent.with-alpha(0.85)));
+                        : (Theme.dark ? Theme.fg-muted : root.accent));
             }
 
             // Bottom-right badge
@@ -1669,9 +1669,9 @@ export component AiToolThumbCard inherits Rectangle {
                 border-radius: 4px;
                 background: root.active 
                     ? root.accent 
-                    : (Theme.dark ? #090d16.with-alpha(0.85) : #ffffff.with-alpha(0.92));
+                    : (Theme.dark ? #090d16.with-alpha(0.85) : #ffffff);
                 border-width: (root.active || Theme.dark) ? 0px : 1px;
-                border-color: Theme.line;
+                border-color: Theme.dark ? Theme.line : #e2e8f0;
 
                 badge-txt := Text {
                     text: root.badge;
@@ -1763,7 +1763,7 @@ component WideHome inherits Rectangle {
     property <length> pad-top: Math.max(28px, Math.min(72px, root.height / 12));
     property <length> content-w: Math.min(root.width - 2 * root.pad, 1360px);
     property <length> main-w: root.content-w;
-    property <length> ai-panel-w: Math.clamp(root.content-w * 0.42, 420px, 520px);
+    property <length> ai-panel-w: Math.clamp(root.content-w * 0.44, 460px, 540px);
     property <length> ai-panel-h: 520px;
     in-out property <string> active-ai-tool: "tool-captions";
     property <bool> searchable: root.recents-total > 8;
