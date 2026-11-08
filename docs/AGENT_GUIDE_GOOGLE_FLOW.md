@@ -165,6 +165,7 @@ Mọi tương tác từ Slint UI đều đi qua callback `root.action(id, index,
 | **152** | `0, ""` | Bật/tắt tự động nâng nét 1080p sau khi tạo video. |
 | **153** | `0, ""` | Bật/tắt tự động đưa video vào Timeline sau khi hoàn tất. |
 | **160** | `0, ""` | **✨ AI Tạo & Khóa Agent Instructions vào Flow**: Tự động sinh quy tắc và đồng bộ vào Flow. |
+| **161** | `0, ""` | **➕ Tạo dự án Flow mới**: Mở trang chủ Flow trong Chrome, tự động bấm "New project", cập nhật URL dự án mới vào Concat và tài khoản nguồn mà không cần vào Cài đặt. |
 
 ---
 

@@ -132,3 +132,54 @@ export async function openFlowHome(page: Page, flowUrl: string, settleMs = 4000)
     await page.bringToFront().catch(() => {});
   }
 }
+
+export async function createNewProject(
+  page: Page,
+  log: Logger,
+  settleMs = 5000,
+): Promise<{ project_id: string; project_url: string }> {
+  log.info('navigating to Flow root to create new project');
+  await page.goto(FLOW_ROOT, { waitUntil: 'domcontentloaded' });
+  await sleep(settleMs);
+  if (!isLoggedIn(page)) {
+    await setChromeWindowState(page, 'normal');
+    await page.bringToFront().catch(() => {});
+  }
+  assertLoggedIn(page);
+
+  const newProjectBtn = page
+    .locator('button:has-text("New project"), [role="button"]:has-text("New project"), button[aria-label*="New project"]')
+    .first();
+
+  if ((await newProjectBtn.count()) === 0) {
+    throw new FlowError(
+      'UI_NOT_FOUND',
+      'Không tìm thấy nút "New project" trên trang chủ Flow. Hãy kiểm tra giao diện Flow trong Chrome.',
+      { url: page.url() },
+    );
+  }
+
+  log.info('clicking "New project" button');
+  await Promise.all([
+    page.waitForURL(FLOW_URL_RE, { timeout: 15000 }).catch(() => {}),
+    newProjectBtn.click(),
+  ]);
+
+  await sleep(3000);
+  const landed = parseFlowUrl(page.url());
+  if (!landed?.projectId) {
+    throw new FlowError(
+      'PROJECT_NOT_FOUND',
+      `Không thể tạo dự án Flow mới (URL hiện tại: ${page.url()}). Hãy thử lại hoặc tạo thủ công trên Flow.`,
+      { current_url: page.url() },
+    );
+  }
+
+  await setChromeWindowState(page, 'minimized');
+  const projectUrl = `${FLOW_ROOT}/project/${landed.projectId}`;
+  log.info('successfully created new Flow project', { projectId: landed.projectId, projectUrl });
+  return {
+    project_id: landed.projectId,
+    project_url: projectUrl,
+  };
+}

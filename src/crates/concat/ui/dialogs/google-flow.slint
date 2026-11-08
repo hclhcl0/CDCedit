@@ -179,7 +179,11 @@ export component GoogleFlowDialog inherits Rectangle {
                     Text {text:"Tài khoản nguồn";color:Theme.fg-muted;font-size:Theme.fs-sm;}
                     Select {options:root.data.account-names;current:root.data.source-account;enabled:!root.data.busy;changed(index)=>{root.action(121,index,"");}}
                     Button {label:"Quản lý tài khoản trong Cài đặt";ghost:true;clicked=>{root.action(120,0,"");}}
-                    Field {value:root.data.url;placeholder:"https://flow.google.com/project/…";enabled:!root.data.busy;edited(text)=>{root.action(2,0,text);}}
+                    HorizontalLayout {
+                        spacing: 6px;
+                        Field {value:root.data.url;placeholder:"https://flow.google.com/project/…";horizontal-stretch:1;enabled:!root.data.busy;edited(text)=>{root.action(2,0,text);}}
+                        Button {label:"➕ Tạo dự án Flow mới";enabled:root.data.desktop && !root.data.busy;clicked=>{root.action(161,0,"");}}
+                    }
                     Button {label:"Đọc thư viện nhân vật Flow";enabled:root.data.desktop && !root.data.busy;clicked=>{root.action(100,0,"");}}
                     Text {text:"Nhập mới hoặc gắn nhân vật Flow vào hồ sơ đã có trong kịch bản";color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
                     Select {options:root.data.character-names;current:root.data.flow-link-target;enabled:!root.data.busy;changed(index)=>{root.action(112,index,"");}}
@@ -324,7 +328,11 @@ export component GoogleFlowDialog inherits Rectangle {
                     title:"Ảnh cảnh → Khung đầu video";
                     Text {text:"Dùng bộ ảnh nhân vật đã duyệt (hoặc ảnh chuẩn) và bối cảnh để tạo một ảnh cảnh. Duyệt ảnh trước khi dùng làm khung đầu; nhân vật/giọng gốc Flow vẫn giữ ID nguồn. Tạo ảnh có thể dùng credit Flow.";color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
                     Select {options:root.data.scene-account-names;current:root.data.scene-account;enabled:!root.data.busy;changed(index)=>{root.action(122,index,"");}}
-                    Field {value:root.data.scene-project-url;placeholder:"URL Flow cho cảnh (trống = tài khoản/nhân vật nguồn)";enabled:!root.data.busy;edited(text)=>{root.action(123,0,text);}}
+                    HorizontalLayout {
+                        spacing: 6px;
+                        Field {value:root.data.scene-project-url;placeholder:"URL Flow cho cảnh (trống = tài khoản/nhân vật nguồn)";horizontal-stretch:1;enabled:!root.data.busy;edited(text)=>{root.action(123,0,text);}}
+                        Button {label:"➕ Tạo dự án Flow mới";enabled:root.data.desktop && !root.data.busy;clicked=>{root.action(161,0,"");}}
+                    }
                     Select {options:["Nano Banana Pro","Nano Banana 2","Nano Banana 2 Lite"];current:root.data.flow-image-model;enabled:!root.data.busy;changed(index)=>{root.action(125,index,"");}}
                     Text {text:"Tỷ lệ ảnh cảnh lấy theo tỷ lệ video trong bước Tạo video. "+root.data.scene-image-status;color:Theme.fg-muted;font-size:Theme.fs-xs;wrap:word-wrap;}
                     HorizontalLayout {spacing:4px;
@@ -374,7 +382,11 @@ export component GoogleFlowDialog inherits Rectangle {
                     Text {text:root.data.account-summary;color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
                     Text {text:"Tài khoản xử lý cảnh đang chọn";color:Theme.fg-muted;font-size:Theme.fs-sm;}
                     Select {options:root.data.scene-account-names;current:root.data.scene-account;enabled:!root.data.busy;changed(index)=>{root.action(122,index,"");}}
-                    Field {value:root.data.scene-project-url;placeholder:"URL dự án cho cảnh (để trống = tự lấy theo tài khoản/nhân vật)";enabled:!root.data.busy;edited(text)=>{root.action(123,0,text);}}
+                    HorizontalLayout {
+                        spacing: 6px;
+                        Field {value:root.data.scene-project-url;placeholder:"URL dự án cho cảnh (để trống = tự lấy theo tài khoản/nhân vật)";horizontal-stretch:1;enabled:!root.data.busy;edited(text)=>{root.action(123,0,text);}}
+                        Button {label:"➕ Tạo dự án Flow mới";enabled:root.data.desktop && !root.data.busy;clicked=>{root.action(161,0,"");}}
+                    }
                     Text {text:"Nhân vật/giọng gốc giữ đúng tài khoản và dự án nguồn. Quản lý profile, kết nối Chrome và giới hạn chạy trong Cài đặt → Google Flow.";color:Theme.fg-muted;font-size:Theme.fs-xs;wrap:word-wrap;}
                     Button {label:"Mở Cài đặt tài khoản Flow";ghost:true;clicked=>{root.action(120,0,"");}}
                 }

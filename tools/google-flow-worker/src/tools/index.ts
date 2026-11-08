@@ -13,6 +13,7 @@ import { screenshot } from './screenshot.js';
 import { status } from './status.js';
 import { charactersList, characterDownload } from './characters.js';
 import { syncAgentInstructions } from './sync-agent-instructions.js';
+import { projectCreate } from './project-create.js';
 
 export const tools: readonly AnyTool[] = [
   connect,
@@ -22,6 +23,7 @@ export const tools: readonly AnyTool[] = [
   screenshot,
   inspect,
   projectOpen,
+  projectCreate,
   generateVideo,
   generateVids,
   generateImage,

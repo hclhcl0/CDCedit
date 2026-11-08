@@ -2224,7 +2224,33 @@ impl Flow {
                         if !files.is_empty() {
                             self.files = files;
                         }
-                        self.message = if value.get("synced_count").is_some() {
+                        if let Some(new_url) = value.get("project_url").and_then(|v| v.as_str()) {
+                            self.settings.url = new_url.to_string();
+                            self.remote_characters.clear();
+                            self.remote_project_url.clear();
+                            if let Some(account) = studio
+                                .settings
+                                .flow_accounts
+                                .draft
+                                .accounts
+                                .iter_mut()
+                                .find(|a| a.id == self.settings.source_account_id)
+                            {
+                                account.project_url = new_url.to_string();
+                                let _ = studio
+                                    .settings
+                                    .flow_accounts
+                                    .save(&studio.host.dirs.data.join("google-flow"));
+                            }
+                            if let Some(plan) = self.plan_mut() {
+                                plan.project_url = new_url.to_string();
+                                plan.edited();
+                            }
+                            let _ = self.save();
+                        }
+                        self.message = if let Some(new_url) = value.get("project_url").and_then(|v| v.as_str()) {
+                            format!("Đã tạo thành công dự án Flow mới: {}", new_url)
+                        } else if value.get("synced_count").is_some() {
                             value["message"].as_str().unwrap_or("Đã đồng bộ Agent instructions thành công.").into()
                         } else if value["status"] == "ready_for_confirmation" {
                             format!(
@@ -3930,6 +3956,35 @@ impl Flow {
                         move || concat_speech::flow_content::generate(&keys, 49, &context),
                         move |studio, _, _, result| {
                             studio.handle(Msg::Flow(FlowMsg::AiFinished(g, 49, result)))
+                        },
+                    );
+                }
+                161 => {
+                    if cfg!(any(target_os = "android", target_os = "ios")) {
+                        self.message = "Google Flow hiện chỉ hỗ trợ desktop.".into();
+                        return;
+                    }
+                    let dir = studio.host.dirs.data.join("google-flow");
+                    let account = if let Ok(a) = studio.settings.flow_accounts.config.get(&self.settings.source_account_id) {
+                        a.clone()
+                    } else if let Some(a) = studio.settings.flow_accounts.config.accounts.iter().find(|a| a.enabled) {
+                        self.settings.source_account_id = a.id.clone();
+                        a.clone()
+                    } else {
+                        self.message = "Chưa có tài khoản Flow nào được bật. Hãy cấu hình trong Cài đặt.".into();
+                        return;
+                    };
+                    self.active_account = account.id.clone();
+                    self.busy = true;
+                    self.generation += 1;
+                    let g = self.generation;
+                    self.message = "Đang tạo dự án Flow mới trong Chrome...".into();
+                    spawn_in_project(
+                        move || {
+                            crate::flow_worker::call_account(&dir, &account, "flow_project_create", json!({}), false)
+                        },
+                        move |studio, _, _, result| {
+                            studio.handle(Msg::Flow(FlowMsg::Finished(g, result)))
                         },
                     );
                 }
