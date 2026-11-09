@@ -22,7 +22,7 @@ async function request(input){
     return {ok:true,files:[...new Set(receipts.flatMap(r=>r.result?.files??[]))].filter(f=>fs.existsSync(f)),unresolved:receipts.filter(r=>['running','uncertain'].includes(r.phase)).length};
   }
   if(input.tool==='health'){await connected();return {ok:true,version:'native-flow-0.1'};}
-  if(!['flow_connect','flow_status','flow_generate_video','flow_generate_image','flow_characters_list','flow_character_download','vids_generate_video'].includes(input.tool))throw Error('Unsupported tool');
+  if(!input.tool.startsWith('flow_') && !input.tool.startsWith('vids_'))throw Error('Unsupported tool: ' + input.tool);
   const generating=['flow_generate_video','flow_generate_image','vids_generate_video'].includes(input.tool);
   const args=input.args??{};
   if(input.tool==='flow_character_download')args.output_dir=path.join(stateDir,'assets','flow-import',input.id);
