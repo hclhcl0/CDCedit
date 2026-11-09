@@ -41,9 +41,17 @@ pub(super) fn identity_reference<'a>(gallery: &'a [ReferenceImage], anchor: &'a 
         .map_or(anchor, |item| item.path.as_path())
 }
 pub(super) fn sheet_prompt(profile: &str, style: &str) -> String {
-    format!(
-        "Create one landscape character reference sheet from the attached identity anchor. Exactly three depictions of the SAME Vietnamese character (người Việt Nam, unless identity description explicitly states another nationality): left, complete full-body front view including head and feet; middle, full-body back view in the identical outfit; right, detailed three-quarter head-and-shoulders portrait. Preserve authentic Vietnamese facial features, face, age, hair, skin tone, proportions, wardrobe construction, colors and worn accessories. Neutral studio lighting and plain background across all three panels. No extra people, side-view panel, expression grid, annotations, letters, text, logo or watermark. Do not illustrate biography or dialogue. Identity description: {profile}\nRendering style: {style}"
-    )
+    let visual = super::clean_character_visual(profile);
+    let style = style.trim();
+    if style.is_empty() {
+        format!(
+            "Landscape 3-angle character reference sheet of the SAME character: left panel, full-body front view; middle panel, full-body back view; right panel, close-up portrait. Plain studio background, neutral lighting. Character: {visual}"
+        )
+    } else {
+        format!(
+            "Landscape 3-angle character reference sheet of the SAME character: left panel, full-body front view; middle panel, full-body back view; right panel, close-up portrait. Plain studio background, neutral lighting. Character: {visual}. Rendering style: {style}"
+        )
+    }
 }
 pub(super) fn background_sheet_prompt(profile: &str, style: &str) -> String {
     format!(

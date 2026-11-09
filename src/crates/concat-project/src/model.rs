@@ -1717,7 +1717,7 @@ impl Default for TextStyle {
             // The face CDCedit ships (`concat_text::BUNDLED_FAMILY`), so a
             // title made without one - by the API, a template, the agent -
             // is drawn in it everywhere rather than in a fallback.
-            font_family: "Hanken Grotesk".to_owned(),
+            font_family: "Inter".to_owned(),
             font_size: 0.09,
             font_weight: 700.0,
             italic: false,

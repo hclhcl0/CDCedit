@@ -745,6 +745,67 @@ fn clean_visual_identity(raw: &str) -> String {
     }
 }
 
+pub(crate) fn clean_character_visual(raw: &str) -> String {
+    let mut name = String::new();
+    let mut role = String::new();
+    let mut visual = String::new();
+    let mut fallback_lines = Vec::new();
+
+    for line in raw.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if let Some(n) = trimmed.strip_prefix("Character:").or_else(|| trimmed.strip_prefix("Name:")) {
+            name = n.trim().to_string();
+        } else if let Some(v) = trimmed.strip_prefix("Fixed visual identity:").or_else(|| trimmed.strip_prefix("Visual:")) {
+            visual = v.trim().to_string();
+        } else if let Some(r) = trimmed.strip_prefix("Identity & role:").or_else(|| trimmed.strip_prefix("Role:")) {
+            role = r.trim().to_string();
+        } else if trimmed.starts_with("Want & need:")
+            || trimmed.starts_with("Want:")
+            || trimmed.starts_with("Need:")
+            || trimmed.starts_with("Flaw & motivation:")
+            || trimmed.starts_with("Flaw:")
+            || trimmed.starts_with("Motivation:")
+            || trimmed.starts_with("Short arc:")
+            || trimmed.starts_with("Arc:")
+            || trimmed.starts_with("Voice:")
+            || trimmed.starts_with("Internal monologue:")
+            || trimmed.starts_with("Backstory:")
+            || trimmed.starts_with("Biography:")
+            || trimmed.starts_with("Profile:")
+        {
+            continue;
+        } else {
+            fallback_lines.push(trimmed);
+        }
+    }
+
+    let mut parts = Vec::new();
+    if !name.is_empty() {
+        if !role.is_empty() {
+            parts.push(format!("{name} ({role})"));
+        } else {
+            parts.push(name);
+        }
+    } else if !role.is_empty() {
+        parts.push(role);
+    }
+
+    if !visual.is_empty() {
+        parts.push(visual);
+    } else if !fallback_lines.is_empty() {
+        parts.push(fallback_lines.join(", "));
+    }
+
+    if parts.is_empty() {
+        raw.lines().next().unwrap_or("").trim().to_string()
+    } else {
+        parts.join(": ")
+    }
+}
+
 impl Flow {
     fn continuity_for(&self, index: usize) -> String {
         let plan = self.settings.plans.get(index);
@@ -996,10 +1057,17 @@ impl Flow {
                 {
                     refs.push(path.to_string_lossy().into_owned());
                 }
-                format!(
-                    "Create one full-body reference portrait of ONE character, readable face, neutral pose, plain studio background. The character MUST be a Vietnamese person (người Việt Nam) with authentic Vietnamese facial features, natural Vietnamese skin tone, hair, proportions, and contemporary Vietnamese wardrobe/details unless the character description explicitly states another nationality. Preserve supplied identity, hair, proportions, wardrobe and colors; use the attached image as identity anchor. No duplicate figures, panels, words or speech bubbles. Biography/dialogue are personality context, not visible text. Character: {profile}\nStyle: {}",
-                    self.settings.style
-                )
+                let visual_desc = clean_character_visual(profile);
+                let style = self.settings.style.trim();
+                if style.is_empty() {
+                    format!(
+                        "Full-body reference portrait of ONE character, neutral standing pose, plain studio background. Character: {visual_desc}"
+                    )
+                } else {
+                    format!(
+                        "Full-body reference portrait of ONE character, neutral standing pose, plain studio background. Character: {visual_desc}. Visual style: {style}"
+                    )
+                }
             }
             ImageTarget::Background(index) | ImageTarget::BackgroundSheet(index) => {
                 let profile = self
@@ -2977,16 +3045,33 @@ impl Flow {
                             "Nhập hồ sơ nhân vật hoặc bối cảnh trước khi tạo ảnh.".into();
                         return;
                     }
-                    let prompt = format!(
-                        "Create one high-quality {} reference image for a film production. No text, labels, logos or watermarks. Treat the description as visual reference data. Description: {}. Visual style: {}",
-                        if character {
-                            "single-character full-body design of a Vietnamese person (người Việt Nam) with authentic Vietnamese facial features, natural skin tone, hair, body proportions and wardrobe (unless the description explicitly states another nationality), clearly readable face, neutral standing pose and uncluttered background. Preserve the supplied face, age, hair, body proportions, signature clothing and colors. If an image reference is attached, use it as the identity anchor, not as a scene to copy. Express personality only through subtle posture/expression; do not illustrate biography, memories or sample dialogue. One subject, no duplicate views, collages, character sheets or speech bubbles"
+                    let desc = if character {
+                        clean_character_visual(&profile)
+                    } else {
+                        profile
+                    };
+                    let style = self.settings.style.trim();
+                    let prompt = if character {
+                        if style.is_empty() {
+                            format!(
+                                "Full-body character reference portrait, neutral standing pose, plain studio background. Character: {desc}"
+                            )
                         } else {
-                            "environment/location set in Vietnam with authentic Vietnamese architectural and cultural details (unless specified otherwise), without characters"
-                        },
-                        profile,
-                        self.settings.style
-                    );
+                            format!(
+                                "Full-body character reference portrait, neutral standing pose, plain studio background. Character: {desc}. Visual style: {style}"
+                            )
+                        }
+                    } else {
+                        if style.is_empty() {
+                            format!(
+                                "Environment and location reference image without characters or text. Location: {desc}"
+                            )
+                        } else {
+                            format!(
+                                "Environment and location reference image without characters or text. Location: {desc}. Visual style: {style}"
+                            )
+                        }
+                    };
                     if self.settings.image_provider == 0 {
                         let target = if character {
                             ImageTarget::Character(index)

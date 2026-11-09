@@ -98,11 +98,11 @@ export global Theme {
     // technical` is for timecode, the ruler, clip labels, paths, dimensions,
     // counts — anything you read as a *value* rather than as language.
     //
-    // Both are Hanken Grotesk, the one face this build bundles (app.slint).
+    // Inter is Antigravity's signature font, bundled statically (app.slint).
     // The split between the roles stays so that the two can differ again
     // without touching a single element.
-    out property <string> font: "Hanken Grotesk";
-    out property <string> font-technical: "Hanken Grotesk";
+    out property <string> font: "Inter";
+    out property <string> font-technical: "Inter";
     /// The scale. `fs` is the body size everything inherits; the two either
     /// side of it are the dense readout and the panel title. `xl` is for the
     /// few lines that are content rather than chrome — a project's name in a

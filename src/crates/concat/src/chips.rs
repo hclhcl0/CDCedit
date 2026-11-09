@@ -147,7 +147,7 @@ stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="{glyp
 <rect x="{cx}" y="{cy}" width="{cw}" height="{ch}" rx="8" fill="{ground}" stroke="{mark}" stroke-opacity="0.65" filter="url(#drop)"/>
 <rect x="{bx}" y="{by}" width="{BADGE}" height="{BADGE}" rx="6" fill="{well}"/>
 {badge_art}
-<text x="{tx}" y="{ty}" font-family="Hanken Grotesk" font-size="12" fill="{ink}">{label}</text>
+<text x="{tx}" y="{ty}" font-family="Inter" font-size="12" fill="{ink}">{label}</text>
 </svg>"##,
         cx = PAD + 0.5,
         cy = PAD + 0.5,

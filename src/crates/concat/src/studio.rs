@@ -1226,7 +1226,7 @@ fn new_title_style(prefs: &crate::prefs::Preferences) -> TextStyle {
     // The look a title was kept as, when one was (see
     // `Studio::use_title_style_for_new`); the bundled face otherwise.
     let base = prefs.title_style.clone().unwrap_or_else(|| TextStyle {
-        font_family: "Hanken Grotesk".to_owned(),
+        font_family: "Inter".to_owned(),
         font_weight: 600.0,
         ..TextStyle::default()
     });

@@ -25,8 +25,43 @@ if(Test-Path $taskLLVM){$env:LLVM_HOME=$taskLLVM;$env:LIBCLANG_PATH=Join-Path $t
 $taskVsWhere=Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
 if(Test-Path $taskVsWhere){
     $taskVS=& $taskVsWhere -latest -products '*' -property installationPath
-    $taskCmake=Join-Path $taskVS 'Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin'
-    if(Test-Path $taskCmake){$env:PATH=$taskCmake+';'+$env:PATH}
+    if($taskVS){ $taskCmake=Join-Path $taskVS 'Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin' }
+    if($taskCmake -and (Test-Path $taskCmake)){$env:PATH=$taskCmake+';'+$env:PATH}
+}
+if(-not $taskVS -and (Test-Path "E:\VSBuildTools\VC")){
+    $taskVS="E:\VSBuildTools"
+}
+if(Test-Path (Join-Path $taskTools "ninja\ninja.exe")){
+    $env:PATH=(Join-Path $taskTools "ninja")+";"+$env:PATH
+    $env:CMAKE_GENERATOR="Ninja"
+}
+if(Test-Path (Join-Path $taskTools "cmake/bin/cmake.exe")){
+    $env:PATH=(Join-Path $taskTools "cmake/bin")+";"+$env:PATH
+}
+if(Test-Path (Join-Path $taskTools "llvm/bin")){
+    $env:PATH=(Join-Path $taskTools "llvm/bin")+";"+$env:PATH
+}
+if($taskVS){
+    $taskMsvc=Get-ChildItem (Join-Path $taskVS "VC/Tools/MSVC") -Directory -ErrorAction SilentlyContinue|Sort-Object Name|Select-Object -Last 1
+    $taskSdk=Join-Path $taskVS "Windows Kits/10"
+    if($taskMsvc -and (Test-Path $taskSdk)){
+        $sdkVer=(Get-ChildItem (Join-Path $taskSdk "Include") -Directory -ErrorAction SilentlyContinue|Sort-Object Name|Select-Object -Last 1).Name
+        $msvcBin=Join-Path $taskMsvc.FullName "bin/Hostx64/x64"
+        $sdkBin=Join-Path $taskSdk "bin/$sdkVer/x64"
+                $env:PATH="$msvcBin;$sdkBin;$env:PATH"
+                $env:RC_PATH=Join-Path $sdkBin "rc.exe"
+        $env:RC=$env:RC_PATH
+        $msvcInc=Join-Path $taskMsvc.FullName "include"
+        $sdkInc=Join-Path $taskSdk "Include/$sdkVer"
+        if(-not $env:INCLUDE -or -not ($env:INCLUDE -match [regex]::Escape($msvcInc))){
+            $env:INCLUDE="$msvcInc;$sdkInc/ucrt;$sdkInc/shared;$sdkInc/um;$sdkInc/winrt;$env:INCLUDE"
+        }
+        $msvcLib=Join-Path $taskMsvc.FullName "lib/x64"
+        $sdkLib=Join-Path $taskSdk "Lib/$sdkVer"
+        if(-not $env:LIB -or -not ($env:LIB -match [regex]::Escape($msvcLib))){
+            $env:LIB="$msvcLib;$sdkLib/ucrt/x64;$sdkLib/um/x64;$env:LIB"
+        }
+    }
 }
 $taskLog=Join-Path $taskRepo "scratch/concat-flow-$($Mode.ToLower()).log"
 New-Item -ItemType Directory -Path (Split-Path $taskLog -Parent) -Force|Out-Null
@@ -78,7 +113,8 @@ try {
             $taskTarget=Join-Path $taskBin $taskName
             $taskSrcItem=Get-Item -LiteralPath $taskRuntime[$taskName]
             $taskDstItem=Get-Item -LiteralPath $taskTarget -ErrorAction SilentlyContinue
-            if(-not $taskDstItem -or $taskSrcItem.Length -ne $taskDstItem.Length){
+            if(-not $taskDstItem -or $taskDstItem.Attributes.HasFlag([System.IO.FileAttributes]::ReparsePoint) -or $taskSrcItem.Length -ne $taskDstItem.Length){
+                Remove-Item -LiteralPath $taskTarget -Force -ErrorAction SilentlyContinue
                 Copy-Item -LiteralPath $taskRuntime[$taskName] -Destination $taskTarget -Force
             }
         }

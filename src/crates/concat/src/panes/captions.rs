@@ -1442,7 +1442,7 @@ fn caption_clip_on_track(
         },
         None => TextStyle {
             content: text,
-            font_family: "Hanken Grotesk".to_owned(),
+            font_family: "Inter".to_owned(),
             font_size,
             font_weight: 600.0,
             max_width: 0.82,
