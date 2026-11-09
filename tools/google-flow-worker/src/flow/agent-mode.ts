@@ -13,6 +13,20 @@ async function expandAgentPanelIfNeeded(page: Page): Promise<void> {
 export async function ensureAgentMode(page: Page): Promise<void> {
   const agent = page.getByRole('button', { name: /^(Agent|에이전트)$/ }).last();
   const instructions = page.getByRole('button', { name: /^(Agent instructions|에이전트 지침)$/ }).last();
+  const tune = page.locator('button').filter({ hasText: /tune/ }).first();
+
+  // Wait up to 5s for Flow UI to finish mounting elements
+  for (let i = 0; i < 20; i++) {
+    if (
+      (await instructions.isVisible().catch(() => false)) ||
+      (await agent.isVisible().catch(() => false)) ||
+      (await tune.isVisible().catch(() => false))
+    ) {
+      break;
+    }
+    await page.waitForTimeout(250);
+  }
+
   const visible = async (locator: ReturnType<Page['locator']>): Promise<boolean> => locator.isVisible().catch(() => false);
   if (await visible(instructions)) {
     await expandAgentPanelIfNeeded(page);
@@ -20,7 +34,7 @@ export async function ensureAgentMode(page: Page): Promise<void> {
   }
   if (!(await visible(agent))) {
     // Older Flow builds expose only the already-active Agent composer.
-    if (await visible(page.locator('button').filter({ hasText: /tune/ }).first())) {
+    if (await visible(tune)) {
       await expandAgentPanelIfNeeded(page);
       return;
     }

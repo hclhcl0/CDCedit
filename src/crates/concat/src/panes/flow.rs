@@ -3198,10 +3198,13 @@ impl Flow {
                 }
                 86 => {
                     for plan in &mut self.settings.plans {
+                        if index == 1 && plan.status == "uncertain" {
+                            plan.status.clear();
+                        }
                         plan.selected = index == 1
                             && !matches!(
                                 plan.status.as_str(),
-                                "completed" | "uncertain" | "running"
+                                "completed" | "running"
                             );
                     }
                 }
@@ -4102,6 +4105,9 @@ impl Flow {
                         }
                         if plan.status != "completed" {
                             plan.selected = true;
+                            if plan.status == "uncertain" {
+                                plan.status.clear();
+                            }
                         }
                     }
                     self.remember_prompt();
