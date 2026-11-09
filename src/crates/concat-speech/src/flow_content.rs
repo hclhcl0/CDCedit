@@ -45,6 +45,9 @@ fn request_body(kind: i32, context: &Value) -> Result<Value, String> {
         49 => {
             "Synthesize production-ready project-level Google Flow Agent Instructions from the provided characters, screenplay scenes, and visual style. Create distinct instruction items: 1) For each character in the project, generate an instruction with title 'Character: <Name>' and a clear guideline describing their Vietnamese facial features, hair, natural skin tone, typical wardrobe, and emotional demeanor, noting character_id. 2) A global instruction titled 'Cinematic Camera & Lighting Rules' enforcing slow, calm and steady camera pacing (static tripod shot, slow 0.5x push-in, gentle pan; no rapid shakes or fast zoom), cinematic natural lighting, and strictly NO on-screen subtitles, watermarks, or text overlays. Return {\"instructions\":[{\"title\":\"Character: Nam\",\"text\":\"Guideline text...\",\"character_id\":\"existing-id or empty\"},{\"title\":\"Cinematic Camera & Lighting Rules\",\"text\":\"Guideline text...\",\"character_id\":\"\"}]}."
         }
+        50 => {
+            "You are the Director's AI Assistant (AI Copilot) for a film project. The user gives a revision instruction in 'instruction'. You inspect the current project state (screenplay, scenes, characters, current background, style, and selected scene details). Apply the revision accurately to the relevant components: 1) If the instruction affects the script/scenes, provide the updated 'screenplay' (full text with scenes separated by a blank line) and 'scenes' (array of scene texts). 2) If the instruction affects characters, provide 'characters' with [{id, name, role, profile}]. Preserve existing character IDs to maintain asset bindings; use temporary IDs like 'new-1' for any newly added character. 3) If the instruction affects setting or visual style, update 'background' or 'style'. 4) If the instruction affects the selected scene's filming attributes (camera, shot, lighting, sound, action, dialogue), provide 'selected_scene_patch' with {action, shot, camera, movement, lighting, sound, dialogue}. 5) ALWAYS provide 'explanation' with a concise Vietnamese summary (1-2 sentences) describing what you revised. Return {\"explanation\":\"Đã sửa...\",\"screenplay\":\"...\",\"scenes\":[\"...\"],\"characters\":[...],\"background\":\"...\",\"style\":\"...\",\"selected_scene_patch\":{...}} (omit fields that were not modified)."
+        }
         _ => return Err("Loại nội dung AI không hợp lệ.".into()),
     };
     let craft = include_str!("../prompts/screenwriting.md");
@@ -141,6 +144,7 @@ fn parse(kind: i32, raw: &str) -> Result<Value, String> {
         45 => "dialogue",
         46 => "characters",
         49 => "instructions",
+        50 => "explanation",
         _ => return Err("Loại nội dung không hợp lệ.".into()),
     };
     let nonempty = |v: &Value| {
@@ -236,6 +240,8 @@ mod tests {
         assert!(parse(43, "{\"background\":\"Xưởng đèn lồng\"}").is_ok());
         assert!(parse(44, "{\"prompt\":\"\"}").is_err());
         assert!(parse(49, "{\"instructions\":[{\"title\":\"Camera\",\"text\":\"Slow steady shot\"}]}").is_ok());
+        assert!(parse(50, "{\"explanation\":\"Đã sửa cảnh 2 sang mưa bão\"}").is_ok());
+        assert!(parse(50, "{\"explanation\":\"\"}").is_err());
     }
     #[test]
     fn flow_skill_contract_keeps_editor_and_dialogue_boundaries() {

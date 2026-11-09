@@ -182,6 +182,8 @@ pub struct Flow {
     remote_project_url: String,
     remote_account_id: String,
     flow_link_target: String,
+    copilot_prompt: String,
+    copilot_collapsed: bool,
 }
 // Flow no longer exposes the legacy Omni Flash model to new generations.
 // Index 0 is deliberately the migration target for projects saved by builds
@@ -571,6 +573,10 @@ impl Flow {
             auto_delogo: self.settings.auto_delogo,
             auto_upscale: self.settings.auto_upscale,
             auto_import_timeline: self.settings.auto_import_timeline,
+            copilot_prompt: self.copilot_prompt.as_str().into(),
+            copilot_collapsed: self.copilot_collapsed,
+            can_undo_copilot: !self.config_path.as_os_str().is_empty()
+                && self.config_path.with_file_name("flow-before-copilot.json").exists(),
             flow_image_model: self.settings.flow_image_model.min(2) as i32,
             flow_image_ratio: self.settings.flow_image_ratio.min(4) as i32,
             transfer_path: self.transfer_path.as_str().into(),
@@ -2162,10 +2168,103 @@ impl Flow {
                                     return;
                                 }
                             }
+                            50 => {
+                                let mut changes = Vec::new();
+                                if let Some(sp) = value["screenplay"].as_str().filter(|s| !s.trim().is_empty()) {
+                                    self.settings.screenplay = sp.to_string();
+                                    self.settings.scene_items = scene_blocks(&self.settings.screenplay);
+                                    self.settings.plans.resize_with(self.settings.scene_items.len(), ScenePlan::default);
+                                    self.settings.scene = self.settings.scene.min(self.settings.scene_items.len().saturating_sub(1));
+                                    changes.push("Kịch bản");
+                                } else if let Some(scenes) = value["scenes"].as_array().filter(|a| !a.is_empty()) {
+                                    let items: Vec<String> = scenes.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect();
+                                    if !items.is_empty() {
+                                        self.settings.screenplay = items.join("\n\n");
+                                        self.settings.scene_items = items;
+                                        self.settings.plans.resize_with(self.settings.scene_items.len(), ScenePlan::default);
+                                        self.settings.scene = self.settings.scene.min(self.settings.scene_items.len().saturating_sub(1));
+                                        changes.push("Phân cảnh");
+                                    }
+                                }
+                                if let Some(chars) = value["characters"].as_array().filter(|a| !a.is_empty()) {
+                                    for c in chars {
+                                        let name = c["name"].as_str().unwrap_or("").trim();
+                                        let profile = c["profile"].as_str().unwrap_or("").trim();
+                                        let role = c["role"].as_str().unwrap_or("").trim();
+                                        let id = c["id"].as_str().unwrap_or("").trim();
+                                        if name.is_empty() { continue; }
+                                        
+                                        let pos = if !id.is_empty() {
+                                            self.settings.character_ids.iter().position(|cid| cid == id)
+                                        } else {
+                                            None
+                                        }.or_else(|| {
+                                            self.settings.characters.iter().position(|cname| cname.eq_ignore_ascii_case(name))
+                                        });
+
+                                        if let Some(i) = pos {
+                                            if !profile.is_empty() {
+                                                self.settings.characters[i] = profile.to_string();
+                                            }
+                                            if !role.is_empty() && i < self.settings.character_roles.len() {
+                                                self.settings.character_roles[i] = role.to_string();
+                                            }
+                                        } else {
+                                            self.settings.characters.push(if profile.is_empty() { name.to_string() } else { profile.to_string() });
+                                            self.settings.character_roles.push(role.to_string());
+                                            self.settings.character_images.push(PathBuf::new());
+                                            self.settings.character_ids.push(if !id.is_empty() && !id.starts_with("new-") { id.to_string() } else { format!("char-{}", self.settings.characters.len()) });
+                                        }
+                                    }
+                                    self.settings.sync_character_ids();
+                                    changes.push("Nhân vật");
+                                }
+                                if let Some(bg) = value["background"].as_str().filter(|s| !s.trim().is_empty()) {
+                                    self.settings.continuity = bg.to_string();
+                                    changes.push("Bối cảnh");
+                                }
+                                if let Some(st) = value["style"].as_str().filter(|s| !s.trim().is_empty()) {
+                                    self.settings.style = st.to_string();
+                                    changes.push("Phong cách");
+                                }
+                                if let Some(patch) = value["selected_scene_patch"].as_object() {
+                                    if let Some(plan) = self.settings.plans.get_mut(self.settings.scene) {
+                                        if let Some(shot) = patch.get("shot").and_then(|v| v.as_str()).filter(|s| !s.trim().is_empty()) {
+                                            plan.shot = shot.to_string();
+                                        }
+                                        if let Some(camera) = patch.get("camera").and_then(|v| v.as_str()).filter(|s| !s.trim().is_empty()) {
+                                            plan.camera = camera.to_string();
+                                        }
+                                        if let Some(movement) = patch.get("movement").and_then(|v| v.as_str()).filter(|s| !s.trim().is_empty()) {
+                                            plan.movement = movement.to_string();
+                                        }
+                                        if let Some(lighting) = patch.get("lighting").and_then(|v| v.as_str()).filter(|s| !s.trim().is_empty()) {
+                                            plan.lighting = lighting.to_string();
+                                        }
+                                        if let Some(sound) = patch.get("sound").and_then(|v| v.as_str()).filter(|s| !s.trim().is_empty()) {
+                                            plan.sound = sound.to_string();
+                                        }
+                                        if let Some(dialogue) = patch.get("dialogue").and_then(|v| v.as_str()).filter(|s| !s.trim().is_empty()) {
+                                            plan.dialogue = dialogue.to_string();
+                                        }
+                                        if let Some(action) = patch.get("action").and_then(|v| v.as_str()).filter(|s| !s.trim().is_empty()) {
+                                            if let Some(first_char_id) = self.settings.character_ids.first() {
+                                                plan.character_actions.insert(first_char_id.clone(), action.to_string());
+                                            }
+                                        }
+                                        plan.invalidate();
+                                        changes.push("Chi tiết cảnh");
+                                    }
+                                }
+                                self.invalidate_prompts();
+                                let exp = value["explanation"].as_str().unwrap_or("Đã cập nhật theo yêu cầu.");
+                                self.message = format!("✨ Trợ lý AI: {exp}");
+                                self.copilot_prompt.clear();
+                            }
                             _ => {}
                         }
                         self.credit = false;
-                        if !matches!(kind, 41 | 42 | 46) {
+                        if !matches!(kind, 41 | 42 | 46 | 50) {
                             self.message = "Đã nhận bản nháp từ Gemini. Bạn có thể chỉnh sửa; chưa gửi tạo video Flow.".into();
                         }
                         self.settings.sync_character_ids();
@@ -3987,6 +4086,79 @@ impl Flow {
                             studio.handle(Msg::Flow(FlowMsg::Finished(g, result)))
                         },
                     );
+                }
+                170 => {
+                    let user_prompt = text.trim();
+                    if user_prompt.is_empty() {
+                        self.message = "Vui lòng nhập yêu cầu sửa đổi cho Trợ lý AI.".into();
+                        return;
+                    }
+                    let keys = studio.prefs.gemini_api_key.expose().to_owned();
+                    if concat_speech::api_keys::parse(&keys).is_empty() {
+                        self.message = "Thêm Gemini API key trong Cài đặt trước khi dùng AI.".into();
+                        return;
+                    }
+                    if let Ok(bytes) = serde_json::to_vec_pretty(&self.settings) {
+                        let _ = self.write_sibling("flow-before-copilot.json", bytes);
+                    }
+                    let active_plan = self.settings.plans.get(self.settings.scene);
+                    let selected_scene_patch = active_plan.map(|p| json!({
+                        "shot": p.shot,
+                        "camera": p.camera,
+                        "movement": p.movement,
+                        "lighting": p.lighting,
+                        "sound": p.sound,
+                        "dialogue": p.dialogue,
+                    })).unwrap_or(json!({}));
+
+                    let scenes_texts: Vec<String> = self.settings.scene_items.clone();
+                    let registry = self.settings.character_context();
+                    let context = json!({
+                        "instruction": user_prompt,
+                        "active_tab": index,
+                        "screenplay": self.settings.screenplay,
+                        "scenes": scenes_texts,
+                        "characters": registry,
+                        "selected_scene": self.settings.scene,
+                        "selected_scene_patch": selected_scene_patch,
+                        "background": self.settings.continuity,
+                        "style": self.settings.style,
+                        "target_scene_count": self.settings.scene_items.len().max(1),
+                    });
+                    self.busy = true;
+                    self.credit = false;
+                    self.generation += 1;
+                    let g = self.generation;
+                    self.message = "Trợ lý AI đang phân tích và thực hiện sửa đổi theo yêu cầu...".into();
+                    spawn_in_project(
+                        move || concat_speech::flow_content::generate(&keys, 50, &context),
+                        move |studio, _, _, result| {
+                            studio.handle(Msg::Flow(FlowMsg::AiFinished(g, 50, result)))
+                        },
+                    );
+                }
+                171 => {
+                    let path = self.config_path.with_file_name("flow-before-copilot.json");
+                    match std::fs::read(&path) {
+                        Ok(bytes) => {
+                            match serde_json::from_slice::<Settings>(&bytes) {
+                                Ok(restored) => {
+                                    self.settings = restored;
+                                    self.settings.sync_character_ids();
+                                    let _ = self.save();
+                                    self.message = "Đã hoàn tác thay đổi gần nhất của Trợ lý AI.".into();
+                                }
+                                Err(e) => self.message = format!("Không khôi phục được bản sao lưu: {e}"),
+                            }
+                        }
+                        Err(e) => self.message = format!("Chưa có bản sao lưu trước đó để hoàn tác: {e}"),
+                    }
+                }
+                172 => {
+                    self.copilot_prompt = text;
+                }
+                173 => {
+                    self.copilot_collapsed = !self.copilot_collapsed;
                 }
                 _ => {}
             },

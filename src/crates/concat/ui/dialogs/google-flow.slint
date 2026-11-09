@@ -21,7 +21,7 @@ component ScriptEditor inherits Rectangle {
     height:100px;background:Theme.field;border-radius:Theme.r;clip:true;
     TextInput {x:10px;y:10px;width:parent.width - 20px;height:parent.height - 20px;text<=>root.value;color:Theme.fg;font-size:Theme.fs;wrap:word-wrap;enabled:root.enabled;edited=>{root.edited(self.text);}}
 }
-export struct FlowData {open:bool,busy:bool,credit:bool,url:string,prompt:string,reference:string,model:int,duration:int,ratio:int,message:string,can-import:bool,desktop:bool,files:[FlowFile],screenplay:string,continuity:string,style:string,scene:int,scenes:[string],scene-text:string,characters:[string],brief:string,ai-ready:bool,camera:string,shot:string,movement:string,sound:string,dialogue:string,lighting:string,scene-status:string,queued:bool,queue-count:int,scene-rows:[FlowSceneRow],cast-rows:[FlowCastRow],backgrounds:[string],background:int,background-edit:int,background-text:string,character-images:[FlowAsset],background-image:FlowAsset,image-model:string,image-provider:int,image-ready-message:string,character-galleries:[FlowGallery],scene-images:[FlowReferenceImage],scene-image:FlowAsset,scene-image-status:string,flow-image-model:int,flow-image-ratio:int,transfer-path:string,validation:string,writing-format:int,writing-structure:int,writing-scene-count:int,writing-audience:string,writing-goal:string,logline:string,remote-characters:[FlowRemoteCharacter],character-names:[string],character-roles:[string],dialogue-rows:[FlowDialogueRow],flow-link-target:int,account-names:[string],scene-account-names:[string],source-account:int,scene-account:int,scene-project-url:string,account-summary:string,video-provider:int,visual-mode:int,end-image:FlowAsset,scene-flow-auto:bool,auto-delogo:bool,auto-upscale:bool,auto-import-timeline:bool}
+export struct FlowData {open:bool,busy:bool,credit:bool,url:string,prompt:string,reference:string,model:int,duration:int,ratio:int,message:string,can-import:bool,desktop:bool,files:[FlowFile],screenplay:string,continuity:string,style:string,scene:int,scenes:[string],scene-text:string,characters:[string],brief:string,ai-ready:bool,camera:string,shot:string,movement:string,sound:string,dialogue:string,lighting:string,scene-status:string,queued:bool,queue-count:int,scene-rows:[FlowSceneRow],cast-rows:[FlowCastRow],backgrounds:[string],background:int,background-edit:int,background-text:string,character-images:[FlowAsset],background-image:FlowAsset,image-model:string,image-provider:int,image-ready-message:string,character-galleries:[FlowGallery],scene-images:[FlowReferenceImage],scene-image:FlowAsset,scene-image-status:string,flow-image-model:int,flow-image-ratio:int,transfer-path:string,validation:string,writing-format:int,writing-structure:int,writing-scene-count:int,writing-audience:string,writing-goal:string,logline:string,remote-characters:[FlowRemoteCharacter],character-names:[string],character-roles:[string],dialogue-rows:[FlowDialogueRow],flow-link-target:int,account-names:[string],scene-account-names:[string],source-account:int,scene-account:int,scene-project-url:string,account-summary:string,video-provider:int,visual-mode:int,end-image:FlowAsset,scene-flow-auto:bool,auto-delogo:bool,auto-upscale:bool,auto-import-timeline:bool,copilot-prompt:string,copilot-collapsed:bool,can-undo-copilot:bool}
 export component GoogleFlowDialog inherits Rectangle {
     in property <FlowData> data;
     callback action(int,int,string);
@@ -96,6 +96,85 @@ export component GoogleFlowDialog inherits Rectangle {
             Select {options:root.data.scenes;current:root.data.scene;enabled:!root.data.busy;changed(index)=>{root.action(23,index,"");}}
         }
         if root.data.message!="": Text {text:root.data.message;color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
+        Rectangle {
+            background: Theme.well;
+            border-radius: Theme.r;
+            VerticalLayout {
+                spacing: 6px;
+                padding: 8px;
+            HorizontalLayout {
+                spacing: 6px;
+                Text {
+                    text: "🤖 Trợ lý Đạo diễn AI";
+                    color: Theme.accent;
+                    font-size: Theme.fs;
+                    font-weight: 700;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                }
+                if root.data.can-undo-copilot: Button {
+                    label: "↩ Hoàn tác sửa";
+                    ghost: true;
+                    enabled: !root.data.busy;
+                    clicked => { root.action(171, 0, ""); }
+                }
+                Button {
+                    label: root.data.copilot-collapsed ? "▼ Mở Trợ lý" : "▲ Thu gọn";
+                    ghost: true;
+                    clicked => { root.action(173, 0, ""); }
+                }
+            }
+            if !root.data.copilot-collapsed: VerticalLayout {
+                spacing: 6px;
+                HorizontalLayout {
+                    spacing: 6px;
+                    Field {
+                        value: root.data.copilot-prompt;
+                        placeholder: root.tab == 0 ? "Nhập yêu cầu sửa kịch bản (vd: đẩy cao trào kịch tính hơn, thêm nút thắt)..."
+                                    : root.tab == 1 ? "Nhập yêu cầu sửa nhân vật (vd: đổi tuổi, nghề nghiệp, trang phục áo thợ)..."
+                                    : root.tab == 2 ? "Nhập yêu cầu sửa cảnh đang chọn (vd: chuyển sang đêm mưa, Nam tức giận)..."
+                                    : "Nhập yêu cầu sửa kịch bản, nhân vật hoặc cảnh...";
+                        horizontal-stretch: 1;
+                        enabled: !root.data.busy;
+                        edited(text) => { root.action(172, 0, text); }
+                    }
+                    Button {
+                        label: "✨ Áp dụng";
+                        primary: true;
+                        enabled: root.data.ai-ready && !root.data.busy && root.data.copilot-prompt != "";
+                        clicked => { root.action(170, root.tab, root.data.copilot-prompt); }
+                    }
+                }
+                HorizontalLayout {
+                    spacing: 4px;
+                    Text {
+                        text: "Gợi ý nhanh:";
+                        color: Theme.fg-muted;
+                        font-size: Theme.fs-xs;
+                        vertical-alignment: center;
+                    }
+                    if root.tab == 0: HorizontalLayout {
+                        spacing: 4px;
+                        Button { label: "🎬 Tăng kịch tính"; ghost: true; enabled: !root.data.busy; clicked => { root.action(172, 0, "Đẩy mâu thuẫn ở cảnh cao trào lên gay cấn hơn, các nhân vật đối đầu căng thẳng"); } }
+                        Button { label: "🔀 Nút thắt bất ngờ"; ghost: true; enabled: !root.data.busy; clicked => { root.action(172, 0, "Thêm một nút thắt bất ngờ làm thay đổi hoàn toàn cục diện câu chuyện"); } }
+                        Button { label: "🏙 Đổi phong cách 90s"; ghost: true; enabled: !root.data.busy; clicked => { root.action(172, 0, "Chuyển phong cách sang điện ảnh Hong Kong thập niên 90, ánh sáng neon mờ"); } }
+                    }
+                    if root.tab == 1: HorizontalLayout {
+                        spacing: 4px;
+                        Button { label: "👔 Chi tiết trang phục"; ghost: true; enabled: !root.data.busy; clicked => { root.action(172, 0, "Mô tả chi tiết trang phục thuần Việt, chất liệu vải và phong thái đời thường"); } }
+                        Button { label: "💔 Thêm chiều sâu tâm lý"; ghost: true; enabled: !root.data.busy; clicked => { root.action(172, 0, "Bổ sung nỗi đau trong quá khứ và vết thương tâm lý sâu sắc cho nhân vật"); } }
+                        Button { label: "👵 Đổi tuổi & ngoại hình"; ghost: true; enabled: !root.data.busy; clicked => { root.action(172, 0, "Đổi độ tuổi nhân vật sang trung niên 45 tuổi, dáng vẻ khắc khổ từng trải"); } }
+                    }
+                    if root.tab >= 2: HorizontalLayout {
+                        spacing: 4px;
+                        Button { label: "🌧 Đêm mưa dông"; ghost: true; enabled: !root.data.busy; clicked => { root.action(172, 0, "Đổi cảnh này sang ban đêm mưa to, ánh chớp giật, không khí căng thẳng u tối"); } }
+                        Button { label: "✂ Rút gọn thoại"; ghost: true; enabled: !root.data.busy; clicked => { root.action(172, 0, "Rút ngắn lời thoại sắc sảo, dồn cảm xúc vào hành động và ánh mắt"); } }
+                        Button { label: "🎥 Cận cảnh cảm xúc"; ghost: true; enabled: !root.data.busy; clicked => { root.action(172, 0, "Đổi góc máy thành Cận cảnh (Close-up) đặc tả biểu cảm và chuyển động chậm 0.5x"); } }
+                    }
+                }
+            }
+        }
+        }
         PaneScroll {
             reset-token:root.tab;
             vertical-stretch:1;

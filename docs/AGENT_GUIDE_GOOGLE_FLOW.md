@@ -166,6 +166,10 @@ Mọi tương tác từ Slint UI đều đi qua callback `root.action(id, index,
 | **153** | `0, ""` | Bật/tắt tự động đưa video vào Timeline sau khi hoàn tất. |
 | **160** | `0, ""` | **✨ AI Tạo & Khóa Agent Instructions vào Flow**: Tự động sinh quy tắc và đồng bộ vào Flow. |
 | **161** | `0, ""` | **➕ Tạo dự án Flow mới**: Mở trang chủ Flow trong Chrome, tự động bấm "New project", cập nhật URL dự án mới vào Concat và tài khoản nguồn mà không cần vào Cài đặt. |
+| **170** | `tab, prompt` | **✨ Trợ lý Đạo diễn AI (AI Copilot)**: Tiếp nhận yêu cầu sửa tự nhiên (kịch bản, nhân vật, cảnh), phân tích và tự động áp dụng các sửa đổi đồng bộ, lưu snapshot dự phòng. |
+| **171** | `0, ""` | **↩ Hoàn tác sửa AI**: Khôi phục lại trạng thái dự án gần nhất từ `flow-before-copilot.json`. |
+| **172** | `0, text` | Cập nhật nội dung câu lệnh trong ô nhập liệu Trợ lý AI (khi gõ hoặc bấm chip gợi ý nhanh). |
+| **173** | `0, ""` | Bật/tắt thu gọn hoặc mở rộng thanh Trợ lý Đạo diễn AI trên đầu Flow Studio. |
 
 ---
 
