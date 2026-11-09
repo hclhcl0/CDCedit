@@ -817,13 +817,28 @@ impl Flow {
             .enumerate()
             .filter(|(i, _)| plan.is_none_or(|p| !p.cast_configured || p.cast.contains(i)))
             .map(|(i, s)| {
-                let visual = clean_visual_identity(s);
+                let is_flow_linked = self
+                    .settings
+                    .character_flow_origins
+                    .get(i)
+                    .is_some_and(|o| !o.id.is_empty());
+                let visual = if is_flow_linked {
+                    String::new()
+                } else {
+                    clean_visual_identity(s)
+                };
                 let action = plan.and_then(|p| p.character_actions.get(&self.settings.character_ids[i]))
                     .map(String::as_str)
                     .unwrap_or("")
                     .trim();
                 if action.is_empty() {
-                    format!("- {}: {}", labels[i], visual)
+                    if visual.is_empty() {
+                        format!("- {}", labels[i])
+                    } else {
+                        format!("- {}: {}", labels[i], visual)
+                    }
+                } else if visual.is_empty() {
+                    format!("- {}: action: {}", labels[i], action)
                 } else {
                     format!("- {}: {}, action: {}", labels[i], visual, action)
                 }
@@ -1929,8 +1944,24 @@ impl Flow {
                     );
                     if index == self.settings.characters.len() {
                         self.settings.characters.push(profile);
-                    } else if target.is_none() {
-                        self.settings.characters[index] = profile;
+                    } else {
+                        let role = self.settings.character_roles.get(index).cloned().unwrap_or_default();
+                        let clean_role = if !role.trim().is_empty() {
+                            format!("Role: {}\n", role.trim())
+                        } else {
+                            String::new()
+                        };
+                        self.settings.characters[index] = format!(
+                            "{}\n{}Mô tả từ Flow: {}{}",
+                            item.name,
+                            clean_role,
+                            item.personality,
+                            if item.voice.is_empty() {
+                                String::new()
+                            } else {
+                                format!("\nGiọng Flow (mã tham chiếu): {}", item.voice)
+                            }
+                        );
                     }
                     self.settings
                         .character_flow_origins
