@@ -733,6 +733,8 @@ pub struct Models {
     pub font_families: Rc<VecModel<SharedString>>,
     /// Those of them the font picker's search lets through.
     pub font_matches: Rc<VecModel<SharedString>>,
+    pub character_presets: Rc<VecModel<crate::ui::FlowCharacterPreset>>,
+    pub scene_presets: Rc<VecModel<crate::ui::FlowScenePreset>>,
 }
 
 impl Models {
@@ -805,6 +807,8 @@ impl Models {
             language_presets: Rc::new(VecModel::default()),
             font_families: Rc::new(VecModel::default()),
             font_matches: Rc::new(VecModel::default()),
+            character_presets: Rc::new(VecModel::default()),
+            scene_presets: Rc::new(VecModel::default()),
         }
     }
 }
@@ -3043,11 +3047,24 @@ impl Studio {
         std::sync::Arc<Vec<concat_export::ExportClip>>,
         concat_project::DocumentSettings,
     )> {
-        let session = self.session.as_ref()?;
         // A library file on the monitor: its clip alone, flattened once.
         if let Some(source) = self.source.as_ref() {
-            return Some((std::sync::Arc::clone(&source.clips), session.settings()));
+            let settings = if let Some(session) = self.session.as_ref() {
+                session.settings()
+            } else {
+                let video = self.project().active().video;
+                concat_project::DocumentSettings {
+                    name: "Source".into(),
+                    width: video.width,
+                    height: video.height,
+                    rate_num: video.rate_num,
+                    rate_den: video.rate_den,
+                    canvas: video.canvas,
+                }
+            };
+            return Some((std::sync::Arc::clone(&source.clips), settings));
         }
+        let session = self.session.as_ref()?;
         // The echo when there is one: a picture being dragged on the stage
         // is drawn where the pointer has it, not where the document last
         // had it. Same flattening the session does for itself, project
@@ -12187,6 +12204,55 @@ impl Studio {
                 .filter(|item| item.origin == Some(model::MediaOrigin::Processed))
                 .count() as i32,
         );
+
+        // Flow Presets: Characters and Scenes in Media Pane
+        let flow_root = self.host.dirs.data.join("google-flow");
+        let char_presets = crate::panes::flow::CharacterPreset::list(&flow_root);
+        let char_cards: Vec<crate::ui::FlowCharacterPreset> = char_presets
+            .into_iter()
+            .map(|p| {
+                let img_path = std::path::PathBuf::from(&p.image_path);
+                let has_image = img_path.is_file();
+                let preview = if has_image {
+                    slint::Image::load_from_path(&img_path).unwrap_or_default()
+                } else {
+                    slint::Image::default()
+                };
+                crate::ui::FlowCharacterPreset {
+                    id: p.id.as_str().into(),
+                    name: p.name.as_str().into(),
+                    role: p.role.as_str().into(),
+                    profile: p.profile.as_str().into(),
+                    preview,
+                    has_image,
+                }
+            })
+            .collect();
+        let scene_presets = crate::panes::flow::ScenePreset::list(&flow_root);
+        let scene_cards: Vec<crate::ui::FlowScenePreset> = scene_presets
+            .into_iter()
+            .map(|p| {
+                let img_path = std::path::PathBuf::from(&p.image_path);
+                let has_image = img_path.is_file();
+                let preview = if has_image {
+                    slint::Image::load_from_path(&img_path).unwrap_or_default()
+                } else {
+                    slint::Image::default()
+                };
+                crate::ui::FlowScenePreset {
+                    id: p.id.as_str().into(),
+                    name: p.name.as_str().into(),
+                    description: p.description.as_str().into(),
+                    style: p.style.as_str().into(),
+                    preview,
+                    has_image,
+                }
+            })
+            .collect();
+        editor.set_media_count_characters(char_cards.len() as i32);
+        editor.set_media_count_scenes(scene_cards.len() as i32);
+        sync(&models.character_presets, char_cards);
+        sync(&models.scene_presets, scene_cards);
         editor.set_media_selected_count(self.media.selected.len() as i32);
         editor.set_media_filter(self.media.filter);
         editor.set_media_jump_token(self.media_jump);

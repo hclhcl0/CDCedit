@@ -14,6 +14,7 @@ import { status } from './status.js';
 import { charactersList, characterDownload } from './characters.js';
 import { syncAgentInstructions } from './sync-agent-instructions.js';
 import { projectCreate } from './project-create.js';
+import { upscaleVideo } from './upscale-video.js';
 
 export const tools: readonly AnyTool[] = [
   connect,
@@ -32,4 +33,5 @@ export const tools: readonly AnyTool[] = [
   sceneStatus,
   sceneExtend,
   syncAgentInstructions,
+  upscaleVideo,
 ];

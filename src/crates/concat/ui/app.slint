@@ -10,6 +10,10 @@
 // embeds the same five so a title is set in the face the interface is.
 // Licensed under the SIL Open Font License; see LICENSE-HankenGrotesk.txt.
 import { I18n } from "i18n.slint";
+import "../../concat-text/fonts/BeVietnamPro-Regular.ttf";
+import "../../concat-text/fonts/BeVietnamPro-Medium.ttf";
+import "../../concat-text/fonts/BeVietnamPro-SemiBold.ttf";
+import "../../concat-text/fonts/BeVietnamPro-Bold.ttf";
 import "../../concat-text/fonts/Inter-Regular.ttf";
 import "../../concat-text/fonts/Inter-SemiBold.ttf";
 import "../../concat-text/fonts/Inter-Bold.ttf";
@@ -58,7 +62,7 @@ import { ConfirmData, ConfirmDialog } from "dialogs/confirm.slint";
 import { TranslationDialog, TranslationData, TranslationRowData } from "dialogs/translation.slint";
 import { GeminiStudioDialog, GeminiStudioData, GeminiTurnData, GeminiVoiceData } from "dialogs/gemini-studio.slint";
 import { LinkImportData, LinkImportItem, LinkImportDialog } from "dialogs/link-import.slint";
-import { FlowData, FlowFile, FlowSceneRow, FlowCastRow, FlowDialogueRow, FlowAsset, FlowRemoteCharacter, GoogleFlowDialog } from "dialogs/google-flow.slint";
+import { FlowData, FlowFile, FlowSceneRow, FlowCastRow, FlowDialogueRow, FlowAsset, FlowRemoteCharacter, FlowCharacterPreset, FlowScenePreset, GoogleFlowDialog } from "dialogs/google-flow.slint";
 import { CaptionsDialog, CaptionsSheetData, CaptionReviewRow } from "dialogs/captions.slint";
 import { SpeechDialog, SpeechSheetData, DubbingData, DubbingRowData } from "dialogs/speech.slint";
 import { NewVoiceData, NewVoiceDialog } from "dialogs/new-voice.slint";
@@ -196,6 +200,8 @@ export {
     Sounds,
     VoiceCardData,
     NewVoiceData,
+    FlowCharacterPreset,
+    FlowScenePreset,
 }
 export component App inherits Window {
     title: "CDCedit";

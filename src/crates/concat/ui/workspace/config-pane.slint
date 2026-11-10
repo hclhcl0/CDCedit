@@ -150,10 +150,9 @@ export component ConfigPane inherits Rectangle {
     /// The selected clip's media's audio tracks; see Editor.audio-tracks.
     in property <[string]> audio-tracks;
     property <bool> has-selection: root.selected.present;
-    property <bool> can-show-properties: root.has-selection
-        && (root.selected.kind == ClipKind.video || root.selected.kind == ClipKind.audio);
+    property <bool> can-show-properties: root.has-selection || root.on-transition;
     // Selection values also change during playback; only a different clip opens the inspector.
-    property <string> properties-selection: root.can-show-properties ? root.selected.id : "";
+    property <string> properties-selection: root.has-selection ? root.selected.id : (root.on-transition ? root.transition.into : "");
     function show-flow() {
         Editor.inspector-mode = 4;
         root.mode = 4;

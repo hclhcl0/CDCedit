@@ -173,7 +173,7 @@ pub(crate) fn call_account(
     if !account.enabled {
         return Err("Tài khoản Flow đang tắt.".into());
     }
-    let generating = matches!(tool, "flow_generate_video" | "flow_generate_image");
+    let generating = matches!(tool, "flow_generate_video" | "flow_generate_image" | "flow_upscale_video");
     if generating && args["auto_confirm"] == true && !allow_credit {
         return Err("Credit authorization required".into());
     }

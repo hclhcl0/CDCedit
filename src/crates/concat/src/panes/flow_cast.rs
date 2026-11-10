@@ -45,7 +45,7 @@ impl Settings {
                 seen.insert(id.clone());
             }
         }
-        let labels = self.character_labels();
+        let _labels = self.character_labels();
         for plan in &mut self.plans {
             if plan.cast_ids.is_none() {
                 plan.cast_ids = Some(if plan.cast_configured {
@@ -75,8 +75,7 @@ impl Settings {
                             .character_ids
                             .iter()
                             .position(|id| id == &line.character_id)
-                            .and_then(|i| labels.get(i))
-                            .map(String::as_str)
+                            .and_then(|i| self.characters.get(i).map(|p| name(p)))
                             .unwrap_or("[Chưa chọn / đã xóa người nói]");
                         format!("{speaker}: {}", line.text)
                     })

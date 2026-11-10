@@ -8,7 +8,7 @@ import {
 import {
     CurveData, CurveGroupData, WheelData, WheelGroupData,
 } from "inspector/grading.slint";
-import { MediaFilter, MediaItemData, TextPresetData } from "workspace/media-pane.slint";
+import { MediaFilter, MediaItemData, TextPresetData, FlowCharacterPreset, FlowScenePreset } from "workspace/media-pane.slint";
 import { DockDivider, DockSide, SeatBox } from "dock.slint";
 import { PaneKind } from "workspace/pane-switcher.slint";
 import { MenuItemData } from "primitives/context-menu.slint";
@@ -80,6 +80,10 @@ export global Editor {
     in-out property <int> media-count-images;
     in-out property <int> media-count-speech;
     in-out property <int> media-count-processed;
+    in-out property <int> media-count-characters;
+    in-out property <int> media-count-scenes;
+    in-out property <[FlowCharacterPreset]> character-presets;
+    in-out property <[FlowScenePreset]> scene-presets;
     in-out property <int> media-selected-count;
     in-out property <bool> importing;
     /// What the bin is narrowed to. Rust's, so the editor can point the
@@ -111,6 +115,12 @@ export global Editor {
     /// Right-click on a card in the bin: Rust fills `menu-items` for the
     /// file and bumps `menu-token`, the same round trip as `clip-context`.
     callback media-context(id: int);
+    callback add-character-to-flow(int);
+    callback add-character-to-timeline(int);
+    callback delete-character-preset(int);
+    callback add-scene-to-flow(int);
+    callback add-scene-to-timeline(int);
+    callback delete-scene-preset(int);
 
     // library catalogue pages
     /// The looks the Text page offers, published once.

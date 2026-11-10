@@ -489,6 +489,8 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
         editor.set_text_presets(ModelRc::from(models.text_presets.clone()));
         editor.set_style_presets(ModelRc::from(models.style_presets.clone()));
         editor.set_language_presets(ModelRc::from(models.language_presets.clone()));
+        editor.set_character_presets(ModelRc::from(models.character_presets.clone()));
+        editor.set_scene_presets(ModelRc::from(models.scene_presets.clone()));
         editor.set_font_families(ModelRc::from(models.font_families.clone()));
         app.global::<FontSearch>()
             .set_matches(ModelRc::from(models.font_matches.clone()));
@@ -782,6 +784,15 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
     editor.on_flow_workspace_changed(on_dock!(|state, mode: i32, seat: i32| {
         let mode = mode.clamp(0, 2);
         let seat = seat.max(0) as usize;
+        let seat = if state.dock.kind_at(seat) == Some(PaneKind::Inspector) {
+            seat
+        } else if state.dock.kind_at(state.flow_workspace.seat) == Some(PaneKind::Inspector) {
+            state.flow_workspace.seat
+        } else if let Some(s) = (0..16).find(|&s| state.dock.kind_at(s) == Some(PaneKind::Inspector)) {
+            s
+        } else {
+            seat
+        };
         if mode != 0 && state.dock.kind_at(seat) != Some(PaneKind::Inspector) {
             return;
         }
@@ -929,6 +940,44 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
     }));
     editor.on_media_remove_selected(on_window!(|state| {
         state.handle(Msg::Media(MediaMsg::RemoveSelected));
+    }));
+    editor.on_add_character_to_flow(on_window!(|state, index: i32| {
+        state.handle(Msg::Flow(crate::panes::flow::FlowMsg::Action(181, index, String::new())));
+    }));
+    editor.on_add_character_to_timeline(on_window!(|state, index: i32| {
+        let flow_root = state.host.dirs.data.join("google-flow");
+        let presets = crate::panes::flow::CharacterPreset::list(&flow_root);
+        if let Some(preset) = presets.get(index as usize) {
+            let path = std::path::PathBuf::from(&preset.image_path);
+            if path.is_file() {
+                state.handle(Msg::Media(MediaMsg::Import(vec![path])));
+                state.notify(&format!("Đã thêm ảnh nhân vật '{}' vào Kho Media!", preset.name), false);
+            } else {
+                state.notify(&format!("Nhân vật '{}' chưa có file ảnh!", preset.name), true);
+            }
+        }
+    }));
+    editor.on_delete_character_preset(on_window!(|state, index: i32| {
+        state.handle(Msg::Flow(crate::panes::flow::FlowMsg::Action(182, index, String::new())));
+    }));
+    editor.on_add_scene_to_flow(on_window!(|state, index: i32| {
+        state.handle(Msg::Flow(crate::panes::flow::FlowMsg::Action(186, index, String::new())));
+    }));
+    editor.on_add_scene_to_timeline(on_window!(|state, index: i32| {
+        let flow_root = state.host.dirs.data.join("google-flow");
+        let presets = crate::panes::flow::ScenePreset::list(&flow_root);
+        if let Some(preset) = presets.get(index as usize) {
+            let path = std::path::PathBuf::from(&preset.image_path);
+            if path.is_file() {
+                state.handle(Msg::Media(MediaMsg::Import(vec![path])));
+                state.notify(&format!("Đã thêm ảnh bối cảnh '{}' vào Kho Media!", preset.name), false);
+            } else {
+                state.notify(&format!("Bối cảnh '{}' chưa có file ảnh!", preset.name), true);
+            }
+        }
+    }));
+    editor.on_delete_scene_preset(on_window!(|state, index: i32| {
+        state.handle(Msg::Flow(crate::panes::flow::FlowMsg::Action(187, index, String::new())));
     }));
     // Not through the handler macro: nothing here changes the state, and
     // the dialog is asked on a turn of its own with the studio unborrowed;

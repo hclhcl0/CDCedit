@@ -166,10 +166,16 @@ Mọi tương tác từ Slint UI đều đi qua callback `root.action(id, index,
 | **153** | `0, ""` | Bật/tắt tự động đưa video vào Timeline sau khi hoàn tất. |
 | **160** | `0, ""` | **✨ AI Tạo & Khóa Agent Instructions vào Flow**: Tự động sinh quy tắc và đồng bộ vào Flow. |
 | **161** | `0, ""` | **➕ Tạo dự án Flow mới**: Mở trang chủ Flow trong Chrome, tự động bấm "New project", cập nhật URL dự án mới vào Concat và tài khoản nguồn mà không cần vào Cài đặt. |
-| **170** | `tab, prompt` | **✨ Trợ lý Đạo diễn AI (AI Copilot)**: Tiếp nhận yêu cầu sửa tự nhiên (kịch bản, nhân vật, cảnh), phân tích và tự động áp dụng các sửa đổi đồng bộ, lưu snapshot dự phòng. |
+| **170** | `tab, prompt` | *(Legacy)* Trợ lý AI tổng thể. |
 | **171** | `0, ""` | **↩ Hoàn tác sửa AI**: Khôi phục lại trạng thái dự án gần nhất từ `flow-before-copilot.json`. |
-| **172** | `0, text` | Cập nhật nội dung câu lệnh trong ô nhập liệu Trợ lý AI (khi gõ hoặc bấm chip gợi ý nhanh). |
-| **173** | `0, ""` | Bật/tắt thu gọn hoặc mở rộng thanh Trợ lý Đạo diễn AI trên đầu Flow Studio. |
+| **175** | `target_field, sub_idx\tinstruction` | **✨ Trợ lý AI theo từng ô**: Tiếp nhận yêu cầu sửa trực tiếp cho từng ô nhập liệu (kịch bản, nhân vật, hành động, lời thoại, góc máy, prompt...), Gemini xử lý chuyên biệt và cập nhật thẳng vào ô đó, có sao lưu dự phòng. |
+| **180** | `index, ""` | **⭐ Lưu vào Kho Preset**: Lưu nhân vật hiện tại trong kịch bản (kèm ảnh vĩnh viễn, vai diễn, mô tả, giọng Flow) vào Kho nhân vật Preset dùng chung toàn cục (`character_presets.json`). |
+| **181** | `preset_idx, ""` | **📥 Thêm từ Kho Preset**: Đưa nhân vật từ Kho Preset dùng chung vào kịch bản dự án hiện tại với đầy đủ ảnh, vai, mô tả và liên kết giọng. |
+| **182** | `preset_idx, ""` | **🗑️ Xóa khỏi Kho Preset**: Xóa một nhân vật khỏi Kho Preset dùng chung toàn cục. |
+| **185** | `bg_idx, ""` | **⭐ Lưu vào Kho Preset bối cảnh**: Lưu bối cảnh hiện tại (kèm ảnh vĩnh viễn, phong cách, mô tả) vào Kho cảnh Preset dùng chung toàn cục (`scenes.json`). |
+| **186** | `preset_idx, ""` | **📥 Dùng cảnh này**: Đưa bối cảnh từ Kho cảnh Preset dùng chung vào dự án Flow hiện tại và gán vào cảnh đang chọn. |
+| **187** | `preset_idx, ""` | **🗑️ Xóa khỏi Kho Preset bối cảnh**: Xóa một bối cảnh khỏi Kho cảnh Preset dùng chung toàn cục. |
+| **190** | `scene_idx, ""` | **🔄 Tạo lại video cảnh**: Kích hoạt tạo lại video cho cảnh đã chọn ngay tại Tab 4 Kết quả (khi kết quả không ưng ý, giọng nói lệch nam/nữ, hoặc lỗi hình ảnh). Tự động chạy hậu kỳ xóa logo, nâng nét và cập nhật thẻ kết quả. |
 
 ---
 

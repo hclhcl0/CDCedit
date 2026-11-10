@@ -11,6 +11,7 @@ use serde_json::{Value, json};
 use std::path::PathBuf;
 #[path = "flow_cast.rs"]
 mod cast_state;
+use cast_state as flow_cast;
 #[path = "flow_scene.rs"]
 mod scene_state;
 #[path = "flow_visual.rs"]
@@ -52,7 +53,7 @@ pub enum FlowMsg {
     /// Profile and portrait downloaded for one explicitly selected character.
     CharacterImported(u64, String, String, Result<Value, String>),
 }
-#[derive(Clone, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
 struct FlowCharacterOrigin {
     #[serde(default = "primary_account")]
@@ -71,6 +72,67 @@ struct FlowLibraryCharacter {
     personality: String,
     portrait_media_id: String,
     has_portrait: bool,
+}
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct CharacterPreset {
+    pub id: String,
+    pub name: String,
+    pub role: String,
+    pub profile: String,
+    pub image_path: String,
+    #[serde(default)]
+    pub flow_id: String,
+    #[serde(default)]
+    pub flow_origin: Option<FlowCharacterOrigin>,
+}
+
+impl CharacterPreset {
+    pub fn list(root: &std::path::Path) -> Vec<CharacterPreset> {
+        let file = root.join("presets").join("characters.json");
+        if let Ok(data) = std::fs::read_to_string(&file) {
+            if let Ok(list) = serde_json::from_str::<Vec<CharacterPreset>>(&data) {
+                return list;
+            }
+        }
+        Vec::new()
+    }
+
+    pub fn save_all(root: &std::path::Path, list: &[CharacterPreset]) -> Result<(), String> {
+        let dir = root.join("presets");
+        let _ = std::fs::create_dir_all(&dir);
+        let file = dir.join("characters.json");
+        let json = serde_json::to_string_pretty(list).map_err(|e| e.to_string())?;
+        std::fs::write(&file, json).map_err(|e| e.to_string())
+    }
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct ScenePreset {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub style: String,
+    pub image_path: String,
+}
+
+impl ScenePreset {
+    pub fn list(root: &std::path::Path) -> Vec<ScenePreset> {
+        let file = root.join("presets").join("scenes.json");
+        if let Ok(data) = std::fs::read_to_string(&file) {
+            if let Ok(list) = serde_json::from_str::<Vec<ScenePreset>>(&data) {
+                return list;
+            }
+        }
+        Vec::new()
+    }
+
+    pub fn save_all(root: &std::path::Path, list: &[ScenePreset]) -> Result<(), String> {
+        let dir = root.join("presets");
+        let _ = std::fs::create_dir_all(&dir);
+        let file = dir.join("scenes.json");
+        let json = serde_json::to_string_pretty(list).map_err(|e| e.to_string())?;
+        std::fs::write(&file, json).map_err(|e| e.to_string())
+    }
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(default)]
@@ -108,8 +170,6 @@ struct Settings {
     writing_audience: String,
     writing_goal: String,
     logline: String,
-    pub auto_delogo: bool,
-    pub auto_upscale: bool,
     pub auto_import_timeline: bool,
 }
 impl Default for Settings {
@@ -148,8 +208,6 @@ impl Default for Settings {
             writing_audience: String::new(),
             writing_goal: String::new(),
             logline: String::new(),
-            auto_delogo: true,
-            auto_upscale: false,
             auto_import_timeline: true,
         }
     }
@@ -184,6 +242,8 @@ pub struct Flow {
     flow_link_target: String,
     copilot_prompt: String,
     copilot_collapsed: bool,
+    ai_target_kind: i32,
+    ai_sub_idx: usize,
 }
 // Flow no longer exposes the legacy Omni Flash model to new generations.
 // Index 0 is deliberately the migration target for projects saved by builds
@@ -482,6 +542,50 @@ impl Flow {
                     })
                     .collect::<Vec<_>>(),
             )),
+            character_presets: {
+                let presets_root = studio.host.dirs.data.join("google-flow");
+                let presets = CharacterPreset::list(&presets_root);
+                slint::ModelRc::new(slint::VecModel::from(
+                    presets
+                        .into_iter()
+                        .map(|p| {
+                            let img_path = PathBuf::from(&p.image_path);
+                            let asset = self.asset(if img_path.is_file() { Some(&img_path) } else { None });
+                            let has_image = !asset.path.is_empty();
+                            crate::ui::FlowCharacterPreset {
+                                id: p.id.as_str().into(),
+                                name: p.name.as_str().into(),
+                                role: p.role.as_str().into(),
+                                profile: p.profile.as_str().into(),
+                                preview: asset.preview,
+                                has_image,
+                            }
+                        })
+                        .collect::<Vec<_>>(),
+                ))
+            },
+            scene_presets: {
+                let presets_root = studio.host.dirs.data.join("google-flow");
+                let presets = ScenePreset::list(&presets_root);
+                slint::ModelRc::new(slint::VecModel::from(
+                    presets
+                        .into_iter()
+                        .map(|p| {
+                            let img_path = PathBuf::from(&p.image_path);
+                            let asset = self.asset(if img_path.is_file() { Some(&img_path) } else { None });
+                            let has_image = !asset.path.is_empty();
+                            crate::ui::FlowScenePreset {
+                                id: p.id.as_str().into(),
+                                name: p.name.as_str().into(),
+                                description: p.description.as_str().into(),
+                                style: p.style.as_str().into(),
+                                preview: asset.preview,
+                                has_image,
+                            }
+                        })
+                        .collect::<Vec<_>>(),
+                ))
+            },
             writing_format: self.settings.writing_format.min(4) as i32,
             writing_structure: self.settings.writing_structure.min(3) as i32,
             writing_scene_count: self.settings.writing_scene_count.clamp(1, 12) as i32,
@@ -570,8 +674,6 @@ impl Flow {
             visual_mode: plan.visual_mode as i32,
             end_image: self.asset(Some(&plan.end_image)),
             scene_flow_auto: plan.scene_flow_auto,
-            auto_delogo: self.settings.auto_delogo,
-            auto_upscale: self.settings.auto_upscale,
             auto_import_timeline: self.settings.auto_import_timeline,
             copilot_prompt: self.copilot_prompt.as_str().into(),
             copilot_collapsed: self.copilot_collapsed,
@@ -871,13 +973,13 @@ impl Flow {
         url: &str,
     ) -> Result<Vec<Value>, String> {
         self.settings.validate_cast(scene)?;
-        let project = url
-            .trim()
-            .strip_prefix("https://flow.google.com/project/")
-            .unwrap_or("")
-            .split(['?', '#', '/'])
-            .next()
-            .unwrap_or("");
+        let project = if let Some(r) = url.trim().strip_prefix("https://flow.google.com/project/") {
+            r.split(['?', '#', '/']).next().unwrap_or("")
+        } else if let Some((_, after)) = url.trim().split_once("project/") {
+            after.split(['?', '#', '/']).next().unwrap_or("")
+        } else {
+            ""
+        };
         let plan = self.settings.plans.get(scene);
         let mut result = Vec::new();
         for (i, origin) in self.settings.character_flow_origins.iter().enumerate() {
@@ -887,7 +989,7 @@ impl Flow {
             {
                 continue;
             }
-            if origin.project_id != project {
+            if !project.is_empty() && !origin.project_id.is_empty() && origin.project_id != project {
                 return Err(format!(
                     "Nhân vật {} thuộc dự án Flow khác. Chọn đúng dự án nguồn hoặc bỏ nhân vật khỏi cảnh.",
                     i + 1
@@ -901,8 +1003,13 @@ impl Flow {
             if self.settings.model != 0 {
                 return Err("Dùng nhân vật gốc kèm giọng Flow cần chọn Omni Flash 1.2.".into());
             }
-            result
-                .push(json!({"project_id":origin.project_id,"id":origin.id,"voice":origin.voice,"local_name":self.settings.character_labels()[i].chars().take(500).collect::<String>()}));
+            let char_name = flow_cast::name(&self.settings.characters[i]);
+            result.push(json!({
+                "project_id": origin.project_id,
+                "id": origin.id,
+                "voice": origin.voice,
+                "local_name": char_name.chars().take(500).collect::<String>()
+            }));
         }
         if result.len() > 8 {
             return Err(
@@ -1510,6 +1617,51 @@ impl Flow {
         } else if !plan.scene_image.as_os_str().is_empty() {
             prompt.push_str("\n\nFirst frame: attached image 1. Animate the described action while preserving composition and characters.");
         }
+
+        // Clean up any speaker prefixes in prompt (e.g. "Name — Role:" -> "Name:")
+        for (i, profile) in self.settings.characters.iter().enumerate() {
+            let char_name = flow_cast::name(profile);
+            if let Some(lbl) = labels.get(i) {
+                if lbl != char_name {
+                    let old_prefix = format!("{lbl}:");
+                    let new_prefix = format!("{char_name}:");
+                    prompt = prompt.replace(&old_prefix, &new_prefix);
+                }
+            }
+        }
+
+        // Add explicit Voice & Audio Directives for characters in this scene
+        let mut voice_directives = Vec::new();
+        for (i, origin) in self.settings.character_flow_origins.iter().enumerate() {
+            if i < self.settings.characters.len() && (!plan.cast_configured || plan.cast.contains(&i)) {
+                let char_name = flow_cast::name(&self.settings.characters[i]);
+                let mut v_parts = Vec::new();
+                if !origin.voice.is_empty() {
+                    v_parts.push(format!("Flow Voice ID: {}", origin.voice));
+                }
+                if let Some(role) = self.settings.character_roles.get(i).filter(|r| !r.trim().is_empty()) {
+                    v_parts.push(format!("Role/Voice notes: {role}"));
+                }
+                for line in self.settings.characters[i].lines() {
+                    let l = line.trim();
+                    if l.to_lowercase().starts_with("giọng") || l.to_lowercase().starts_with("voice") {
+                        v_parts.push(l.to_string());
+                    }
+                }
+                let desc = if v_parts.is_empty() {
+                    "assigned Flow character voice".to_string()
+                } else {
+                    v_parts.join(", ")
+                };
+                voice_directives.push(format!(
+                    "- Character '{char_name}': Must speak strictly using their {desc}. Preserve stable vocal pitch, gender, tone, and character identity."
+                ));
+            }
+        }
+        if !voice_directives.is_empty() {
+            prompt.push_str("\n\nVoice & Audio Directives (Preserve Flow Character Voices):\n");
+            prompt.push_str(&voice_directives.join("\n"));
+        }
         Ok(
             json!({"project_url":url,"prompt":prompt,"model":MODELS[self.settings.model.min(MODELS.len() - 1)],"duration":seconds,"ratio":if self.settings.ratio==0{"9:16"}else{"16:9"},"reference_images":refs,"character_references":native,"auto_confirm":paid,"resume":false,"edit_mode":false,"provider":if self.settings.video_provider==1{"vids"}else{"flow"}}),
         )
@@ -1731,33 +1883,9 @@ impl Flow {
                         .states
                         .insert(account.clone(), "Rảnh · tác vụ đã hoàn tất".into());
                     if let Some(video_file) = files.first() {
-                        let mut current_video = video_file.clone();
+                        let current_video = video_file.clone();
 
-                        // 1. Auto Delogo if enabled
-                        if self.settings.auto_delogo {
-                            if let Ok(clean) = post_process::clean_watermark(&current_video) {
-                                current_video = clean.clone();
-                                if let Some(plan) = self.settings.plans.get_mut(index) {
-                                    if !plan.files.contains(&clean) {
-                                        plan.files.insert(0, clean);
-                                    }
-                                }
-                            }
-                        }
-
-                        // 2. Auto Upscale 1080p if enabled
-                        if self.settings.auto_upscale {
-                            if let Ok(hd) = post_process::upscale_video(&current_video, 1080) {
-                                current_video = hd.clone();
-                                if let Some(plan) = self.settings.plans.get_mut(index) {
-                                    if !plan.files.contains(&hd) {
-                                        plan.files.insert(0, hd);
-                                    }
-                                }
-                            }
-                        }
-
-                        // 3. Extract thumbnail for card preview
+                        // Extract thumbnail for card preview
                         let _ = post_process::extract_thumbnail(&current_video);
 
                         // 4. Update active view files if current scene
@@ -2360,10 +2488,115 @@ impl Flow {
                                 self.message = format!("✨ Trợ lý AI: {exp}");
                                 self.copilot_prompt.clear();
                             }
+                            51 => {
+                                if let Some(revised) = value["revised_text"].as_str() {
+                                    let text = revised.trim().to_string();
+                                    match self.ai_target_kind {
+                                        40 => self.settings.brief = text,
+                                        93 => self.settings.writing_audience = text,
+                                        94 => self.settings.writing_goal = text,
+                                        20 => {
+                                            self.settings.screenplay = text;
+                                            self.settings.scene_items = scene_blocks(&self.settings.screenplay);
+                                            self.settings.plans.resize_with(self.settings.scene_items.len(), ScenePlan::default);
+                                            self.settings.scene = self.settings.scene.min(self.settings.scene_items.len().saturating_sub(1));
+                                        }
+                                        29 => {
+                                            if let Some(c) = self.settings.characters.get_mut(self.ai_sub_idx) {
+                                                *c = text;
+                                            }
+                                        }
+                                        113 => {
+                                            if let Some(r) = self.settings.character_roles.get_mut(self.ai_sub_idx) {
+                                                *r = text;
+                                            }
+                                        }
+                                        67 => {
+                                            if let Some(b) = self.settings.backgrounds.get_mut(self.background_edit) {
+                                                *b = text;
+                                            }
+                                        }
+                                        21 => self.settings.continuity = text,
+                                        22 => self.settings.style = text,
+                                        27 => {
+                                            if let Some(s) = self.settings.scene_items.get_mut(self.settings.scene) {
+                                                *s = text.clone();
+                                            }
+                                            self.settings.screenplay = self.settings.scene_items.join("\n\n");
+                                            if let Some(plan) = self.settings.plans.get_mut(self.settings.scene) {
+                                                plan.edited();
+                                            }
+                                        }
+                                        105 => {
+                                            if let Some(plan) = self.settings.plans.get_mut(self.settings.scene) {
+                                                if let Some(char_id) = self.settings.character_ids.get(self.ai_sub_idx) {
+                                                    plan.character_actions.insert(char_id.clone(), text);
+                                                    plan.edited();
+                                                }
+                                            }
+                                        }
+                                        60 => {
+                                            if let Some(plan) = self.settings.plans.get_mut(self.settings.scene) {
+                                                plan.shot = text;
+                                                plan.edited();
+                                            }
+                                        }
+                                        55 => {
+                                            if let Some(plan) = self.settings.plans.get_mut(self.settings.scene) {
+                                                plan.camera = text;
+                                                plan.edited();
+                                            }
+                                        }
+                                        56 => {
+                                            if let Some(plan) = self.settings.plans.get_mut(self.settings.scene) {
+                                                plan.movement = text;
+                                                plan.edited();
+                                            }
+                                        }
+                                        62 => {
+                                            if let Some(plan) = self.settings.plans.get_mut(self.settings.scene) {
+                                                plan.lighting = text;
+                                                plan.edited();
+                                            }
+                                        }
+                                        57 => {
+                                            if let Some(plan) = self.settings.plans.get_mut(self.settings.scene) {
+                                                plan.sound = text;
+                                                plan.edited();
+                                            }
+                                        }
+                                        108 => {
+                                            if let Some(plan) = self.settings.plans.get_mut(self.settings.scene) {
+                                                if let Some(line) = plan.dialogue_lines.get_mut(self.ai_sub_idx) {
+                                                    line.text = text;
+                                                    plan.edited();
+                                                }
+                                            }
+                                        }
+                                        58 => {
+                                            if let Some(plan) = self.settings.plans.get_mut(self.settings.scene) {
+                                                plan.dialogue = text;
+                                                plan.edited();
+                                            }
+                                        }
+                                        3 => {
+                                            self.settings.prompt = text;
+                                            self.remember_prompt();
+                                            if let Some(plan) = self.settings.plans.get_mut(self.settings.scene) {
+                                                plan.needs_prompt = false;
+                                                plan.edited();
+                                            }
+                                        }
+                                        _ => {}
+                                    }
+                                    self.invalidate_prompts();
+                                    self.message = "✨ Đã cập nhật nội dung từ AI.".into();
+                                }
+                            }
                             _ => {}
                         }
                         self.credit = false;
-                        if !matches!(kind, 41 | 42 | 46 | 50) {
+                        if !matches!(kind, 41 | 42 | 46 | 50 | 51) {
                             self.message = "Đã nhận bản nháp từ Gemini. Bạn có thể chỉnh sửa; chưa gửi tạo video Flow.".into();
                         }
                         self.settings.sync_character_ids();
@@ -2405,7 +2638,14 @@ impl Flow {
                         }
                         .into();
                         if completed {
-                            plan.files = files;
+                            plan.files = files.clone();
+                            if let Some(video_file) = files.first() {
+                                let current_video = video_file.clone();
+                                let _ = post_process::extract_thumbnail(&current_video);
+                                if self.settings.auto_import_timeline && studio.session.is_some() {
+                                    studio.handle(Msg::Media(MediaMsg::Import(vec![current_video])));
+                                }
+                            }
                         }
                     }
                     continue_queue = completed && paid;
@@ -2420,7 +2660,11 @@ impl Flow {
                         let dir = studio.host.dirs.data.join("google-flow");
                         let files = crate::flow_worker::result_files(&dir, &value);
                         if !files.is_empty() {
-                            self.files = files;
+                            if let Some(plan) = self.settings.plans.get(self.settings.scene) {
+                                self.files = plan.files.clone();
+                            } else {
+                                self.files = files;
+                            }
                         }
                         if let Some(new_url) = value.get("project_url").and_then(|v| v.as_str()) {
                             self.settings.url = new_url.to_string();
@@ -2756,10 +3000,11 @@ impl Flow {
                             self.message = "Video chưa được tạo hoàn tất hoặc file đã bị xóa/di chuyển.".into();
                             return;
                         }
-                        #[cfg(not(any(target_os = "android", target_os = "ios")))]
-                        if let Err(e) = opener::open(&clean) {
-                            self.message = format!("Không mở được video: {e}");
-                        }
+                        let name = clean
+                            .file_name()
+                            .and_then(|s| s.to_str())
+                            .unwrap_or("Video Cảnh");
+                        studio.preview_file(&clean.to_string_lossy(), name, &clean);
                     } else {
                         self.message = "Chưa có video cho cảnh này.".into();
                     }
@@ -3752,10 +3997,13 @@ impl Flow {
                     }
                 }
                 8 => self.credit = index == 1,
-                10 | 11 | 12 | 13 | 16 => {
+                10 | 11 | 12 | 13 | 16 | 190 => {
                     if cfg!(any(target_os = "android", target_os = "ios")) {
                         self.message = "Google Flow hiện chỉ hỗ trợ desktop.".into();
                         return;
+                    }
+                    if a == 190 {
+                        self.settings.scene = (index.max(0) as usize).min(self.settings.plans.len().saturating_sub(1));
                     }
                     let tool = match a {
                         10 => "flow_connect",
@@ -3769,12 +4017,12 @@ impl Flow {
                             }
                         }
                     };
-                    let video = matches!(a, 12 | 13);
+                    let video = matches!(a, 12 | 13 | 190);
                     if video {
                         self.remember_prompt();
                     }
                     let config = studio.settings.flow_accounts.config.clone();
-                    if a == 13 && crate::flow_worker::rendering_accounts().len() >= config.limit() {
+                    if matches!(a, 13 | 190) && crate::flow_worker::rendering_accounts().len() >= config.limit() {
                         self.message="Đã đủ luồng Flow đang chạy. Chờ tác vụ hiện tại hoàn tất; chưa gửi yêu cầu mới.".into();
                         return;
                     }
@@ -3809,7 +4057,7 @@ impl Flow {
                         return;
                     };
                     let args = if video {
-                        match self.request_for(self.settings.scene, &account, a == 13) {
+                        match self.request_for(self.settings.scene, &account, matches!(a, 13 | 190)) {
                             Ok(args) => args,
                             Err(e) => {
                                 self.message = e;
@@ -3846,7 +4094,7 @@ impl Flow {
                         if let Some(plan) = self.plan_mut() {
                             plan.status = "running".into();
                             plan.last_account_id = account.id.clone();
-                            self.active_scene = Some((self.settings.scene, a == 13));
+                            self.active_scene = Some((self.settings.scene, matches!(a, 13 | 190)));
                         }
                     }
                     if let Err(e) = self.save() {
@@ -3862,10 +4110,16 @@ impl Flow {
                     self.generation += 1;
                     let g = self.generation;
                     self.credit = false;
-                    self.message=if a==13{"Đang tạo video trong Google Flow… Có thể mất nhiều phút. Không gửi lại nếu chưa rõ kết quả."}else{"Đang xử lý trong Chrome…"}.into();
+                    self.message = if a == 190 {
+                        format!("Đang tạo lại video cho Cảnh {} trong Google Flow… Có thể mất nhiều phút.", self.settings.scene + 1)
+                    } else if a == 13 {
+                        "Đang tạo video trong Google Flow… Có thể mất nhiều phút. Không gửi lại nếu chưa rõ kết quả.".into()
+                    } else {
+                        "Đang xử lý trong Chrome…".into()
+                    };
                     spawn_in_project(
                         move || {
-                            crate::flow_worker::call_account(&dir, &account, tool, args, a == 13)
+                            crate::flow_worker::call_account(&dir, &account, tool, args, matches!(a, 13 | 190))
                         },
                         move |studio, _, _, result| {
                             studio.handle(Msg::Flow(FlowMsg::Finished(g, result)))
@@ -3899,79 +4153,56 @@ impl Flow {
                 }
                 140 => {
                     let file = self.files.get(index.max(0) as usize).cloned();
-                    let Some(file) = file else {
-                        self.message = "Chưa chọn file video để upscale 1080p.".into();
-                        return;
+                    let scene_idx = self.settings.scene;
+                    let account_id = self.settings.plans.get(scene_idx)
+                        .map(|p| p.last_account_id.as_str())
+                        .filter(|id| !id.is_empty())
+                        .unwrap_or(&self.settings.source_account_id);
+                    let account = match studio.settings.flow_accounts.config.get(account_id) {
+                        Ok(acc) => acc.clone(),
+                        Err(e) => {
+                            self.message = format!("Không tìm thấy tài khoản Flow: {e}");
+                            return;
+                        }
                     };
-                    let clean = crate::flow_worker::clean_path(file);
-                    if !clean.is_file() {
-                        self.message = "File video chưa tồn tại hoặc đã bị xóa.".into();
+                    let project_url = self.scene_project_url(scene_idx, &account).unwrap_or_else(|_| self.settings.url.clone());
+                    if !valid_project_url(&project_url) {
+                        self.message = "URL dự án Flow không hợp lệ để upscale 1080p.".into();
                         return;
                     }
-                    self.message = "Đang upscale video lên 1080p (Lanczos + CAS)...".into();
+                    let media_id = file.as_ref().and_then(|p| {
+                        let stem = p.file_stem()?.to_str()?;
+                        stem.strip_prefix("flow_").and_then(|s| s.split('_').next()).map(|s| s.to_string())
+                    }).unwrap_or_default();
+
+                    let dir = studio.host.dirs.data.join("google-flow");
                     self.busy = true;
+                    self.message = "Đang gửi yêu cầu Upscale 1080p lên Google Flow Cloud...".into();
                     spawn_in_project(
-                        move || post_process::upscale_video(&clean, 1080),
-                        move |studio, _, _, result| {
-                            studio.handle(Msg::Flow(FlowMsg::Action(
-                                149,
-                                0,
-                                match result {
-                                    Ok(p) => format!("OK:{}", p.display()),
-                                    Err(e) => format!("ERR:{e}"),
-                                },
-                            )));
+                        move || {
+                            let args = serde_json::json!({
+                                "project_url": project_url,
+                                "media_id": media_id,
+                                "auto_confirm": true,
+                            });
+                            crate::flow_worker::call_account(&dir, &account, "flow_upscale_video", args, true)
                         },
-                    );
-                }
-                141 => {
-                    let file = self.files.get(index.max(0) as usize).cloned();
-                    let Some(file) = file else {
-                        self.message = "Chưa chọn file video để upscale 2K.".into();
-                        return;
-                    };
-                    let clean = crate::flow_worker::clean_path(file);
-                    if !clean.is_file() {
-                        self.message = "File video chưa tồn tại hoặc đã bị xóa.".into();
-                        return;
-                    }
-                    self.message = "Đang upscale video lên 2K 1440p (Lanczos + CAS)...".into();
-                    self.busy = true;
-                    spawn_in_project(
-                        move || post_process::upscale_video(&clean, 1440),
                         move |studio, _, _, result| {
                             studio.handle(Msg::Flow(FlowMsg::Action(
                                 149,
                                 0,
                                 match result {
-                                    Ok(p) => format!("OK:{}", p.display()),
-                                    Err(e) => format!("ERR:{e}"),
-                                },
-                            )));
-                        },
-                    );
-                }
-                142 => {
-                    let file = self.files.get(index.max(0) as usize).cloned();
-                    let Some(file) = file else {
-                        self.message = "Chưa chọn file video để làm sạch watermark.".into();
-                        return;
-                    };
-                    let clean = crate::flow_worker::clean_path(file);
-                    if !clean.is_file() {
-                        self.message = "File video chưa tồn tại hoặc đã bị xóa.".into();
-                        return;
-                    }
-                    self.message = "Đang xóa watermark/logo Gemini...".into();
-                    self.busy = true;
-                    spawn_in_project(
-                        move || post_process::clean_watermark(&clean),
-                        move |studio, _, _, result| {
-                            studio.handle(Msg::Flow(FlowMsg::Action(
-                                149,
-                                0,
-                                match result {
-                                    Ok(p) => format!("OK:{}", p.display()),
+                                    Ok(val) => {
+                                        if let Some(arr) = val.get("files").and_then(|v| v.as_array()) {
+                                            if let Some(first) = arr.first().and_then(|f| f.as_str()) {
+                                                format!("OK:{first}")
+                                            } else {
+                                                "ERR:Không nhận được file 1080p sau khi upscale.".into()
+                                            }
+                                        } else {
+                                            "ERR:Lỗi định dạng phản hồi từ Flow.".into()
+                                        }
+                                    }
                                     Err(e) => format!("ERR:{e}"),
                                 },
                             )));
@@ -3982,6 +4213,7 @@ impl Flow {
                     self.busy = false;
                     if let Some(rest) = text.strip_prefix("OK:") {
                         let path = PathBuf::from(rest);
+                        let _ = post_process::extract_thumbnail(&path);
                         if let Some(plan) = self.plan_mut() {
                             if !plan.files.contains(&path) {
                                 plan.files.insert(0, path.clone());
@@ -3990,7 +4222,7 @@ impl Flow {
                         if !self.files.contains(&path) {
                             self.files.insert(0, path);
                         }
-                        self.message = "Đã xử lý video thành công!".into();
+                        self.message = "Đã hoàn tất nâng nét 1080p từ Google Flow!".into();
                     } else if let Some(err) = text.strip_prefix("ERR:") {
                         self.message = err.to_owned();
                     }
@@ -4127,16 +4359,6 @@ impl Flow {
                     self.queue_running = true;
                     self.next_queued(studio);
                     self.message = "⚡ Đang tự động tạo toàn bộ video theo kịch bản...".into();
-                }
-                151 => {
-                    self.settings.auto_delogo = !self.settings.auto_delogo;
-                    let state = if self.settings.auto_delogo { "Bật" } else { "Tắt" };
-                    self.message = format!("{state} tự động xóa logo sau khi tạo.");
-                }
-                152 => {
-                    self.settings.auto_upscale = !self.settings.auto_upscale;
-                    let state = if self.settings.auto_upscale { "Bật" } else { "Tắt" };
-                    self.message = format!("{state} tự động nâng nét 1080p sau khi tạo.");
                 }
                 153 => {
                     self.settings.auto_import_timeline = !self.settings.auto_import_timeline;
@@ -4281,6 +4503,509 @@ impl Flow {
                 }
                 173 => {
                     self.copilot_collapsed = !self.copilot_collapsed;
+                }
+                175 => {
+                    let text = text.trim();
+                    if text.is_empty() {
+                        self.message = "Vui lòng nhập yêu cầu chỉnh sửa cho AI.".into();
+                        return;
+                    }
+                    let keys = studio.prefs.gemini_api_key.expose().to_owned();
+                    if concat_speech::api_keys::parse(&keys).is_empty() {
+                        self.message = "Thêm Gemini API key trong Cài đặt trước khi dùng AI.".into();
+                        return;
+                    }
+
+                    let (sub_idx, instruction) = if let Some((idx_str, instr)) = text.split_once(":::") {
+                        (idx_str.parse::<usize>().unwrap_or(0), instr.trim())
+                    } else if let Some((idx_str, instr)) = text.split_once('\t') {
+                        (idx_str.parse::<usize>().unwrap_or(0), instr.trim())
+                    } else {
+                        (0, text)
+                    };
+
+                    if instruction.is_empty() {
+                        self.message = "Vui lòng nhập yêu cầu chỉnh sửa cho AI.".into();
+                        return;
+                    }
+
+                    if let Ok(bytes) = serde_json::to_vec_pretty(&self.settings) {
+                        let _ = self.write_sibling("flow-before-copilot.json", bytes);
+                    }
+
+                    self.ai_target_kind = index;
+                    self.ai_sub_idx = sub_idx;
+
+                    let (field_label, current_value, extra_context) = match index {
+                        40 => (
+                            "Ý tưởng / tóm tắt kịch bản",
+                            self.settings.brief.clone(),
+                            json!({
+                                "writing_format": self.settings.writing_format,
+                                "writing_audience": self.settings.writing_audience,
+                                "writing_goal": self.settings.writing_goal,
+                            }),
+                        ),
+                        93 => (
+                            "Đối tượng người xem",
+                            self.settings.writing_audience.clone(),
+                            json!({
+                                "brief": self.settings.brief,
+                                "goal": self.settings.writing_goal,
+                            }),
+                        ),
+                        94 => (
+                            "Mục tiêu / thông điệp",
+                            self.settings.writing_goal.clone(),
+                            json!({
+                                "brief": self.settings.brief,
+                                "audience": self.settings.writing_audience,
+                            }),
+                        ),
+                        20 => (
+                            "Kịch bản tổng thể các cảnh",
+                            self.settings.screenplay.clone(),
+                            json!({
+                                "brief": self.settings.brief,
+                                "scene_count": self.settings.scene_items.len(),
+                                "style": self.settings.style,
+                            }),
+                        ),
+                        29 => {
+                            let profile = self.settings.characters.get(sub_idx).cloned().unwrap_or_default();
+                            let role = self.settings.character_roles.get(sub_idx).cloned().unwrap_or_default();
+                            (
+                                "Hồ sơ nhân vật",
+                                profile,
+                                json!({
+                                    "role": role,
+                                    "brief": self.settings.brief,
+                                }),
+                            )
+                        }
+                        113 => {
+                            let role = self.settings.character_roles.get(sub_idx).cloned().unwrap_or_default();
+                            let profile = self.settings.characters.get(sub_idx).cloned().unwrap_or_default();
+                            (
+                                "Vai trò nhân vật",
+                                role,
+                                json!({
+                                    "character_profile": profile,
+                                    "brief": self.settings.brief,
+                                }),
+                            )
+                        }
+                        67 => {
+                            let bg = self.settings.backgrounds.get(self.background_edit).cloned().unwrap_or_default();
+                            (
+                                "Mô tả bối cảnh / không gian",
+                                bg,
+                                json!({
+                                    "continuity": self.settings.continuity,
+                                    "style": self.settings.style,
+                                    "brief": self.settings.brief,
+                                }),
+                            )
+                        }
+                        21 => (
+                            "Bối cảnh & tính liên tục",
+                            self.settings.continuity.clone(),
+                            json!({
+                                "brief": self.settings.brief,
+                                "style": self.settings.style,
+                            }),
+                        ),
+                        22 => (
+                            "Phong cách hình ảnh, ánh sáng và âm thanh chung",
+                            self.settings.style.clone(),
+                            json!({
+                                "brief": self.settings.brief,
+                            }),
+                        ),
+                        27 => {
+                            let scene_txt = self.settings.scene_items.get(self.settings.scene).cloned().unwrap_or_default();
+                            (
+                                "Nội dung phân cảnh",
+                                scene_txt,
+                                json!({
+                                    "scene_index": self.settings.scene + 1,
+                                    "brief": self.settings.brief,
+                                    "screenplay": self.settings.screenplay,
+                                }),
+                            )
+                        }
+                        105 => {
+                            let char_name = self.settings.characters.get(sub_idx).cloned().unwrap_or_default();
+                            let char_id = self.settings.character_ids.get(sub_idx).cloned().unwrap_or_default();
+                            let plan = self.settings.plans.get(self.settings.scene);
+                            let action = plan.and_then(|p| p.character_actions.get(&char_id)).cloned().unwrap_or_default();
+                            (
+                                "Hành động / cảm xúc nhân vật trong cảnh",
+                                action,
+                                json!({
+                                    "character_name": char_name,
+                                    "scene_index": self.settings.scene + 1,
+                                    "scene_text": self.settings.scene_items.get(self.settings.scene),
+                                }),
+                            )
+                        }
+                        60 => {
+                            let plan = self.settings.plans.get(self.settings.scene);
+                            (
+                                "Cỡ cảnh (Shot)",
+                                plan.map(|p| p.shot.clone()).unwrap_or_default(),
+                                json!({
+                                    "scene_index": self.settings.scene + 1,
+                                    "scene_text": self.settings.scene_items.get(self.settings.scene),
+                                }),
+                            )
+                        }
+                        55 => {
+                            let plan = self.settings.plans.get(self.settings.scene);
+                            (
+                                "Góc máy (Camera angle)",
+                                plan.map(|p| p.camera.clone()).unwrap_or_default(),
+                                json!({
+                                    "scene_index": self.settings.scene + 1,
+                                    "scene_text": self.settings.scene_items.get(self.settings.scene),
+                                }),
+                            )
+                        }
+                        56 => {
+                            let plan = self.settings.plans.get(self.settings.scene);
+                            (
+                                "Chuyển động máy (Camera movement)",
+                                plan.map(|p| p.movement.clone()).unwrap_or_default(),
+                                json!({
+                                    "scene_index": self.settings.scene + 1,
+                                    "scene_text": self.settings.scene_items.get(self.settings.scene),
+                                }),
+                            )
+                        }
+                        62 => {
+                            let plan = self.settings.plans.get(self.settings.scene);
+                            (
+                                "Ánh sáng (Lighting)",
+                                plan.map(|p| p.lighting.clone()).unwrap_or_default(),
+                                json!({
+                                    "scene_index": self.settings.scene + 1,
+                                    "scene_text": self.settings.scene_items.get(self.settings.scene),
+                                }),
+                            )
+                        }
+                        57 => {
+                            let plan = self.settings.plans.get(self.settings.scene);
+                            (
+                                "Âm thanh / SFX / Nhạc nền",
+                                plan.map(|p| p.sound.clone()).unwrap_or_default(),
+                                json!({
+                                    "scene_index": self.settings.scene + 1,
+                                    "scene_text": self.settings.scene_items.get(self.settings.scene),
+                                }),
+                            )
+                        }
+                        108 => {
+                            let plan = self.settings.plans.get(self.settings.scene);
+                            let line = plan.and_then(|p| p.dialogue_lines.get(sub_idx));
+                            let speaker_id = line.map(|l| l.character_id.clone()).unwrap_or_default();
+                            let speaker_name = self.settings.character_ids.iter().position(|id| id == &speaker_id).and_then(|pos| self.settings.characters.get(pos)).cloned().unwrap_or_else(|| "Nhân vật".to_string());
+                            let text = line.map(|l| l.text.clone()).unwrap_or_default();
+                            (
+                                "Câu thoại nhân vật",
+                                text,
+                                json!({
+                                    "speaker": speaker_name,
+                                    "scene_index": self.settings.scene + 1,
+                                    "scene_text": self.settings.scene_items.get(self.settings.scene),
+                                }),
+                            )
+                        }
+                        58 => {
+                            let plan = self.settings.plans.get(self.settings.scene);
+                            (
+                                "Lời thoại",
+                                plan.map(|p| p.dialogue.clone()).unwrap_or_default(),
+                                json!({
+                                    "scene_index": self.settings.scene + 1,
+                                    "scene_text": self.settings.scene_items.get(self.settings.scene),
+                                }),
+                            )
+                        }
+                        3 => (
+                            "Prompt tạo video",
+                            self.settings.prompt.clone(),
+                            json!({
+                                "scene_index": self.settings.scene + 1,
+                                "scene_text": self.settings.scene_items.get(self.settings.scene),
+                                "style": self.settings.style,
+                            }),
+                        ),
+                        _ => {
+                            self.message = "Mục chỉnh sửa không hợp lệ.".into();
+                            return;
+                        }
+                    };
+
+                    let context = json!({
+                        "field_label": field_label,
+                        "current_value": current_value,
+                        "instruction": instruction,
+                        "context": extra_context,
+                    });
+
+                    self.busy = true;
+                    self.credit = false;
+                    self.generation += 1;
+                    let g = self.generation;
+                    self.message = format!("AI đang chỉnh sửa {field_label}...").into();
+                    spawn_in_project(
+                        move || concat_speech::flow_content::generate(&keys, 51, &context),
+                        move |studio, _, _, result| {
+                            studio.handle(Msg::Flow(FlowMsg::AiFinished(g, 51, result)))
+                        },
+                    );
+                }
+                180 => {
+                    let index = index.max(0) as usize;
+                    if let Some(profile) = self.settings.characters.get(index) {
+                        let role = self.settings.character_roles.get(index).cloned().unwrap_or_default();
+                        let labels = self.settings.character_labels();
+                        let display_name = labels.get(index).cloned().unwrap_or_else(|| format!("Nhân vật {}", index + 1));
+                        let root = studio.host.dirs.data.join("google-flow");
+                        let mut presets = CharacterPreset::list(&root);
+
+                        // Copy character image permanently if it exists
+                        let mut perm_image_path = String::new();
+                        if let Some(src_img) = self.settings.character_images.get(index).filter(|p| p.is_file()) {
+                            let presets_img_dir = root.join("presets").join("characters");
+                            let _ = std::fs::create_dir_all(&presets_img_dir);
+                            let ext = src_img.extension().and_then(|s| s.to_str()).unwrap_or("png");
+                            let safe_name: String = display_name
+                                .chars()
+                                .map(|c| if c.is_alphanumeric() { c } else { '_' })
+                                .collect();
+                            let timestamp = std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .unwrap_or_default()
+                                .as_millis();
+                            let file_name = format!("char_{safe_name}_{timestamp}.{ext}");
+                            let target_path = presets_img_dir.join(&file_name);
+                            if std::fs::copy(src_img, &target_path).is_ok() {
+                                perm_image_path = target_path.to_string_lossy().to_string();
+                            } else {
+                                perm_image_path = src_img.to_string_lossy().to_string();
+                            }
+                        }
+
+                        let flow_id = self.settings.character_ids.get(index).cloned().unwrap_or_default();
+                        let flow_origin = self.settings.character_flow_origins.get(index).cloned();
+                        let id = format!(
+                            "preset_{}",
+                            std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .unwrap_or_default()
+                                .as_millis()
+                        );
+
+                        if let Some(existing) = presets.iter_mut().find(|p| p.name.eq_ignore_ascii_case(&display_name)) {
+                            existing.role = role;
+                            existing.profile = profile.clone();
+                            if !perm_image_path.is_empty() {
+                                existing.image_path = perm_image_path;
+                            }
+                            existing.flow_id = flow_id;
+                            existing.flow_origin = flow_origin;
+                            self.message = format!("Đã cập nhật nhân vật '{}' trong Kho Preset!", display_name);
+                        } else {
+                            presets.insert(0, CharacterPreset {
+                                id,
+                                name: display_name.clone(),
+                                role,
+                                profile: profile.clone(),
+                                image_path: perm_image_path,
+                                flow_id,
+                                flow_origin,
+                            });
+                            self.message = format!("Đã lưu nhân vật '{}' vào Kho Preset dùng chung!", display_name);
+                        }
+
+                        if let Err(e) = CharacterPreset::save_all(&root, &presets) {
+                            self.message = format!("Lỗi lưu Preset: {e}");
+                        }
+                    }
+                }
+                181 => {
+                    let index = index.max(0) as usize;
+                    let root = studio.host.dirs.data.join("google-flow");
+                    let presets = CharacterPreset::list(&root);
+                    if let Some(preset) = presets.get(index) {
+                        let new_idx = self.settings.characters.len();
+                        self.settings.characters.push(preset.profile.clone());
+                        self.settings.character_roles.push(preset.role.clone());
+                        let img = if !preset.image_path.is_empty() {
+                            PathBuf::from(&preset.image_path)
+                        } else {
+                            PathBuf::new()
+                        };
+                        self.settings.character_images.push(img);
+                        let char_id = if !preset.flow_id.is_empty() && !preset.flow_id.starts_with("preset_") {
+                            preset.flow_id.clone()
+                        } else {
+                            format!("char-{}", new_idx + 1)
+                        };
+                        self.settings.character_ids.push(char_id);
+                        while self.settings.character_flow_origins.len() < self.settings.characters.len() - 1 {
+                            self.settings.character_flow_origins.push(FlowCharacterOrigin::default());
+                        }
+                        self.settings.character_flow_origins.push(preset.flow_origin.clone().unwrap_or_default());
+                        self.settings.sync_character_ids();
+
+                        self.invalidate_prompts();
+                        if let Err(e) = self.save() {
+                            log::warn!("flow: save failed: {e}");
+                        }
+                        self.message = format!("Đã thêm nhân vật '{}' từ Kho Preset vào kịch bản!", preset.name);
+                    }
+                }
+                182 => {
+                    let index = index.max(0) as usize;
+                    let root = studio.host.dirs.data.join("google-flow");
+                    let mut presets = CharacterPreset::list(&root);
+                    if index < presets.len() {
+                        let removed = presets.remove(index);
+                        if !removed.image_path.is_empty() {
+                            let p = PathBuf::from(&removed.image_path);
+                            if p.is_file() && p.starts_with(root.join("presets")) {
+                                let _ = std::fs::remove_file(p);
+                            }
+                        }
+                        if let Err(e) = CharacterPreset::save_all(&root, &presets) {
+                            self.message = format!("Lỗi lưu Preset: {e}");
+                        } else {
+                            self.message = format!("Đã xóa nhân vật '{}' khỏi Kho Preset.", removed.name);
+                        }
+                    }
+                }
+                185 => {
+                    let index = index.max(0) as usize;
+                    if let Some(desc) = self.settings.backgrounds.get(index) {
+                        let root = studio.host.dirs.data.join("google-flow");
+                        let mut presets = ScenePreset::list(&root);
+
+                        // Generate display name from first line or snippet
+                        let first_line = desc.lines().next().unwrap_or("").trim();
+                        let display_name = if !first_line.is_empty() {
+                            if first_line.chars().count() > 30 {
+                                format!("{}...", first_line.chars().take(28).collect::<String>())
+                            } else {
+                                first_line.to_string()
+                            }
+                        } else {
+                            format!("Bối cảnh {}", index + 1)
+                        };
+
+                        // Copy background image permanently if it exists
+                        let mut perm_image_path = String::new();
+                        if let Some(src_img) = self.settings.background_images.get(index).filter(|p| p.is_file()) {
+                            let presets_img_dir = root.join("presets").join("scenes");
+                            let _ = std::fs::create_dir_all(&presets_img_dir);
+                            let ext = src_img.extension().and_then(|s| s.to_str()).unwrap_or("png");
+                            let safe_name: String = display_name
+                                .chars()
+                                .map(|c| if c.is_alphanumeric() { c } else { '_' })
+                                .collect();
+                            let timestamp = std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .unwrap_or_default()
+                                .as_millis();
+                            let file_name = format!("scene_{safe_name}_{timestamp}.{ext}");
+                            let target_path = presets_img_dir.join(&file_name);
+                            if std::fs::copy(src_img, &target_path).is_ok() {
+                                perm_image_path = target_path.to_string_lossy().to_string();
+                            } else {
+                                perm_image_path = src_img.to_string_lossy().to_string();
+                            }
+                        }
+
+                        let id = format!(
+                            "preset_scene_{}",
+                            std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .unwrap_or_default()
+                                .as_millis()
+                        );
+                        let style = self.settings.style.clone();
+
+                        if let Some(existing) = presets.iter_mut().find(|p| p.name.eq_ignore_ascii_case(&display_name)) {
+                            existing.description = desc.clone();
+                            existing.style = style;
+                            if !perm_image_path.is_empty() {
+                                existing.image_path = perm_image_path;
+                            }
+                            self.message = format!("Đã cập nhật bối cảnh '{}' trong Kho Preset!", display_name);
+                        } else {
+                            presets.insert(0, ScenePreset {
+                                id,
+                                name: display_name.clone(),
+                                description: desc.clone(),
+                                style,
+                                image_path: perm_image_path,
+                            });
+                            self.message = format!("Đã lưu bối cảnh '{}' vào Kho Preset dùng chung!", display_name);
+                        }
+
+                        if let Err(e) = ScenePreset::save_all(&root, &presets) {
+                            self.message = format!("Lỗi lưu Preset bối cảnh: {e}");
+                        }
+                    }
+                }
+                186 => {
+                    let index = index.max(0) as usize;
+                    let root = studio.host.dirs.data.join("google-flow");
+                    let presets = ScenePreset::list(&root);
+                    if let Some(preset) = presets.get(index) {
+                        let new_idx = self.settings.backgrounds.len();
+                        self.settings.backgrounds.push(preset.description.clone());
+                        let img = if !preset.image_path.is_empty() {
+                            PathBuf::from(&preset.image_path)
+                        } else {
+                            PathBuf::new()
+                        };
+                        self.settings.background_images.push(img);
+                        self.background_edit = new_idx;
+                        if self.settings.style.is_empty() && !preset.style.is_empty() {
+                            self.settings.style = preset.style.clone();
+                        }
+                        if let Some(plan) = self.plan_mut() {
+                            plan.background = Some(new_idx);
+                            plan.invalidate();
+                        }
+
+                        self.invalidate_prompts();
+                        if let Err(e) = self.save() {
+                            log::warn!("flow: save failed: {e}");
+                        }
+                        self.message = format!("Đã thêm bối cảnh '{}' từ Kho Preset vào dự án Flow!", preset.name);
+                    }
+                }
+                187 => {
+                    let index = index.max(0) as usize;
+                    let root = studio.host.dirs.data.join("google-flow");
+                    let mut presets = ScenePreset::list(&root);
+                    if index < presets.len() {
+                        let removed = presets.remove(index);
+                        if !removed.image_path.is_empty() {
+                            let p = PathBuf::from(&removed.image_path);
+                            if p.is_file() && p.starts_with(root.join("presets")) {
+                                let _ = std::fs::remove_file(p);
+                            }
+                        }
+                        if let Err(e) = ScenePreset::save_all(&root, &presets) {
+                            self.message = format!("Lỗi lưu Preset bối cảnh: {e}");
+                        } else {
+                            self.message = format!("Đã xóa bối cảnh '{}' khỏi Kho Preset.", removed.name);
+                        }
+                    }
                 }
                 _ => {}
             },

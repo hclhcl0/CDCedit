@@ -23,7 +23,7 @@ async function request(input){
   }
   if(input.tool==='health'){await connected();return {ok:true,version:'native-flow-0.1'};}
   if(!input.tool.startsWith('flow_') && !input.tool.startsWith('vids_'))throw Error('Unsupported tool: ' + input.tool);
-  const generating=['flow_generate_video','flow_generate_image','vids_generate_video'].includes(input.tool);
+  const generating=['flow_generate_video','flow_generate_image','vids_generate_video','flow_upscale_video'].includes(input.tool);
   const args=input.args??{};
   if(input.tool==='flow_character_download')args.output_dir=path.join(stateDir,'assets','flow-import',input.id);
   if(generating){args.output_dir=path.join(stateDir,'output',input.id);if(args.auto_confirm!==false&&input.allowCredit!==true)throw Error('Credit authorization required');}

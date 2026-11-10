@@ -147,8 +147,14 @@ export async function generateMedia(ctx: AppContext, args: GenerateArgs): Promis
     );
   }
 
-  const bindings=characters.map((item,index)=>`Scene character ${JSON.stringify(requestedCharacters[index]?.local_name || item.name)} uses the attached saved Flow character ${JSON.stringify(item.name)} and its existing voice.`).join('\n');
-  const instruction = buildInstruction(args, modelName, attached)+(bindings ? `\nSaved character bindings (preserve these identities):\n${bindings}` : '');
+  const bindings = characters.map((item, index) => {
+    const req = requestedCharacters[index];
+    const localName = req?.local_name || item.name;
+    const voiceId = item.voice || req?.voice || '';
+    const voiceInfo = voiceId ? ` (Flow Voice ID: ${voiceId})` : '';
+    return `- Character "${item.name}" (referred to as "${localName}"): Uses attached saved Flow character "${item.name}". Audio & Voice Directive: Strictly speak all dialogue lines using ${item.name}'s assigned Flow character voice${voiceInfo}. Preserve exact vocal identity, pitch, and gender consistently throughout the video.`;
+  }).join('\n');
+  const instruction = buildInstruction(args, modelName, attached) + (bindings ? `\n\nSaved Character Bindings & Voice Continuity (Preserve Flow Identities):\n${bindings}` : '');
   const bodyBefore = await bodyText(page);
   const input = composerInput(page);
   await humanTypePrompt(page, input, instruction);

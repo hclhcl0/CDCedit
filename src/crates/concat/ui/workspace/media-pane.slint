@@ -31,7 +31,25 @@ export enum MediaKind { video, audio, image }
 /// the row that is highlighted when every import is on, which is why it is a
 /// value here and not the absence of one. `speech` is the Generated group's
 /// shelf: what the editor read aloud, which the Media rows leave out.
-export enum MediaFilter { all, video, audio, images, speech, processed }
+export enum MediaFilter { all, video, audio, images, speech, processed, characters, scenes }
+
+export struct FlowCharacterPreset {
+    id: string,
+    name: string,
+    role: string,
+    profile: string,
+    preview: image,
+    has-image: bool,
+}
+
+export struct FlowScenePreset {
+    id: string,
+    name: string,
+    description: string,
+    style: string,
+    preview: image,
+    has-image: bool,
+}
 
 /// One look a title can be given, as the Text page's Presets shelf shows
 /// it: enough of the style to draw the name in it. Published by Rust from
@@ -1528,6 +1546,10 @@ export component MediaLibraryView inherits Rectangle {
     in property <int> count-images;
     in property <int> count-speech;
     in property <int> count-processed;
+    in property <int> count-characters;
+    in property <int> count-scenes;
+    in property <[FlowCharacterPreset]> character-presets;
+    in property <[FlowScenePreset]> scene-presets;
     in property <int> selected-count;
     in property <bool> importing;
     in property <MediaFilter> filter: MediaFilter.all;
@@ -1548,6 +1570,12 @@ export component MediaLibraryView inherits Rectangle {
     callback menu-selected(string);
     callback floor-pressed();
     callback band-selected(int, int, int, int, int, bool);
+    callback add-character-to-flow(int);
+    callback add-character-to-timeline(int);
+    callback delete-character-preset(int);
+    callback add-scene-to-flow(int);
+    callback add-scene-to-timeline(int);
+    callback delete-scene-preset(int);
 
     PaneScroll {
         x: 0;
@@ -1618,11 +1646,23 @@ export component MediaLibraryView inherits Rectangle {
                     current: root.filter == MediaFilter.speech || root.filter == MediaFilter.processed;
                     clicked => { root.narrow(MediaFilter.speech); }
                 }
+                FilterChip {
+                    label: "⭐ Nhân vật";
+                    count: root.count-characters;
+                    current: root.filter == MediaFilter.characters;
+                    clicked => { root.narrow(MediaFilter.characters); }
+                }
+                FilterChip {
+                    label: "🌄 Kho cảnh";
+                    count: root.count-scenes;
+                    current: root.filter == MediaFilter.scenes;
+                    clicked => { root.narrow(MediaFilter.scenes); }
+                }
                 Rectangle { horizontal-stretch: 1; }
             }
 
             // Multiple selection banner
-            if root.selected-count > 1: Rectangle {
+            if (root.filter != MediaFilter.characters && root.filter != MediaFilter.scenes && root.selected-count > 1): Rectangle {
                 height: 28px;
                 background: Theme.well;
                 border-radius: Theme.r;
@@ -1666,7 +1706,169 @@ export component MediaLibraryView inherits Rectangle {
                 }
             }
 
-            if root.items.length == 0: Empty {
+            if root.filter == MediaFilter.characters: VerticalLayout {
+                spacing: 6px;
+                if root.character-presets.length == 0: Empty {
+                    glyph: Glyph.film;
+                    text: "Chưa có nhân vật Preset nào trong Kho.\nMở Google Flow > Tab 1 > bấm '⭐ Lưu vào Kho Preset' tại nhân vật để lưu dùng chung.";
+                }
+                for preset[index] in root.character-presets: Rectangle {
+                    background: Theme.field;
+                    border-radius: Theme.r;
+                    border-width: 1px;
+                    border-color: Theme.line;
+                    VerticalLayout {
+                        padding: 8px;
+                        spacing: 6px;
+                        HorizontalLayout {
+                            spacing: 10px;
+                            if preset.has-image: Rectangle {
+                                width: 52px;
+                                height: 52px;
+                                background: Theme.well;
+                                border-radius: Theme.r;
+                                clip: true;
+                                Image {
+                                    width: 100%;
+                                    height: 100%;
+                                    source: preset.preview;
+                                    image-fit: contain;
+                                }
+                            }
+                            VerticalLayout {
+                                spacing: 2px;
+                                horizontal-stretch: 1;
+                                alignment: center;
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    Text {
+                                        text: preset.name;
+                                        color: Theme.fg;
+                                        font-size: Theme.fs;
+                                        font-weight: 600;
+                                    }
+                                    if preset.role != "": Text {
+                                        text: "· " + preset.role;
+                                        color: Theme.accent;
+                                        font-size: Theme.fs-xs;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                                Text {
+                                    text: preset.profile;
+                                    color: Theme.fg-muted;
+                                    font-size: Theme.fs-xs;
+                                    max-height: 34px;
+                                    overflow: elide;
+                                    wrap: word-wrap;
+                                }
+                            }
+                            HorizontalLayout {
+                                spacing: 4px;
+                                alignment: center;
+                                Button {
+                                    label: "+ Timeline";
+                                    ghost: true;
+                                    clicked => { root.add-character-to-timeline(index); }
+                                }
+                                Button {
+                                    label: "+ Flow";
+                                    primary: true;
+                                    clicked => { root.add-character-to-flow(index); }
+                                }
+                                Button {
+                                    label: "🗑️";
+                                    ghost: true;
+                                    clicked => { root.delete-character-preset(index); }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if root.filter == MediaFilter.scenes: VerticalLayout {
+                spacing: 6px;
+                if root.scene-presets.length == 0: Empty {
+                    glyph: Glyph.image;
+                    text: "Chưa có bối cảnh Preset nào trong Kho.\nMở Google Flow > Tab 1 > bấm '⭐ Lưu vào Kho Preset' tại bối cảnh để lưu dùng chung.";
+                }
+                for preset[index] in root.scene-presets: Rectangle {
+                    background: Theme.field;
+                    border-radius: Theme.r;
+                    border-width: 1px;
+                    border-color: Theme.line;
+                    VerticalLayout {
+                        padding: 8px;
+                        spacing: 6px;
+                        HorizontalLayout {
+                            spacing: 10px;
+                            if preset.has-image: Rectangle {
+                                width: 72px;
+                                height: 52px;
+                                background: Theme.well;
+                                border-radius: Theme.r;
+                                clip: true;
+                                Image {
+                                    width: 100%;
+                                    height: 100%;
+                                    source: preset.preview;
+                                    image-fit: cover;
+                                }
+                            }
+                            VerticalLayout {
+                                spacing: 2px;
+                                horizontal-stretch: 1;
+                                alignment: center;
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    Text {
+                                        text: preset.name;
+                                        color: Theme.fg;
+                                        font-size: Theme.fs;
+                                        font-weight: 600;
+                                    }
+                                    if preset.style != "": Text {
+                                        text: "· " + preset.style;
+                                        color: Theme.accent;
+                                        font-size: Theme.fs-xs;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                                Text {
+                                    text: preset.description;
+                                    color: Theme.fg-muted;
+                                    font-size: Theme.fs-xs;
+                                    max-height: 34px;
+                                    overflow: elide;
+                                    wrap: word-wrap;
+                                }
+                            }
+                            HorizontalLayout {
+                                spacing: 4px;
+                                alignment: center;
+                                Button {
+                                    label: "+ Timeline";
+                                    ghost: true;
+                                    clicked => { root.add-scene-to-timeline(index); }
+                                }
+                                Button {
+                                    label: "+ Flow";
+                                    primary: true;
+                                    clicked => { root.add-scene-to-flow(index); }
+                                }
+                                Button {
+                                    label: "🗑️";
+                                    ghost: true;
+                                    clicked => { root.delete-scene-preset(index); }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (root.filter != MediaFilter.characters && root.filter != MediaFilter.scenes && root.items.length == 0): Empty {
                 glyph: Glyph.film;
                 text: root.filter == MediaFilter.speech
                     ? I18n.t("mediaPane.nothingReadAloudYet")
@@ -1677,7 +1879,7 @@ export component MediaLibraryView inherits Rectangle {
                     : "Kéo thả video, âm thanh vào đây hoặc bấm Nhập tệp / Nhập link";
             }
 
-            if root.items.length > 0: MediaGrid {
+            if (root.filter != MediaFilter.characters && root.filter != MediaFilter.scenes && root.items.length > 0): MediaGrid {
                 horizontal-stretch: 1;
                 items: root.items;
                 page-floor: Math.max(0px, root.height - 120px);
@@ -1712,6 +1914,10 @@ export component MediaPane inherits Rectangle {
     /// What the editor made, by origin; not in `count-all`.
     in property <int> count-speech;
     in property <int> count-processed;
+    in property <int> count-characters;
+    in property <int> count-scenes;
+    in property <[FlowCharacterPreset]> character-presets;
+    in property <[FlowScenePreset]> scene-presets;
     /// how many of the whole bin are selected, not how many of `items` are
     in property <int> selected-count;
     in property <bool> importing;
@@ -1746,6 +1952,12 @@ export component MediaPane inherits Rectangle {
     /// right-clicked: the card's menu, filled by Rust; see MediaGrid.context
     callback context(id: int);
     callback menu-selected(id: string);
+    callback add-character-to-flow(int);
+    callback add-character-to-timeline(int);
+    callback delete-character-preset(int);
+    callback add-scene-to-flow(int);
+    callback add-scene-to-timeline(int);
+    callback delete-scene-preset(int);
     in property <[MenuItemData]> menu-items;
     in property <length> menu-height;
     in property <int> menu-token;
@@ -1921,6 +2133,10 @@ export component MediaPane inherits Rectangle {
                 count-images: root.count-images;
                 count-speech: root.count-speech;
                 count-processed: root.count-processed;
+                count-characters: root.count-characters;
+                count-scenes: root.count-scenes;
+                character-presets: root.character-presets;
+                scene-presets: root.scene-presets;
                 selected-count: root.selected-count;
                 importing: root.importing;
                 filter: root.filter;
@@ -1943,6 +2159,12 @@ export component MediaPane inherits Rectangle {
                     root.band-selected(columns, from-col, to-col,
                         from-row, to-row, additive);
                 }
+                add-character-to-flow(id) => { root.add-character-to-flow(id); }
+                add-character-to-timeline(id) => { root.add-character-to-timeline(id); }
+                delete-character-preset(id) => { root.delete-character-preset(id); }
+                add-scene-to-flow(id) => { root.add-scene-to-flow(id); }
+                add-scene-to-timeline(id) => { root.add-scene-to-timeline(id); }
+                delete-scene-preset(id) => { root.delete-scene-preset(id); }
             }
         }
     }

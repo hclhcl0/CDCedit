@@ -103,6 +103,10 @@ export component Seat inherits Rectangle {
             count-images: Editor.media-count-images;
             count-speech: Editor.media-count-speech;
             count-processed: Editor.media-count-processed;
+            count-characters: Editor.media-count-characters;
+            count-scenes: Editor.media-count-scenes;
+            character-presets: Editor.character-presets;
+            scene-presets: Editor.scene-presets;
             selected-count: Editor.media-selected-count;
             importing: Editor.importing;
             filter: Editor.media-filter;
@@ -133,6 +137,12 @@ export component Seat inherits Rectangle {
             menu-height: Editor.menu-height;
             menu-token: Editor.menu-token;
             menu-selected(id) => { Editor.menu-selected(id); }
+            add-character-to-flow(id) => { Editor.add-character-to-flow(id); }
+            add-character-to-timeline(id) => { Editor.add-character-to-timeline(id); }
+            delete-character-preset(id) => { Editor.delete-character-preset(id); }
+            add-scene-to-flow(id) => { Editor.add-scene-to-flow(id); }
+            add-scene-to-timeline(id) => { Editor.add-scene-to-timeline(id); }
+            delete-scene-preset(id) => { Editor.delete-scene-preset(id); }
 
             presets: Editor.style-presets;
             language-presets: Editor.language-presets;

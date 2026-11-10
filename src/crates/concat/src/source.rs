@@ -177,6 +177,10 @@ impl Studio {
         // real item has, and the one clip cut from it.
         let mut scratch = self.project().clone();
         scratch.media.retain(|item| item.path != summary.path);
+        if let Some(video) = summary.video.as_ref() {
+            scratch.active_mut().video.width = video.width;
+            scratch.active_mut().video.height = video.height;
+        }
         let mut mint = IdMint::default();
         mint.adopt_project(&scratch);
         let Ok(Some(media_id)) = commands::apply(
@@ -213,7 +217,7 @@ impl Studio {
         self.source = Some(Source {
             media_id,
             name: name.to_owned(),
-            kind: MediaKind::Audio,
+            kind: summary.kind,
             row: -1,
             card: card.to_owned(),
             clips,

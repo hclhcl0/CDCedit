@@ -22,6 +22,7 @@ export const LABELS = {
   sceneNew: ['새로운 장면', '장면 만들기', '새 장면', 'Create scene', 'New scene'],
   sceneAddClip: ['클립 추가', 'Add clip'],
   sceneExtend: ['확장', 'Extend'],
+  upscale: ['업스케일', 'Upscale', 'upscale', '1080p', 'Nâng cấp', 'Nâng nét'],
 } as const;
 
 export type LabelKey = keyof typeof LABELS;

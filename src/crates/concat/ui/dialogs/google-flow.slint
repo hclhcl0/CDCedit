@@ -5,6 +5,7 @@ import { Modal, DialogSection, DialogRow, Button, Field } from "../primitives/mo
 import { Select } from "../primitives/select.slint";
 import { Switch } from "../inspector/controls.slint";
 import { PaneScroll } from "../workspace/pane.slint";
+import { Editor } from "../editor.slint";
 
 export struct FlowFile {name:string,path:string,preview:image,status:string}
 export struct FlowSceneRow {name:string,status:string,selected:bool}
@@ -14,6 +15,9 @@ export struct FlowAsset {path:string,preview:image}
 export struct FlowReferenceImage {label:string,path:string,preview:image,kind:string,approved:bool,selected:bool}
 export struct FlowGallery {items:[FlowReferenceImage]}
 export struct FlowRemoteCharacter {name:string,detail:string,imported:bool}
+import { FlowCharacterPreset, FlowScenePreset } from "../workspace/media-pane.slint";
+export { FlowCharacterPreset, FlowScenePreset }
+
 component ScriptEditor inherits Rectangle {
     in-out property <string> value;
     in property <bool> enabled:true;
@@ -21,7 +25,368 @@ component ScriptEditor inherits Rectangle {
     height:100px;background:Theme.field;border-radius:Theme.r;clip:true;
     TextInput {x:10px;y:10px;width:parent.width - 20px;height:parent.height - 20px;text<=>root.value;color:Theme.fg;font-size:Theme.fs;wrap:word-wrap;enabled:root.enabled;edited=>{root.edited(self.text);}}
 }
-export struct FlowData {open:bool,busy:bool,credit:bool,url:string,prompt:string,reference:string,model:int,duration:int,ratio:int,message:string,can-import:bool,desktop:bool,files:[FlowFile],screenplay:string,continuity:string,style:string,scene:int,scenes:[string],scene-text:string,characters:[string],brief:string,ai-ready:bool,camera:string,shot:string,movement:string,sound:string,dialogue:string,lighting:string,scene-status:string,queued:bool,queue-count:int,scene-rows:[FlowSceneRow],cast-rows:[FlowCastRow],backgrounds:[string],background:int,background-edit:int,background-text:string,character-images:[FlowAsset],background-image:FlowAsset,image-model:string,image-provider:int,image-ready-message:string,character-galleries:[FlowGallery],scene-images:[FlowReferenceImage],scene-image:FlowAsset,scene-image-status:string,flow-image-model:int,flow-image-ratio:int,transfer-path:string,validation:string,writing-format:int,writing-structure:int,writing-scene-count:int,writing-audience:string,writing-goal:string,logline:string,remote-characters:[FlowRemoteCharacter],character-names:[string],character-roles:[string],dialogue-rows:[FlowDialogueRow],flow-link-target:int,account-names:[string],scene-account-names:[string],source-account:int,scene-account:int,scene-project-url:string,account-summary:string,video-provider:int,visual-mode:int,end-image:FlowAsset,scene-flow-auto:bool,auto-delogo:bool,auto-upscale:bool,auto-import-timeline:bool,copilot-prompt:string,copilot-collapsed:bool,can-undo-copilot:bool}
+
+component AiField inherits VerticalLayout {
+    in-out property <string> value;
+    in property <string> placeholder;
+    in property <bool> enabled: true;
+    in property <bool> ai-enabled: true;
+    callback edited(string);
+    callback ai-request(string);
+
+    private property <bool> ai-open: false;
+    private property <string> ai-prompt: "";
+
+    spacing: 4px;
+
+    HorizontalLayout {
+        spacing: 4px;
+        Field {
+            value: root.value;
+            placeholder: root.placeholder;
+            enabled: root.enabled;
+            horizontal-stretch: 1;
+            edited(text) => { root.edited(text); }
+        }
+        if root.ai-enabled: Rectangle {
+            width: 28px;
+            height: 28px;
+            border-radius: Theme.r-sm;
+            background: root.ai-open ? Theme.accent.with-alpha(0.25) : (ai-touch.has-hover ? Theme.field-hover : Theme.field);
+            border-width: 1px;
+            border-color: root.ai-open ? Theme.accent : Theme.line.with-alpha(0.2);
+
+            animate background, border-color { duration: 100ms; }
+
+            Text {
+                text: "✨";
+                font-size: Theme.fs-sm;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+            ai-touch := TouchArea {
+                enabled: root.enabled;
+                mouse-cursor: MouseCursor.pointer;
+                clicked => {
+                    root.ai-open = !root.ai-open;
+                    if root.ai-open {
+                        root.ai-prompt = "";
+                    }
+                }
+            }
+        }
+    }
+
+    if root.ai-open: Rectangle {
+        background: Theme.well;
+        border-radius: Theme.r-sm;
+        border-width: 1px;
+        border-color: Theme.accent.with-alpha(0.35);
+
+        HorizontalLayout {
+            padding: 4px;
+            spacing: 4px;
+
+            Field {
+                value: root.ai-prompt;
+                placeholder: "Nhập yêu cầu sửa nội dung...";
+                enabled: root.enabled;
+                horizontal-stretch: 1;
+                edited(t) => { root.ai-prompt = t; }
+            }
+            Rectangle {
+                width: 28px;
+                height: 28px;
+                border-radius: Theme.r-sm;
+                background: (root.ai-prompt != "" && !send-touch.pressed) ? Theme.accent : Theme.field;
+                opacity: root.ai-prompt != "" ? 1.0 : 0.4;
+
+                Text {
+                    text: "✨";
+                    font-size: Theme.fs-sm;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    color: Colors.white;
+                }
+                send-touch := TouchArea {
+                    enabled: root.enabled && root.ai-prompt != "";
+                    mouse-cursor: root.ai-prompt != "" ? MouseCursor.pointer : MouseCursor.default;
+                    clicked => {
+                        root.ai-request(root.ai-prompt);
+                        root.ai-open = false;
+                        root.ai-prompt = "";
+                    }
+                }
+            }
+            Rectangle {
+                width: 28px;
+                height: 28px;
+                border-radius: Theme.r-sm;
+                background: close-touch.has-hover ? Theme.field-hover : Colors.transparent;
+
+                Text {
+                    text: "✕";
+                    font-size: Theme.fs-xs;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    color: Theme.fg-muted;
+                }
+                close-touch := TouchArea {
+                    mouse-cursor: MouseCursor.pointer;
+                    clicked => {
+                        root.ai-open = false;
+                        root.ai-prompt = "";
+                    }
+                }
+            }
+        }
+    }
+}
+
+component AiScriptEditor inherits VerticalLayout {
+    in-out property <string> value;
+    in property <length> editor-height: 100px;
+    in property <bool> enabled: true;
+    in property <bool> ai-enabled: true;
+    callback edited(string);
+    callback ai-request(string);
+
+    private property <bool> ai-open: false;
+    private property <string> ai-prompt: "";
+
+    spacing: 4px;
+
+    Rectangle {
+        height: root.editor-height;
+        background: Theme.field;
+        border-radius: Theme.r;
+        clip: true;
+
+        TextInput {
+            x: 10px;
+            y: 10px;
+            width: parent.width - (root.ai-enabled ? 44px : 20px);
+            height: parent.height - 20px;
+            text <=> root.value;
+            color: Theme.fg;
+            font-size: Theme.fs;
+            wrap: word-wrap;
+            enabled: root.enabled;
+            edited => { root.edited(self.text); }
+        }
+
+        if root.ai-enabled: Rectangle {
+            x: parent.width - 32px;
+            y: 6px;
+            width: 26px;
+            height: 26px;
+            border-radius: Theme.r-sm;
+            background: root.ai-open ? Theme.accent.with-alpha(0.25) : (touch.has-hover ? Theme.field-hover : Theme.well.with-alpha(0.7));
+            border-width: 1px;
+            border-color: root.ai-open ? Theme.accent : Theme.line.with-alpha(0.3);
+
+            animate background, border-color { duration: 100ms; }
+
+            Text {
+                text: "✨";
+                font-size: Theme.fs-sm;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+            touch := TouchArea {
+                enabled: root.enabled;
+                mouse-cursor: MouseCursor.pointer;
+                clicked => {
+                    root.ai-open = !root.ai-open;
+                    if root.ai-open {
+                        root.ai-prompt = "";
+                    }
+                }
+            }
+        }
+    }
+
+    if root.ai-open: Rectangle {
+        background: Theme.well;
+        border-radius: Theme.r-sm;
+        border-width: 1px;
+        border-color: Theme.accent.with-alpha(0.35);
+
+        HorizontalLayout {
+            padding: 4px;
+            spacing: 4px;
+
+            Field {
+                value: root.ai-prompt;
+                placeholder: "Nhập yêu cầu sửa văn bản này...";
+                enabled: root.enabled;
+                horizontal-stretch: 1;
+                edited(t) => { root.ai-prompt = t; }
+            }
+            Rectangle {
+                width: 28px;
+                height: 28px;
+                border-radius: Theme.r-sm;
+                background: (root.ai-prompt != "" && !send-touch.pressed) ? Theme.accent : Theme.field;
+                opacity: root.ai-prompt != "" ? 1.0 : 0.4;
+
+                Text {
+                    text: "✨";
+                    font-size: Theme.fs-sm;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    color: Colors.white;
+                }
+                send-touch := TouchArea {
+                    enabled: root.enabled && root.ai-prompt != "";
+                    mouse-cursor: root.ai-prompt != "" ? MouseCursor.pointer : MouseCursor.default;
+                    clicked => {
+                        root.ai-request(root.ai-prompt);
+                        root.ai-open = false;
+                        root.ai-prompt = "";
+                    }
+                }
+            }
+            Rectangle {
+                width: 28px;
+                height: 28px;
+                border-radius: Theme.r-sm;
+                background: close-touch.has-hover ? Theme.field-hover : Colors.transparent;
+
+                Text {
+                    text: "✕";
+                    font-size: Theme.fs-xs;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    color: Theme.fg-muted;
+                }
+                close-touch := TouchArea {
+                    mouse-cursor: MouseCursor.pointer;
+                    clicked => {
+                        root.ai-open = false;
+                        root.ai-prompt = "";
+                    }
+                }
+            }
+        }
+    }
+}
+
+component FlowFilterChip inherits Rectangle {
+    in property <string> label;
+    in property <int> count: -1;
+    in property <bool> current: false;
+    callback clicked();
+
+    height: 28px;
+    border-radius: Theme.r-sm;
+    background: root.current ? Theme.accent.with-alpha(0.2) : (touch.has-hover ? Theme.field-hover : Theme.field);
+    border-width: 1px;
+    border-color: root.current ? Theme.accent : Theme.line.with-alpha(0.35);
+
+    animate background, border-color { duration: 100ms; }
+
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 6px;
+        alignment: center;
+
+        Text {
+            text: root.label;
+            color: root.current ? Theme.fg : (touch.has-hover ? Theme.fg : Theme.fg-muted);
+            font-size: Theme.fs-sm;
+            font-weight: root.current ? Theme.weight-title : Theme.weight-body;
+            vertical-alignment: center;
+        }
+
+        if root.count >= 0: Rectangle {
+            height: 16px;
+            min-width: 18px;
+            border-radius: 8px;
+            background: root.current ? Theme.accent : Theme.well;
+            HorizontalLayout {
+                padding-left: 5px;
+                padding-right: 5px;
+                alignment: center;
+                Text {
+                    text: "\{root.count}";
+                    color: root.current ? Theme.on-accent : Theme.fg-dim;
+                    font-size: Theme.fs-xs;
+                    font-weight: Theme.weight-title;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+component FlowAccordionHeader inherits Rectangle {
+    in property <string> title;
+    in property <string> summary: "";
+    in property <bool> expanded: false;
+    callback toggled();
+
+    height: 34px;
+    border-radius: Theme.r-sm;
+    background: touch.has-hover ? Theme.field-hover : Theme.well;
+    border-width: 1px;
+    border-color: root.expanded ? Theme.accent.with-alpha(0.45) : Theme.line;
+
+    animate background, border-color { duration: 100ms; }
+
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 8px;
+
+        Text {
+            text: root.expanded ? "▼" : "▶";
+            color: root.expanded ? Theme.accent : Theme.fg-muted;
+            font-size: Theme.fs-xs;
+            vertical-alignment: center;
+        }
+
+        Text {
+            text: root.title;
+            color: Theme.fg;
+            font-size: Theme.fs-sm;
+            font-weight: Theme.weight-title;
+            vertical-alignment: center;
+        }
+
+        if root.summary != "": Text {
+            text: root.summary;
+            color: Theme.fg-muted;
+            font-size: Theme.fs-xs;
+            horizontal-stretch: 1;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+
+        if root.summary == "": Rectangle { horizontal-stretch: 1; }
+
+        Text {
+            text: root.expanded ? "Thu gọn" : "Mở rộng";
+            color: Theme.accent;
+            font-size: Theme.fs-xs;
+            vertical-alignment: center;
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        clicked => { root.toggled(); }
+    }
+}
+
+export struct FlowData {open:bool,busy:bool,credit:bool,url:string,prompt:string,reference:string,model:int,duration:int,ratio:int,message:string,can-import:bool,desktop:bool,files:[FlowFile],screenplay:string,continuity:string,style:string,scene:int,scenes:[string],scene-text:string,characters:[string],brief:string,ai-ready:bool,camera:string,shot:string,movement:string,sound:string,dialogue:string,lighting:string,scene-status:string,queued:bool,queue-count:int,scene-rows:[FlowSceneRow],cast-rows:[FlowCastRow],backgrounds:[string],background:int,background-edit:int,background-text:string,character-images:[FlowAsset],background-image:FlowAsset,image-model:string,image-provider:int,image-ready-message:string,character-galleries:[FlowGallery],scene-images:[FlowReferenceImage],scene-image:FlowAsset,scene-image-status:string,flow-image-model:int,flow-image-ratio:int,transfer-path:string,validation:string,writing-format:int,writing-structure:int,writing-scene-count:int,writing-audience:string,writing-goal:string,logline:string,remote-characters:[FlowRemoteCharacter],character-presets:[FlowCharacterPreset],scene-presets:[FlowScenePreset],character-names:[string],character-roles:[string],dialogue-rows:[FlowDialogueRow],flow-link-target:int,account-names:[string],scene-account-names:[string],source-account:int,scene-account:int,scene-project-url:string,account-summary:string,video-provider:int,visual-mode:int,end-image:FlowAsset,scene-flow-auto:bool,auto-import-timeline:bool,copilot-prompt:string,copilot-collapsed:bool,can-undo-copilot:bool}
+
 export component GoogleFlowDialog inherits Rectangle {
     in property <FlowData> data;
     callback action(int,int,string);
@@ -32,582 +397,2187 @@ export component GoogleFlowDialog inherits Rectangle {
     in-out property <int> tab:0;
     private property <int> queue-filter:0;
     private property <bool> show-prompt:true;
-    private property <[string]> step-names:["Kịch bản","Nhân vật","Cảnh","Tạo video","Kết quả"];
+    private property <int> cast-subtab:0;
+    private property <bool> show-writing-meta:false;
+    private property <bool> show-json-transfer:false;
+    private property <bool> show-cinematography:false;
+    private property <bool> show-scene-frame:false;
+    private property <bool> show-advanced-gen:false;
+    private property <bool> quick-edit-open:false;
+    private property <[string]> step-names:["Kịch bản","Nhân vật & Bối cảnh","Dựng Cảnh","Tạo Video","Kết quả"];
     changed tab=>{root.typing=false;root.draft=root.data.prompt;}
     background:Theme.panel;clip:true;
+
     HorizontalLayout {
         spacing: 8px;
-        if root.width >= 900px: Rectangle {
-            width: 220px; background: Theme.well;
-            VerticalLayout {
-                padding: 12px; spacing: 8px;
-                Text { text: "Dự án Flow"; color: Theme.fg; font-size: Theme.fs-lg; }
-                Button { label: "Kịch bản tổng thể"; ghost: root.tab != 0;
-                    clicked => { root.tab = 0; } }
-                Text { text: "CẢNH · " + root.data.scenes.length;
-                    color: Theme.fg-muted; font-size: Theme.fs-xs; }
-                PaneScroll {
-                    vertical-stretch: 1;
-                    VerticalLayout { spacing: 6px;
-                        for name[index] in root.data.scenes: Button {
-                            label: name; primary: root.data.scene == index;
-                            enabled: !root.data.busy;
-                            clicked => { root.action(23,index,""); if root.tab < 2 { root.tab = 2; } }
-                        }
-                        if root.data.scenes.length == 0: Text {
-                            text: "Viết kịch bản hoặc thêm cảnh để bắt đầu.";
-                            color: Theme.fg-muted; font-size: Theme.fs-sm; wrap: word-wrap;
-                        }
-                    }
-                }
-                Button { label: "+ Thêm cảnh"; ghost: true; enabled: !root.data.busy;
-                    clicked => { root.action(25,0,""); root.tab = 2; } }
-                Button { label: "Nhân vật · " + root.data.characters.length;
-                    ghost: root.tab != 1; clicked => { root.tab = 1; } }
-                Button { label: "Kết quả"; ghost: root.tab != 4;
-                    clicked => { root.tab = 4; } }
-            }
-        }
-    VerticalLayout {
-        horizontal-stretch: 1;
-        padding:8px;spacing:8px;
-        HorizontalLayout {
-            Text {text:"Flow Studio";color:Theme.fg;font-size:Theme.fs-lg;horizontal-stretch:1;vertical-alignment:center;}
-            Text {text:"Bước "+(root.tab+1)+" / 5";color:Theme.fg-muted;font-size:Theme.fs-sm;vertical-alignment:center;}
-        }
-        HorizontalLayout {spacing:4px;
-            for name[index] in root.step-names: Button {
-                label:""+(index+1)+" "+name;
-                primary:root.tab==index;
-                clicked=>{root.tab=index;}
-            }
-        }
-        Text {
-            text:root.tab==0 ? (root.data.scenes.length>0 ? "Đã có "+root.data.scenes.length+" cảnh · tiếp tục hoàn thiện nhân vật" : "Bắt đầu từ ý tưởng hoặc dán kịch bản có sẵn")
-                : root.tab==1 ? "Hồ sơ dùng chung · "+root.data.characters.length+" nhân vật"
-                : root.tab==2 ? "Chỉnh từng cảnh · nhân vật, lời thoại và prompt"
-                : root.tab==3 ? (root.data.queued ? "Hàng đợi đang chạy · còn "+root.data.queue-count+" cảnh" : "Kiểm tra dự án, model và chuẩn bị trước khi tạo")
-                : "Chọn cảnh để xem và nhập video đã hoàn tất";
-            color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;
-        }
-        if root.tab>=2 && root.width < 900px: VerticalLayout {
-            spacing:4px;
-            Text {text:"Cảnh đang chọn";color:Theme.fg-muted;font-size:Theme.fs-xs;}
-            Select {options:root.data.scenes;current:root.data.scene;enabled:!root.data.busy;changed(index)=>{root.action(23,index,"");}}
-        }
-        if root.data.message!="": Text {text:root.data.message;color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
-        Rectangle {
+
+        // ── LEFT STORYBOARD SIDEBAR ──────────────────────────────────────
+        if root.width >= 880px: Rectangle {
+            width: 230px;
             background: Theme.well;
-            border-radius: Theme.r;
+            border-width: 1px;
+            border-color: Theme.line;
+
             VerticalLayout {
-                spacing: 6px;
-                padding: 8px;
-            HorizontalLayout {
-                spacing: 6px;
-                Text {
-                    text: "🤖 Trợ lý Đạo diễn AI";
-                    color: Theme.accent;
-                    font-size: Theme.fs;
-                    font-weight: 700;
-                    vertical-alignment: center;
-                    horizontal-stretch: 1;
-                }
-                if root.data.can-undo-copilot: Button {
-                    label: "↩ Hoàn tác sửa";
-                    ghost: true;
-                    enabled: !root.data.busy;
-                    clicked => { root.action(171, 0, ""); }
-                }
-                Button {
-                    label: root.data.copilot-collapsed ? "▼ Mở Trợ lý" : "▲ Thu gọn";
-                    ghost: true;
-                    clicked => { root.action(173, 0, ""); }
-                }
-            }
-            if !root.data.copilot-collapsed: VerticalLayout {
-                spacing: 6px;
+                padding: 10px;
+                spacing: 8px;
+
                 HorizontalLayout {
                     spacing: 6px;
-                    Field {
-                        value: root.data.copilot-prompt;
-                        placeholder: root.tab == 0 ? "Nhập yêu cầu sửa kịch bản (vd: đẩy cao trào kịch tính hơn, thêm nút thắt)..."
-                                    : root.tab == 1 ? "Nhập yêu cầu sửa nhân vật (vd: đổi tuổi, nghề nghiệp, trang phục áo thợ)..."
-                                    : root.tab == 2 ? "Nhập yêu cầu sửa cảnh đang chọn (vd: chuyển sang đêm mưa, Nam tức giận)..."
-                                    : "Nhập yêu cầu sửa kịch bản, nhân vật hoặc cảnh...";
+                    Text {
+                        text: "🎬 Dự án Flow";
+                        color: Theme.fg;
+                        font-size: Theme.fs-lg;
+                        font-weight: Theme.weight-title;
                         horizontal-stretch: 1;
-                        enabled: !root.data.busy;
-                        edited(text) => { root.action(172, 0, text); }
+                        vertical-alignment: center;
                     }
-                    Button {
-                        label: "✨ Áp dụng";
-                        primary: true;
-                        enabled: root.data.ai-ready && !root.data.busy && root.data.copilot-prompt != "";
-                        clicked => { root.action(170, root.tab, root.data.copilot-prompt); }
+                    if root.data.queued: Rectangle {
+                        height: 20px;
+                        border-radius: 10px;
+                        background: Theme.accent.with-alpha(0.2);
+                        HorizontalLayout {
+                            padding-left: 6px;
+                            padding-right: 6px;
+                            Text {
+                                text: "⏳ " + root.data.queue-count;
+                                color: Theme.accent;
+                                font-size: Theme.fs-xs;
+                                font-weight: Theme.weight-title;
+                                vertical-alignment: center;
+                            }
+                        }
                     }
                 }
+
+                // Quick Navigation Group
+                VerticalLayout {
+                    spacing: 4px;
+                    Button {
+                        label: "📝 1. Kịch bản tổng thể";
+                        primary: root.tab == 0;
+                        ghost: root.tab != 0;
+                        clicked => { root.tab = 0; }
+                    }
+                    HorizontalLayout {
+                        spacing: 4px;
+                        Button {
+                            label: "👤 Nhân vật (" + root.data.characters.length + ")";
+                            primary: root.tab == 1 && root.cast-subtab == 0;
+                            ghost: !(root.tab == 1 && root.cast-subtab == 0);
+                            horizontal-stretch: 1;
+                            clicked => { root.cast-subtab = 0; root.tab = 1; }
+                        }
+                        Button {
+                            label: "🏞️ Bối cảnh";
+                            primary: root.tab == 1 && root.cast-subtab == 1;
+                            ghost: !(root.tab == 1 && root.cast-subtab == 1);
+                            clicked => { root.cast-subtab = 1; root.tab = 1; }
+                        }
+                    }
+                }
+
+                Rectangle { height: 1px; background: Theme.line; }
+
                 HorizontalLayout {
                     spacing: 4px;
                     Text {
-                        text: "Gợi ý nhanh:";
+                        text: "STORYBOARD · " + root.data.scenes.length + " CẢNH";
                         color: Theme.fg-muted;
                         font-size: Theme.fs-xs;
+                        font-weight: Theme.weight-title;
+                        horizontal-stretch: 1;
                         vertical-alignment: center;
                     }
-                    if root.tab == 0: HorizontalLayout {
-                        spacing: 4px;
-                        Button { label: "🎬 Tăng kịch tính"; ghost: true; enabled: !root.data.busy; clicked => { root.action(172, 0, "Đẩy mâu thuẫn ở cảnh cao trào lên gay cấn hơn, các nhân vật đối đầu căng thẳng"); } }
-                        Button { label: "🔀 Nút thắt bất ngờ"; ghost: true; enabled: !root.data.busy; clicked => { root.action(172, 0, "Thêm một nút thắt bất ngờ làm thay đổi hoàn toàn cục diện câu chuyện"); } }
-                        Button { label: "🏙 Đổi phong cách 90s"; ghost: true; enabled: !root.data.busy; clicked => { root.action(172, 0, "Chuyển phong cách sang điện ảnh Hong Kong thập niên 90, ánh sáng neon mờ"); } }
+                    Button {
+                        label: "+ Cảnh";
+                        ghost: true;
+                        enabled: !root.data.busy;
+                        clicked => { root.action(25, 0, ""); root.tab = 2; }
                     }
-                    if root.tab == 1: HorizontalLayout {
+                }
+
+                PaneScroll {
+                    vertical-stretch: 1;
+                    VerticalLayout {
                         spacing: 4px;
-                        Button { label: "👔 Chi tiết trang phục"; ghost: true; enabled: !root.data.busy; clicked => { root.action(172, 0, "Mô tả chi tiết trang phục thuần Việt, chất liệu vải và phong thái đời thường"); } }
-                        Button { label: "💔 Thêm chiều sâu tâm lý"; ghost: true; enabled: !root.data.busy; clicked => { root.action(172, 0, "Bổ sung nỗi đau trong quá khứ và vết thương tâm lý sâu sắc cho nhân vật"); } }
-                        Button { label: "👵 Đổi tuổi & ngoại hình"; ghost: true; enabled: !root.data.busy; clicked => { root.action(172, 0, "Đổi độ tuổi nhân vật sang trung niên 45 tuổi, dáng vẻ khắc khổ từng trải"); } }
+                        for row[index] in root.data.scene-rows: Rectangle {
+                            height: 36px;
+                            border-radius: Theme.r-sm;
+                            background: root.data.scene == index ? Theme.accent.with-alpha(0.18) : (scene-touch.has-hover ? Theme.field-hover : Theme.field);
+                            border-width: 1px;
+                            border-color: root.data.scene == index ? Theme.accent : Colors.transparent;
+
+                            animate background, border-color { duration: 100ms; }
+
+                            HorizontalLayout {
+                                padding-left: 8px;
+                                padding-right: 8px;
+                                spacing: 6px;
+
+                                // Status Dot
+                                Rectangle {
+                                    width: 8px;
+                                    height: 8px;
+                                    y: (parent.height - self.height) / 2;
+                                    border-radius: 4px;
+                                    background: (row.status == "Xong" || row.status == "completed") ? Theme.green
+                                        : (row.status == "Cần kiểm tra Flow" ? Theme.meter-mid
+                                        : (row.status != "" && row.status != "Chưa tạo" ? Theme.accent : Theme.fg-dim));
+                                }
+
+                                Text {
+                                    text: row.name;
+                                    color: root.data.scene == index ? Theme.fg : Theme.fg-muted;
+                                    font-size: Theme.fs-sm;
+                                    font-weight: root.data.scene == index ? Theme.weight-title : Theme.weight-body;
+                                    horizontal-stretch: 1;
+                                    vertical-alignment: center;
+                                    overflow: elide;
+                                }
+
+                                if row.status != "": Text {
+                                    text: (row.status == "Xong" || row.status == "completed") ? "✓ Xong" : row.status;
+                                    color: (row.status == "Xong" || row.status == "completed") ? Theme.green : Theme.fg-dim;
+                                    font-size: Theme.fs-xs;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            scene-touch := TouchArea {
+                                enabled: !root.data.busy;
+                                mouse-cursor: MouseCursor.pointer;
+                                clicked => {
+                                    root.action(23, index, "");
+                                    if root.tab < 2 {
+                                        root.tab = 2;
+                                    }
+                                }
+                            }
+                        }
+
+                        if root.data.scenes.length == 0: Rectangle {
+                            height: 64px;
+                            border-radius: Theme.r-sm;
+                            background: Theme.field;
+                            HorizontalLayout {
+                                padding: 8px;
+                                Text {
+                                    text: "Chưa có cảnh nào. Hãy viết kịch bản ở Bước 1 hoặc bấm '+ Cảnh'.";
+                                    color: Theme.fg-muted;
+                                    font-size: Theme.fs-xs;
+                                    wrap: word-wrap;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
                     }
-                    if root.tab >= 2: HorizontalLayout {
-                        spacing: 4px;
-                        Button { label: "🌧 Đêm mưa dông"; ghost: true; enabled: !root.data.busy; clicked => { root.action(172, 0, "Đổi cảnh này sang ban đêm mưa to, ánh chớp giật, không khí căng thẳng u tối"); } }
-                        Button { label: "✂ Rút gọn thoại"; ghost: true; enabled: !root.data.busy; clicked => { root.action(172, 0, "Rút ngắn lời thoại sắc sảo, dồn cảm xúc vào hành động và ánh mắt"); } }
-                        Button { label: "🎥 Cận cảnh cảm xúc"; ghost: true; enabled: !root.data.busy; clicked => { root.action(172, 0, "Đổi góc máy thành Cận cảnh (Close-up) đặc tả biểu cảm và chuyển động chậm 0.5x"); } }
+                }
+
+                Rectangle { height: 1px; background: Theme.line; }
+
+                // Quick Production & Result Actions
+                VerticalLayout {
+                    spacing: 4px;
+                    Button {
+                        label: "⚡ 4. Tạo Video & Auto Batch";
+                        primary: root.tab == 3;
+                        ghost: root.tab != 3;
+                        clicked => { root.tab = 3; }
+                    }
+                    Button {
+                        label: "🎞️ 5. Thư viện Kết quả (" + root.data.files.length + ")";
+                        primary: root.tab == 4;
+                        ghost: root.tab != 4;
+                        clicked => { root.tab = 4; }
                     }
                 }
             }
         }
-        }
-        PaneScroll {
-            reset-token:root.tab;
-            vertical-stretch:1;
-            VerticalLayout {
-                if root.tab==0: HorizontalLayout {
+
+        // ── MAIN WORKSPACE COLUMN ────────────────────────────────────────
+        VerticalLayout {
+            horizontal-stretch: 1;
+            padding: 8px;
+            spacing: 8px;
+
+            // Top Stepper Bar
+            HorizontalLayout {
+                spacing: 4px;
+                for name[index] in root.step-names: Button {
+                    label: "" + (index + 1) + ". " + name;
+                    primary: root.tab == index;
+                    ghost: root.tab != index;
+                    horizontal-stretch: 1;
+                    clicked => { root.tab = index; }
+                }
+            }
+
+            // Compact Scene Selector when sidebar is hidden (< 880px)
+            if root.tab >= 2 && root.width < 880px: HorizontalLayout {
+                spacing: 6px;
+                Text {
+                    text: "Cảnh đang chọn:";
+                    color: Theme.fg-muted;
+                    font-size: Theme.fs-xs;
+                    vertical-alignment: center;
+                }
+                Select {
+                    options: root.data.scenes;
+                    current: root.data.scene;
+                    enabled: !root.data.busy;
+                    horizontal-stretch: 1;
+                    changed(index) => { root.action(23, index, ""); }
+                }
+                Button {
+                    label: "+ Cảnh";
+                    ghost: true;
+                    enabled: !root.data.busy;
+                    clicked => { root.action(25, 0, ""); }
+                }
+            }
+
+            // Status / Toast Message Banner
+            if root.data.message != "" || root.data.can-undo-copilot: Rectangle {
+                background: Theme.well;
+                border-radius: Theme.r-sm;
+                border-width: 1px;
+                border-color: Theme.accent.with-alpha(0.4);
+                HorizontalLayout {
+                    padding-left: 10px;
+                    padding-right: 10px;
+                    padding-top: 6px;
+                    padding-bottom: 6px;
                     spacing: 8px;
-                    padding-bottom: 4px;
-                    Button {
-                        label: "📄 Tạo kịch bản mới";
-                        primary: root.data.scenes.length == 0;
-                        ghost: root.data.scenes.length > 0;
-                        enabled: !root.data.busy;
-                        clicked => { root.action(47, 0, ""); }
-                    }
-                    if root.data.scenes.length > 0: Text {
-                        text: "Hiện có " + root.data.scenes.length + " cảnh trong dự án";
-                        color: Theme.fg-muted;
+                    if root.data.message != "": Text {
+                        text: "ℹ️ " + root.data.message;
+                        color: Theme.fg;
                         font-size: Theme.fs-sm;
+                        wrap: word-wrap;
+                        horizontal-stretch: 1;
                         vertical-alignment: center;
                     }
-                }
-                if root.tab==0: DialogSection {
-                    first:true;title:"Gemini · Trợ lý nội dung";
-                    Text {text:root.data.ai-ready ? "Dùng Gemini API key trong Cài đặt. Gửi ý tưởng và nội dung dự án khi bấm nút AI; có thể phát sinh phí Gemini." : "Chưa có Gemini API key. Thêm key trong Cài đặt để dùng AI.";color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
-                    ScriptEditor {height:70px;value:root.data.brief;enabled:!root.data.busy;edited(text)=>{root.action(40,0,text);}}
-                    Text {text:"Ý tưởng / yêu cầu: chủ đề, tên nhân vật, số cảnh, địa điểm, phong cách…";color:Theme.fg-muted;font-size:Theme.fs-xs;wrap:word-wrap;}
-                }
-                if root.tab==0: DialogSection {
-                    title:"Kịch bản tổng thể";
-                    Text {text:"Áp dụng skill: cấu trúc truyện → nhân vật → cảnh → lời thoại. Mỗi cảnh theo thời lượng đang chọn ở bước Tạo video.";color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
-                    DialogRow {label:"Dạng video";Select {options:["Phim ngắn","Quảng cáo sản phẩm","Phim tài liệu","Hướng dẫn","Truyện thiếu nhi"];current:root.data.writing-format;enabled:!root.data.busy;changed(index)=>{root.action(90,index,"");}}}
-                    DialogRow {label:"Cấu trúc";Select {options:["Mở · phát triển · kết","Mục tiêu · trở ngại · kết quả","Vấn đề · giải pháp","Tự do theo ý tưởng"];current:root.data.writing-structure;enabled:!root.data.busy;changed(index)=>{root.action(91,index,"");}}}
-                    DialogRow {label:"Số cảnh AI";Select {options:["1 cảnh","2 cảnh","3 cảnh","4 cảnh","5 cảnh","6 cảnh","7 cảnh","8 cảnh","9 cảnh","10 cảnh","11 cảnh","12 cảnh"];current:root.data.writing-scene-count - 1;enabled:!root.data.busy;changed(index)=>{root.action(92,index+1,"");}}}
-                    Field {value:root.data.writing-audience;placeholder:"Đối tượng xem: trẻ 6–10 tuổi, khách du lịch…";enabled:!root.data.busy;edited(text)=>{root.action(93,0,text);}}
-                    Field {value:root.data.writing-goal;placeholder:"Mục tiêu / thông điệp người xem cần nhớ";enabled:!root.data.busy;edited(text)=>{root.action(94,0,text);}}
-                    HorizontalLayout {
-                        spacing: 8px;
-                        Button {
-                            label: root.data.busy ? "Đang xử lý…" : (root.data.scenes.length > 0 ? "✨ AI viết lại kịch bản mới" : "✨ AI viết kịch bản mới");
-                            primary: true;
-                            enabled: root.data.ai-ready && !root.data.busy;
-                            clicked => { root.action(48, 0, ""); }
-                        }
-                        if root.data.scenes.length > 0: Button {
-                            label: "➕ AI viết thêm cảnh";
-                            ghost: true;
-                            enabled: root.data.ai-ready && !root.data.busy;
-                            clicked => { root.action(41, 0, ""); }
-                        }
+                    if root.data.can-undo-copilot: Button {
+                        label: "↩ Hoàn tác sửa AI";
+                        ghost: true;
+                        enabled: !root.data.busy;
+                        clicked => { root.action(171, 0, ""); }
                     }
-                    if root.data.logline!="": Text {text:"Ý chính: "+root.data.logline;color:Theme.fg;font-size:Theme.fs-sm;wrap:word-wrap;}
-                    HorizontalLayout {
+                }
+            }
+
+            // ── SCROLLABLE TAB CONTENT ───────────────────────────────────
+            PaneScroll {
+                reset-token: root.tab;
+                vertical-stretch: 1;
+
+                VerticalLayout {
+                    spacing: 8px;
+
+                    // =====================================================
+                    // TAB 0: KỊCH BẢN TỔNG THỂ
+                    // =====================================================
+                    if root.tab == 0: DialogSection {
+                        first: true;
+                        title: "✨ Ý tưởng & Trợ lý Kịch bản AI (Gemini)";
+
                         Text {
-                            text: "Dán kịch bản, mỗi cảnh cách nhau một dòng trống. Ghi hành động và lời thoại trong từng cảnh.";
+                            text: root.data.ai-ready
+                                ? "Nhập ý tưởng tóm tắt (chủ đề, nhân vật, bối cảnh) để AI tự động triển khai kịch bản phân cảnh và lời thoại."
+                                : "⚠️ Chưa có Gemini API key. Hãy thêm key trong Cài đặt để kích hoạt tính năng viết kịch bản tự động.";
                             color: Theme.fg-muted;
                             font-size: Theme.fs-sm;
                             wrap: word-wrap;
-                            horizontal-stretch: 1;
-                            vertical-alignment: center;
                         }
-                        Button {
-                            label: "📄 Xóa trắng kịch bản";
-                            ghost: true;
-                            enabled: !root.data.busy && root.data.screenplay != "";
-                            clicked => { root.action(47, 0, ""); }
+
+                        AiScriptEditor {
+                            editor-height: 72px;
+                            value: root.data.brief;
+                            enabled: !root.data.busy;
+                            ai-enabled: root.data.ai-ready;
+                            edited(text) => { root.action(40, 0, text); }
+                            ai-request(prompt) => { root.action(175, 40, prompt); }
+                        }
+
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Text {
+                                text: "Thể loại:";
+                                color: Theme.fg-muted;
+                                font-size: Theme.fs-xs;
+                                vertical-alignment: center;
+                            }
+                            Select {
+                                options: ["Phim ngắn", "Quảng cáo sản phẩm", "Phim tài liệu", "Hướng dẫn", "Truyện thiếu nhi"];
+                                current: root.data.writing-format;
+                                enabled: !root.data.busy;
+                                horizontal-stretch: 1;
+                                changed(index) => { root.action(90, index, ""); }
+                            }
+                            Text {
+                                text: "Số cảnh:";
+                                color: Theme.fg-muted;
+                                font-size: Theme.fs-xs;
+                                vertical-alignment: center;
+                            }
+                            Select {
+                                options: ["1 cảnh", "2 cảnh", "3 cảnh", "4 cảnh", "5 cảnh", "6 cảnh", "7 cảnh", "8 cảnh", "9 cảnh", "10 cảnh", "11 cảnh", "12 cảnh"];
+                                current: root.data.writing-scene-count - 1;
+                                enabled: !root.data.busy;
+                                horizontal-stretch: 1;
+                                changed(index) => { root.action(92, index + 1, ""); }
+                            }
+                        }
+
+                        FlowAccordionHeader {
+                            title: "🎯 Tùy chọn Cấu trúc, Đối tượng xem & Thông điệp";
+                            summary: root.data.writing-audience != "" ? root.data.writing-audience : "Mặc định";
+                            expanded: root.show-writing-meta;
+                            toggled => { root.show-writing-meta = !root.show-writing-meta; }
+                        }
+
+                        if root.show-writing-meta: VerticalLayout {
+                            spacing: 6px;
+                            DialogRow {
+                                label: "Cấu trúc";
+                                Select {
+                                    options: ["Mở · phát triển · kết", "Mục tiêu · trở ngại · kết quả", "Vấn đề · giải pháp", "Tự do theo ý tưởng"];
+                                    current: root.data.writing-structure;
+                                    enabled: !root.data.busy;
+                                    changed(index) => { root.action(91, index, ""); }
+                                }
+                            }
+                            AiField {
+                                value: root.data.writing-audience;
+                                placeholder: "Đối tượng người xem: vd. trẻ 6–10 tuổi, dân văn phòng, khách du lịch…";
+                                enabled: !root.data.busy;
+                                ai-enabled: root.data.ai-ready;
+                                edited(text) => { root.action(93, 0, text); }
+                                ai-request(prompt) => { root.action(175, 93, prompt); }
+                            }
+                            AiField {
+                                value: root.data.writing-goal;
+                                placeholder: "Mục tiêu / thông điệp cốt lõi người xem cần nhớ";
+                                enabled: !root.data.busy;
+                                ai-enabled: root.data.ai-ready;
+                                edited(text) => { root.action(94, 0, text); }
+                                ai-request(prompt) => { root.action(175, 94, prompt); }
+                            }
+                        }
+
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Button {
+                                label: root.data.busy ? "⏳ Đang xử lý…" : (root.data.scenes.length > 0 ? "✨ AI viết lại kịch bản mới" : "✨ AI viết kịch bản mới");
+                                primary: true;
+                                enabled: root.data.ai-ready && !root.data.busy;
+                                clicked => { root.action(48, 0, ""); }
+                            }
+                            if root.data.scenes.length > 0: Button {
+                                label: "➕ AI viết nối tiếp thêm cảnh";
+                                ghost: true;
+                                enabled: root.data.ai-ready && !root.data.busy;
+                                clicked => { root.action(41, 0, ""); }
+                            }
+                            Button {
+                                label: "📄 Tạo kịch bản trắng";
+                                ghost: true;
+                                enabled: !root.data.busy && (root.data.scenes.length > 0 || root.data.screenplay != "");
+                                clicked => { root.action(47, 0, ""); }
+                            }
                         }
                     }
-                    ScriptEditor {height:root.width >= 900px ? 240px : 100px;value:root.data.screenplay;enabled:!root.data.busy;edited(text)=>{root.action(20,0,text);}}
-                    Button {label:"AI trích xuất nhân vật & phân vai theo cảnh";enabled:root.data.ai-ready && !root.data.busy && root.data.scenes.length>0;clicked=>{root.action(46,0,"");}}
-                    Text {text:"Kịch bản AI tự đồng bộ hồ sơ, người xuất hiện và người nói. Với kịch bản viết tay, dùng Trích xuất để liên kết vào tab Nhân vật. Đồng bộ có sao lưu bản cũ; không tạo ảnh hay video.";color:Theme.fg-muted;font-size:Theme.fs-xs;wrap:word-wrap;}
-                    HorizontalLayout {spacing:4px;
-                        Button {label:"Xuất bộ cảnh JSON";enabled:!root.data.busy;clicked=>{root.action(71,0,"");}}
-                        Button {label:"Nhập JSON";ghost:true;enabled:!root.data.busy && root.data.transfer-path!="";clicked=>{root.action(72,0,"");}}
-                    }
-                    Field {value:root.data.transfer-path;placeholder:"Đường dẫn file JSON bộ cảnh để nhập";enabled:!root.data.busy;edited(text)=>{root.action(70,0,text);}}
-                    Text {text:"Nhập bộ cảnh sẽ thay nội dung hiện tại và lưu bản sao flow-before-import.json. File JSON lưu đường dẫn ảnh, không đóng gói ảnh.";color:Theme.fg-muted;font-size:Theme.fs-xs;wrap:word-wrap;}
-                }
-                if root.tab==1: DialogSection {
-                    first:true;title:"Hồ sơ nhân vật dùng chung";
-                    Text {text:"Lấy nhân vật đã có trên Flow";color:Theme.fg;font-size:Theme.fs;}
-                    Text {text:"Tài khoản nguồn";color:Theme.fg-muted;font-size:Theme.fs-sm;}
-                    Select {options:root.data.account-names;current:root.data.source-account;enabled:!root.data.busy;changed(index)=>{root.action(121,index,"");}}
-                    Button {label:"Quản lý tài khoản trong Cài đặt";ghost:true;clicked=>{root.action(120,0,"");}}
-                    HorizontalLayout {
-                        spacing: 6px;
-                        Field {value:root.data.url;placeholder:"https://flow.google.com/project/…";horizontal-stretch:1;enabled:!root.data.busy;edited(text)=>{root.action(2,0,text);}}
-                        Button {label:"➕ Tạo dự án Flow mới";enabled:root.data.desktop && !root.data.busy;clicked=>{root.action(161,0,"");}}
-                    }
-                    Button {label:"Đọc thư viện nhân vật Flow";enabled:root.data.desktop && !root.data.busy;clicked=>{root.action(100,0,"");}}
-                    Text {text:"Nhập mới hoặc gắn nhân vật Flow vào hồ sơ đã có trong kịch bản";color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
-                    Select {options:root.data.character-names;current:root.data.flow-link-target;enabled:!root.data.busy;changed(index)=>{root.action(112,index,"");}}
-                    Text {text:"Đọc hồ sơ và tải ảnh có sẵn, không tạo lại và không dùng credit. Cập nhật hồ sơ đã nhập sẽ có bản sao dự phòng. Giọng nói được lưu dưới dạng mã tham chiếu, chưa tải tệp âm thanh.";color:Theme.fg-muted;font-size:Theme.fs-xs;wrap:word-wrap;}
-                    for remote[index] in root.data.remote-characters: VerticalLayout {
-                        HorizontalLayout {spacing:6px;
-                            Text {text:remote.name;color:Theme.fg;font-size:Theme.fs;horizontal-stretch:1;vertical-alignment:center;wrap:word-wrap;}
-                            Button {label:root.data.flow-link-target>0 ? "Gắn vào hồ sơ đã chọn" : (remote.imported ? "Cập nhật từ Flow" : "Nhập nhân vật");enabled:!root.data.busy;clicked=>{root.action(101,index,"");}}
-                        }
-                        Text {text:remote.detail;color:Theme.fg-muted;font-size:Theme.fs-xs;wrap:word-wrap;}
-                    }
-                    HorizontalLayout {spacing:4px;
-                        Button {label:"AI viết hồ sơ nhân vật";primary:true;enabled:root.data.ai-ready && !root.data.busy;clicked=>{root.action(42,0,"");}}
-                        Button {label:"✨ AI Khóa Agent Instructions vào Flow";primary:true;enabled:root.data.desktop && !root.data.busy && root.data.ai-ready;clicked=>{root.action(160,0,"");}}
-                    }
-                    Text {text:"Dùng tên nhân vật trong cảnh. Mỗi hồ sơ giữ tên, ngoại hình, trang phục và giọng nói nhất quán.";color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
-                    Button {label:"+ Thêm nhân vật";enabled:!root.data.busy;clicked=>{root.action(28,0,"");}}
-                    Text {text:"Tạo ảnh nhân vật & bối cảnh";color:Theme.fg;font-size:Theme.fs;}
-                    Select {options:["Google Flow · tài khoản đã đăng nhập","Gemini API · key trong Cài đặt"];current:root.data.image-provider;enabled:!root.data.busy;changed(index)=>{root.action(124,index,"");}}
-                    if root.data.image-provider == 0: VerticalLayout {
-                        spacing:6px;
-                        Button {label:"Mở / kết nối lại Chrome Flow";ghost:true;enabled:root.data.desktop && !root.data.busy;clicked=>{root.action(10,0,"");}}
-                        DialogRow {label:"Model ảnh";Select {options:["Nano Banana Pro","Nano Banana 2","Nano Banana 2 Lite"];current:root.data.flow-image-model;enabled:!root.data.busy;changed(index)=>{root.action(125,index,"");}}}
-                        DialogRow {label:"Tỷ lệ ảnh";Select {options:["1:1","9:16","16:9","3:4","4:3"];current:root.data.flow-image-ratio;enabled:!root.data.busy;changed(index)=>{root.action(126,index,"");}}}
-                        Text {text:"Dùng tài khoản nguồn đã chọn ở trên và URL mặc định của tài khoản (nếu có), nếu không dùng URL dự án ở trên. Không cần Gemini API key; tạo ảnh có thể dùng credit Flow. Ảnh tạo mới chưa phải hồ sơ nhân vật có giọng gắn sẵn trên Flow.";color:Theme.fg-muted;font-size:Theme.fs-xs;wrap:word-wrap;}
-                        Text {text:root.data.image-ready-message;color:Theme.fg-muted;font-size:Theme.fs-xs;wrap:word-wrap;}
-                    }
-                    if root.data.image-provider == 1: VerticalLayout {
-                        spacing:6px;
-                        Field {value:root.data.image-model;placeholder:"Gemini image model ID";enabled:!root.data.busy;edited(text)=>{root.action(79,0,text);}}
-                        Text {text:"Tạo ảnh dùng Gemini API key và có thể phát sinh phí riêng. Quota API độc lập với tài khoản Flow.";color:Theme.fg-muted;font-size:Theme.fs-xs;wrap:word-wrap;}
-                    }
-                    for character[index] in root.data.characters: VerticalLayout {
-                        Text {text:root.data.character-names[index+1];color:Theme.fg;font-size:Theme.fs-sm;wrap:word-wrap;}
-                        Field {value:root.data.character-roles[index];placeholder:"Vai nhân vật: người cha, học sinh… để phân biệt người trùng tên";enabled:!root.data.busy;edited(text)=>{root.action(113,index,text);}}
-                        ScriptEditor {value:character;enabled:!root.data.busy;edited(text)=>{root.action(29,index,text);}}
-                        if root.data.character-images[index].path!="": Image {height:130px;source:root.data.character-images[index].preview;image-fit:contain;}
-                        HorizontalLayout {spacing:4px;
-                            Button {label:"Chọn ảnh từ máy";enabled:root.data.desktop && !root.data.busy;clicked=>{root.action(95,index,"");}}
-                            Button {label:root.data.image-provider == 0 ? "Tạo ảnh bằng Flow" : "Tạo ảnh Gemini";enabled:!root.data.busy && (root.data.image-provider == 0 ? root.data.desktop && root.data.source-account>=0 : root.data.ai-ready);clicked=>{root.action(80,index,"");}}
-                        }
-                        if root.data.image-provider == 0: HorizontalLayout {spacing:4px;
-                            Button {label:"Tạo bộ ảnh nhân vật (3 góc)";enabled:root.data.desktop && !root.data.busy && root.data.character-images[index].path!="";clicked=>{root.action(127,index,"");}}
-                            Button {label:"Kiểm tra Flow · chưa gửi";ghost:true;enabled:root.data.desktop && !root.data.busy;clicked=>{root.action(134,index,"");}}
-                        }
-                        Text {text:"Ảnh chuẩn được giữ khi tạo lại. Bộ 3 góc gồm chính diện, sau lưng và cận mặt ¾ trong một ảnh 16:9. Duyệt bộ ảnh trước khi dùng tạo ảnh cảnh.";color:Theme.fg-muted;font-size:Theme.fs-xs;wrap:word-wrap;}
-                        for reference[image-index] in root.data.character-galleries[index].items: HorizontalLayout {
-                            spacing:8px;
-                            Image {width:76px;height:76px;source:reference.preview;image-fit:contain;}
-                            VerticalLayout {spacing:4px;
-                                Text {text:reference.label+(reference.selected ? " · Ảnh chuẩn" : "")+(reference.approved ? " · Đã duyệt" : "");color:Theme.fg;font-size:Theme.fs-sm;wrap:word-wrap;}
-                                HorizontalLayout {spacing:4px;
-                                    Button {label:"Xem";ghost:true;enabled:!root.data.busy;clicked=>{root.action(132,index,""+image-index);}}
-                                    if reference.kind=="sheet": Button {label:reference.approved ? "Bỏ duyệt" : "Duyệt bộ này";enabled:!root.data.busy;clicked=>{root.action(129,index,""+image-index);}}
-                                    if reference.kind!="sheet": Button {label:reference.selected ? "Đang làm ảnh chuẩn" : "Dùng làm ảnh chuẩn";enabled:!root.data.busy && !reference.selected;clicked=>{root.action(128,index,""+image-index);}}
+
+                    if root.tab == 0: DialogSection {
+                        title: "📝 Nội dung Kịch bản phân cảnh";
+
+                        if root.data.logline != "": Rectangle {
+                            background: Theme.well;
+                            border-radius: Theme.r-sm;
+                            HorizontalLayout {
+                                padding: 8px;
+                                Text {
+                                    text: "💡 Tóm tắt (Logline): " + root.data.logline;
+                                    color: Theme.fg;
+                                    font-size: Theme.fs-sm;
+                                    wrap: word-wrap;
                                 }
                             }
                         }
-                        HorizontalLayout {spacing:4px;
-                            Button {label:"Dùng ảnh cho cảnh";ghost:true;enabled:!root.data.busy && root.data.scenes.length>0 && root.data.character-images[index].path!="";clicked=>{root.action(82,index,"");}}
-                            Button {label:"Xóa nhân vật";ghost:true;enabled:!root.data.busy;clicked=>{root.action(30,index,"");}}
-                        }
-                    }
-                }
-                if root.tab==1: DialogSection {
-                    title:"Bối cảnh & phong cách chung";
-                    Button {label:"AI tạo bối cảnh";enabled:root.data.ai-ready && !root.data.busy;clicked=>{root.action(43,0,"");}}
-                    HorizontalLayout {spacing:4px;
-                        Button {label:"+ Thêm bối cảnh";enabled:!root.data.busy;clicked=>{root.action(66,0,"");}}
-                        Button {label:"Xóa bối cảnh";ghost:true;enabled:!root.data.busy && root.data.background-edit>0;clicked=>{root.action(68,0,"");}}
-                    }
-                    Select {options:root.data.backgrounds;current:root.data.background-edit;enabled:!root.data.busy;changed(index)=>{root.action(65,index,"");}}
-                    ScriptEditor {height:100px;value:root.data.background-text;enabled:!root.data.busy && root.data.background-edit>0;edited(text)=>{root.action(67,0,text);}}
-                    if root.data.background-image.path!="": Image {height:130px;source:root.data.background-image.preview;image-fit:contain;}
-                    HorizontalLayout {spacing:4px;
-                        Button {label:root.data.image-provider == 0 ? "Tạo ảnh bối cảnh bằng Flow" : "Tạo ảnh bối cảnh Gemini";enabled:!root.data.busy && root.data.background-edit>0 && (root.data.image-provider == 0 ? root.data.desktop && root.data.source-account>=0 : root.data.ai-ready);clicked=>{root.action(81,root.data.background-edit - 1,"");}}
-                        if root.data.image-provider == 0: Button {label:"Tạo bộ bối cảnh (3 góc)";enabled:root.data.desktop && !root.data.busy && root.data.background-edit>0 && root.data.source-account>=0;clicked=>{root.action(138,root.data.background-edit - 1,"");}}
-                        Button {label:"Dùng ảnh cho cảnh";ghost:true;enabled:!root.data.busy && root.data.scenes.length>0 && root.data.background-image.path!="";clicked=>{root.action(83,root.data.background-edit - 1,"");}}
-                    }
-                    ScriptEditor {height:75px;value:root.data.continuity;enabled:!root.data.busy;edited(text)=>{root.action(21,0,text);}}
-                    Field {value:root.data.style;placeholder:"Phong cách, góc máy, ánh sáng và âm thanh chung";enabled:!root.data.busy;edited(text)=>{root.action(22,0,text);}}
-                    Select {options:["Gợi ý phong cách chung…","Điện ảnh chân thực (Cinematic realism)","Phim tài liệu (Documentary)","Hoạt hình 3D (3D animation)","Hoạt hình 2D (2D animation)","Màu nước (Watercolor)","Stop-motion thủ công"];current:0;enabled:!root.data.busy;changed(index)=>{if index>0 {root.action(22,0,self.options[index]);self.current=0;}}}
-                }
-                if root.tab==2: DialogSection {
-                    first:true;title:"Nội dung & diễn xuất";
-                    HorizontalLayout {spacing:8px;
-                        Button {label:"+ Thêm cảnh";enabled:!root.data.busy;clicked=>{root.action(25,0,"");}}
-                        Button {label:"Xóa cảnh";ghost:true;enabled:!root.data.busy && root.data.scenes.length>0;clicked=>{root.action(26,0,"");}}
-                    }
-                    Text {text:"Nhân vật xuất hiện · bỏ chọn người không có trong cảnh";color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
-                    Text {text:"Ảnh tham chiếu của hồ sơ được lấy tự động theo người đã chọn. Nhân vật gốc Flow dùng trực tiếp hồ sơ và giọng đã gắn trên Flow.";color:Theme.fg-muted;font-size:Theme.fs-xs;wrap:word-wrap;}
-                    for character[index] in root.data.cast-rows: VerticalLayout {
-                        spacing:4px;
-                        HorizontalLayout {spacing:8px;
-                            Switch {checked:character.selected;enabled:!root.data.busy && root.data.scenes.length>0;toggled(on)=>{root.action(61,index,"");}}
-                            Text {text:character.name;color:Theme.fg;font-size:Theme.fs-sm;wrap:word-wrap;horizontal-stretch:1;vertical-alignment:center;}
-                        }
-                        if character.selected: Field {value:character.action;placeholder:"Hành động / cảm xúc của nhân vật trong cảnh này";enabled:!root.data.busy && root.data.scenes.length>0;edited(text)=>{root.action(105,index,text);}}
-                    }
-                    DialogRow {label:"Bối cảnh";Select {options:root.data.backgrounds;current:root.data.background;enabled:!root.data.busy && root.data.scenes.length>0;changed(index)=>{root.action(64,index,"");}}}
-                    ScriptEditor {height:180px;value:root.data.scene-text;enabled:!root.data.busy;edited(text)=>{root.action(27,0,text);}}
-                    Select {options:["Gợi ý cỡ cảnh…","Đại toàn cảnh (Extreme wide shot)","Toàn cảnh (Wide shot)","Trung cảnh (Medium shot)","Trung cận (Medium close-up)","Cận cảnh (Close-up)","Đặc tả (Extreme close-up)","Cảnh đôi (Two-shot)","Insert shot · chi tiết đạo cụ"];current:0;enabled:!root.data.busy;changed(index)=>{if index>0 {root.action(60,0,self.options[index]);self.current=0;}}}
-                    Field {value:root.data.shot;placeholder:"Cỡ cảnh · có thể nhập tùy ý";enabled:!root.data.busy;edited(text)=>{root.action(60,0,text);}}
-                    Select {options:["Gợi ý góc máy…","Ngang tầm mắt (Eye-level)","Góc thấp (Low angle)","Góc cao (High angle)","Từ trên xuống (Overhead)","Qua vai (Over-the-shoulder)","Góc nhìn nhân vật (POV)","Góc nghiêng (Dutch angle)"];current:0;enabled:!root.data.busy;changed(index)=>{if index>0 {root.action(55,0,self.options[index]);self.current=0;}}}
-                    Field {value:root.data.camera;placeholder:"Góc máy · có thể nhập tùy ý";enabled:!root.data.busy;edited(text)=>{root.action(55,0,text);}}
-                    Select {options:["Gợi ý chuyển động camera…","Máy tĩnh (Static shot)","Tiến gần chậm (Slow push-in)","Lùi xa (Pull-out)","Lia ngang (Pan)","Ngước máy (Tilt up)","Hạ máy (Tilt down)","Bám theo (Tracking shot)","Máy vòng quanh (Orbit)","Cầm tay nhẹ (Gentle handheld)","Cần cẩu nâng (Crane up)"];current:0;enabled:!root.data.busy;changed(index)=>{if index>0 {root.action(56,0,self.options[index]);self.current=0;}}}
-                    Field {value:root.data.movement;placeholder:"Chuyển động máy: tĩnh, pan, dolly, push-in…";enabled:!root.data.busy;edited(text)=>{root.action(56,0,text);}}
-                    Select {options:["Gợi ý ánh sáng…","Ánh sáng tự nhiên dịu (Soft natural light)","Nắng chiều ấm (Golden hour)","Ánh sáng xanh chạng vạng (Blue hour)","Trời nhiều mây (Overcast diffuse)","Ánh sáng cửa sổ (Window light)","Tương phản điện ảnh (Cinematic chiaroscuro)","Neon ban đêm (Night neon)","Ngược sáng viền (Rim backlight)"];current:0;enabled:!root.data.busy;changed(index)=>{if index>0 {root.action(62,0,self.options[index]);self.current=0;}}}
-                    Field {value:root.data.lighting;placeholder:"Ánh sáng · có thể nhập tùy ý";enabled:!root.data.busy;edited(text)=>{root.action(62,0,text);}}
-                    Select {options:["Gợi ý âm thanh / nhạc…","Âm thanh môi trường tự nhiên, không nhạc","Chỉ lời thoại, không nhạc nền","Không lời thoại, không nhạc","Tiếng chim và gió nhẹ","Âm thanh xưởng thủ công chân thực","Nhạc nền piano nhẹ","Nhạc nền căng thẳng điện ảnh"];current:0;enabled:!root.data.busy;changed(index)=>{if index>0 {root.action(57,0,self.options[index]);self.current=0;}}}
-                    Field {value:root.data.sound;placeholder:"Nhạc / âm thanh môi trường / SFX";enabled:!root.data.busy;edited(text)=>{root.action(57,0,text);}}
-                    Text {text:"Lời thoại · chọn đúng người nói cho từng câu";color:Theme.fg-muted;font-size:Theme.fs-sm;}
-                    for line[index] in root.data.dialogue-rows: VerticalLayout {
-                        HorizontalLayout {spacing:4px;
-                            Select {options:root.data.character-names;current:line.speaker;enabled:!root.data.busy;changed(speaker)=>{root.action(107,index,""+speaker);}}
-                            Button {label:"Xóa câu";ghost:true;enabled:!root.data.busy;clicked=>{root.action(109,index,"");}}
-                        }
-                        ScriptEditor {height:65px;value:line.text;enabled:!root.data.busy;edited(text)=>{root.action(108,index,text);}}
-                    }
-                    if root.data.dialogue-rows.length==0: ScriptEditor {height:65px;value:root.data.dialogue;enabled:!root.data.busy;edited(text)=>{root.action(58,0,text);}}
-                    Button {label:"+ Thêm câu thoại / người nói";enabled:!root.data.busy && root.data.scenes.length>0 && root.data.characters.length>0;clicked=>{root.action(106,0,"");}}
-                    Button {label:"AI trau chuốt lời thoại";enabled:root.data.ai-ready && !root.data.busy && root.data.dialogue!="";clicked=>{root.action(45,0,"");}}
-                    Text {text:"Chỉ sửa ô lời thoại của cảnh đang chọn; giữ hành động, nhân vật và diễn biến. Bản cũ được lưu trước khi sửa.";color:Theme.fg-muted;font-size:Theme.fs-xs;wrap:word-wrap;}
-                }
-                if root.tab==2: DialogSection {
-                    title:"Prompt của cảnh";
-                    Button {label:root.show-prompt ? "Thu gọn prompt" : "Mở prompt";ghost:true;clicked=>{root.show-prompt=!root.show-prompt;}}
-                    if root.show-prompt: VerticalLayout {
-                        spacing:8px;
-                        Button {label:"Ghép / cập nhật prompt";enabled:!root.data.busy && root.data.scenes.length>0;clicked=>{root.action(24,0,"");}}
-                    Text {text:root.data.scene-status;color:Theme.fg-muted;font-size:Theme.fs-sm;}
-                    if root.data.validation!="": Text {text:root.data.validation;color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
-                    if root.data.characters.length==0 || (root.data.continuity=="" && root.data.background==0): Text {text:"Gợi ý: thêm hồ sơ nhân vật và bối cảnh để giữ nhất quán giữa các cảnh.";color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
-                        Button {label:"AI viết prompt cảnh đã chọn";primary:true;enabled:root.data.ai-ready && !root.data.busy && root.data.scenes.length>0;clicked=>{root.action(44,0,"");}}
-                    Rectangle {
-                        height:170px;background:Theme.field;border-radius:Theme.r;clip:true;
-                        TextInput {x:10px;y:10px;width:parent.width - 20px;height:parent.height - 20px;text<=>root.draft;color:Theme.fg;font-size:Theme.fs;wrap:word-wrap;enabled:!root.data.busy;changed has-focus=>{root.typing=self.has-focus;}edited=>{root.action(3,0,self.text);}}
-                    }
-                    }
-                }
-                if root.tab==2: DialogSection {
-                    title:"Ảnh cảnh → Khung đầu video";
-                    Text {text:"Dùng bộ ảnh nhân vật đã duyệt (hoặc ảnh chuẩn) và bối cảnh để tạo một ảnh cảnh. Duyệt ảnh trước khi dùng làm khung đầu; nhân vật/giọng gốc Flow vẫn giữ ID nguồn. Tạo ảnh có thể dùng credit Flow.";color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
-                    Select {options:root.data.scene-account-names;current:root.data.scene-account;enabled:!root.data.busy;changed(index)=>{root.action(122,index,"");}}
-                    HorizontalLayout {
-                        spacing: 6px;
-                        Field {value:root.data.scene-project-url;placeholder:"URL Flow cho cảnh (trống = tài khoản/nhân vật nguồn)";horizontal-stretch:1;enabled:!root.data.busy;edited(text)=>{root.action(123,0,text);}}
-                        Button {label:"➕ Tạo dự án Flow mới";enabled:root.data.desktop && !root.data.busy;clicked=>{root.action(161,0,"");}}
-                    }
-                    Select {options:["Nano Banana Pro","Nano Banana 2","Nano Banana 2 Lite"];current:root.data.flow-image-model;enabled:!root.data.busy;changed(index)=>{root.action(125,index,"");}}
-                    Text {text:"Tỷ lệ ảnh cảnh lấy theo tỷ lệ video trong bước Tạo video. "+root.data.scene-image-status;color:Theme.fg-muted;font-size:Theme.fs-xs;wrap:word-wrap;}
-                    HorizontalLayout {spacing:4px;
-                        Button {label:"Tạo ảnh cảnh bằng Flow";primary:true;enabled:root.data.desktop && !root.data.busy && root.data.scenes.length>0;clicked=>{root.action(131,0,"");}}
-                        Button {label:"Tạo ảnh cảnh (3 góc nhìn)";enabled:root.data.desktop && !root.data.busy && root.data.scenes.length>0;clicked=>{root.action(139,0,"");}}
-                    }
-                    for reference[image-index] in root.data.scene-images: HorizontalLayout {
-                        spacing:8px;
-                        Image {width:110px;height:90px;source:reference.preview;image-fit:contain;}
-                        VerticalLayout {spacing:4px;
-                            Text {text:reference.label+(reference.selected ? " · Khung đầu đã chọn" : " · Chờ duyệt");color:Theme.fg;font-size:Theme.fs-sm;wrap:word-wrap;}
-                            HorizontalLayout {spacing:4px;
-                                Button {label:"Xem";ghost:true;enabled:!root.data.busy;clicked=>{root.action(136,0,""+image-index);}}
-                                Button {label:"Duyệt làm khung đầu";enabled:!root.data.busy;clicked=>{root.action(133,0,""+image-index);}}
-                            }
-                        }
-                    }
-                    if root.data.scene-image.path!="": Button {label:"Bỏ khung đầu · giữ ảnh trong thư viện";ghost:true;enabled:!root.data.busy;clicked=>{root.action(137,0,"");}}
-                    DialogRow {label:"Chế độ tham chiếu";Select {options:["Ingredients (Tối đa 3 ảnh nhân vật/bối cảnh)","Khung Đầu / Cuối (Start & End Frame)"];current:root.data.visual-mode;enabled:!root.data.busy;changed(index)=>{root.action(144,index,"");}}}
-                    HorizontalLayout {
-                        spacing:8px;
-                        Switch {checked:root.data.scene-flow-auto;enabled:!root.data.busy;toggled(on)=>{root.action(143,0,"");}}
-                        Text {text:"Scene Flow: Tự động lấy frame cuối cảnh trước làm khung đầu cảnh sau";color:Theme.fg;font-size:Theme.fs-sm;vertical-alignment:center;}
-                    }
-                    if root.data.scene>0: Button {label:"Lấy frame cuối cảnh trước làm khung đầu cảnh này";ghost:true;enabled:!root.data.busy;clicked=>{root.action(147,0,"");}}
-                    if root.data.visual-mode==1: HorizontalLayout {
-                        spacing:8px;
-                        VerticalLayout {
-                            spacing:4px;horizontal-stretch:1;
-                            Text {text:"Khung mở đầu (Start Frame)";color:Theme.fg-muted;font-size:Theme.fs-xs;}
-                            if root.data.scene-image.path!="": Image {height:80px;source:root.data.scene-image.preview;image-fit:contain;}
-                        }
-                        VerticalLayout {
-                            spacing:4px;horizontal-stretch:1;
-                            Text {text:"Khung kết thúc (End Frame - Tùy chọn)";color:Theme.fg-muted;font-size:Theme.fs-xs;}
-                            if root.data.end-image.path!="": Image {height:80px;source:root.data.end-image.preview;image-fit:contain;}
-                            HorizontalLayout {
-                                spacing:4px;
-                                Button {label:"Chọn End Frame";enabled:!root.data.busy;clicked=>{root.action(145,0,"");}}
-                                if root.data.end-image.path!="": Button {label:"Xóa";ghost:true;enabled:!root.data.busy;clicked=>{root.action(145,0,"clear");}}
-                            }
-                        }
-                    }
-                }
-                if root.tab==3: DialogSection {
-                    first:true;title:"Tài khoản & dự án cho cảnh";
-                    Text {text:root.data.account-summary;color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
-                    Text {text:"Tài khoản xử lý cảnh đang chọn";color:Theme.fg-muted;font-size:Theme.fs-sm;}
-                    Select {options:root.data.scene-account-names;current:root.data.scene-account;enabled:!root.data.busy;changed(index)=>{root.action(122,index,"");}}
-                    HorizontalLayout {
-                        spacing: 6px;
-                        Field {value:root.data.scene-project-url;placeholder:"URL dự án cho cảnh (để trống = tự lấy theo tài khoản/nhân vật)";horizontal-stretch:1;enabled:!root.data.busy;edited(text)=>{root.action(123,0,text);}}
-                        Button {label:"➕ Tạo dự án Flow mới";enabled:root.data.desktop && !root.data.busy;clicked=>{root.action(161,0,"");}}
-                    }
-                    Text {text:"Nhân vật/giọng gốc giữ đúng tài khoản và dự án nguồn. Quản lý profile, kết nối Chrome và giới hạn chạy trong Cài đặt → Google Flow.";color:Theme.fg-muted;font-size:Theme.fs-xs;wrap:word-wrap;}
-                    Button {label:"Mở Cài đặt tài khoản Flow";ghost:true;clicked=>{root.action(120,0,"");}}
-                }
-                if root.tab==3: DialogSection {
-                    title:"Thông số video & ảnh tham chiếu";
-                    DialogRow {label:"Nguồn tạo";Select {options:["Google Flow","Google Vids 8s (Free)"];current:root.data.video-provider;enabled:!root.data.busy;changed(index)=>{root.action(146,index,"");}}}
-                    DialogRow {label:"Model";Select {options:["Omni Flash 1.2","Veo 3.1 Lite (0 credit)","Veo 3.1 Fast","Veo 3.1 Quality"];current:root.data.model;enabled:!root.data.busy;changed(index)=>{root.action(4,index,"");}}}
-                    DialogRow {label:"Thời lượng";Select {options:["3 giây","4 giây","5 giây","6 giây","7 giây","8 giây","9 giây","10 giây","11 giây","12 giây","13 giây","14 giây","15 giây"];current:root.data.duration;enabled:!root.data.busy;changed(index)=>{root.action(5,index,"");}}}
-                    DialogRow {label:"Khung hình";Select {options:["Dọc 9:16","Ngang 16:9"];current:root.data.ratio;enabled:!root.data.busy;changed(index)=>{root.action(6,index,"");}}}
-                    Text {text:root.data.video-provider==1 ? "Google Vids: Tạo cảnh nhanh 8s chuẩn 16:9 hoặc 9:16 hoàn toàn miễn phí theo tài khoản Google, chạy ngầm không mở browser." : "Google Flow: Veo 3.1 Lite (0 credit) tới Fast/Quality. Hỗ trợ gắn Start/End frame & Scene Flow liền mạch.";color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
-                    Text {text:"Ảnh tham chiếu · mỗi dòng một đường dẫn, tối đa 8 ảnh";color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
-                    ScriptEditor {height:65px;value:root.data.reference;enabled:!root.data.busy;edited(text)=>{root.action(7,0,text);}}
-                }
-                if root.tab==3: DialogSection {
-                    first:true;title:"Hàng đợi theo cảnh";
-                    Text {text:"Chọn cảnh có prompt để chạy theo giới hạn tài khoản đã lưu. Bỏ qua cảnh đã xong hoặc cần kiểm tra Flow. Đóng tab Flow sẽ dừng gửi cảnh tiếp theo.";color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
-                    Select {options:["Tất cả trạng thái","Chưa xong","Cần kiểm tra Flow","Đã xong"];current:root.queue-filter;changed(index)=>{root.queue-filter=index;}}
-                    HorizontalLayout {spacing:4px;
-                        Button {label:"Chọn chưa chạy";enabled:!root.data.busy;clicked=>{root.action(86,1,"");}}
-                        Button {label:"Bỏ chọn";ghost:true;enabled:!root.data.busy;clicked=>{root.action(86,0,"");}}
-                    }
-                    for row[index] in root.data.scene-rows: HorizontalLayout {
-                        visible:root.queue-filter==0 || (root.queue-filter==1 && row.status!="Xong" && row.status!="Cần kiểm tra Flow") || (root.queue-filter==2 && row.status=="Cần kiểm tra Flow") || (root.queue-filter==3 && row.status=="Xong");
-                        spacing:6px;
-                        Switch {checked:row.selected;enabled:!root.data.busy;toggled(on)=>{root.action(50,index,"");}}
-                        Button {label:row.name;ghost:true;enabled:!root.data.busy;clicked=>{root.action(23,index,"");}}
-                        Text {text:row.status;color:Theme.fg-muted;font-size:Theme.fs-xs;horizontal-stretch:1;vertical-alignment:center;wrap:word-wrap;}
-                    }
-                    HorizontalLayout {spacing:6px;
-                        Button {label:"Ghép / cập nhật prompt";enabled:!root.data.busy;clicked=>{root.action(51,0,"");}}
-                        Button {label:"Xuất prompt .txt";ghost:true;enabled:!root.data.busy;clicked=>{root.action(59,0,"");}}
-                    }
-                    if root.data.queued: Text {text:"Còn "+root.data.queue-count+" cảnh chờ.";color:Theme.fg-muted;font-size:Theme.fs-sm;}
-                    Button {label:"Dừng sau cảnh đang chạy";enabled:root.data.queued;clicked=>{root.action(53,0,"");}}
-                }
-                if root.tab==3: DialogSection {
-                    first:true;title:"⚡ QUY TRÌNH TỰ ĐỘNG HOÀN TOÀN (1-CLICK AUTO BATCH)";
-                    Text {text:"Hệ thống tự động: Ghép prompt chuẩn → Nối khung hình Scene Flow → Gửi Veo 3.1 / Vids → Tự xoay tài khoản khi hết quota → Tự xóa logo → Nâng nét 1080p → Đưa clip vào Timeline.";color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
-                    HorizontalLayout {
-                        spacing:10px;
-                        Button {label:"⚡ TỰ ĐỘNG CHẠY TOÀN BỘ KỊCH BẢN";primary:true;enabled:root.data.desktop && !root.data.busy && root.data.scene-rows.length>0;clicked=>{root.action(150,0,"");}}
-                        Button {label:root.data.busy ? "Đang xử lý…" : "▶ Tạo riêng cảnh này";ghost:true;enabled:root.data.desktop && !root.data.busy;clicked=>{root.action(13,0,"");}}
-                        Button {label:"✨ Khóa Agent Instructions";ghost:true;enabled:root.data.desktop && !root.data.busy && root.data.ai-ready;clicked=>{root.action(160,0,"");}}
-                    }
-                    HorizontalLayout {
-                        spacing:12px;
+
                         HorizontalLayout {
-                            spacing:4px;
-                            Switch {checked:root.data.scene-flow-auto;enabled:!root.data.busy;toggled(on)=>{root.action(143,0,"");}}
-                            Text {text:"Nối cảnh mượt (Scene Flow)";color:Theme.fg;font-size:Theme.fs-xs;vertical-alignment:center;}
-                        }
-                        HorizontalLayout {
-                            spacing:4px;
-                            Switch {checked:root.data.auto-delogo;enabled:!root.data.busy;toggled(on)=>{root.action(151,0,"");}}
-                            Text {text:"Tự xóa logo Gemini";color:Theme.fg;font-size:Theme.fs-xs;vertical-alignment:center;}
-                        }
-                        HorizontalLayout {
-                            spacing:4px;
-                            Switch {checked:root.data.auto-upscale;enabled:!root.data.busy;toggled(on)=>{root.action(152,0,"");}}
-                            Text {text:"Tự nâng nét 1080p";color:Theme.fg;font-size:Theme.fs-xs;vertical-alignment:center;}
-                        }
-                        HorizontalLayout {
-                            spacing:4px;
-                            Switch {checked:root.data.auto-import-timeline;enabled:!root.data.busy;toggled(on)=>{root.action(153,0,"");}}
-                            Text {text:"Tự đưa vào Timeline";color:Theme.fg;font-size:Theme.fs-xs;vertical-alignment:center;}
-                        }
-                    }
-                }
-                if root.tab==4: DialogSection {
-                    first:true;title:"Thư viện Video đã hoàn tất";
-                    HorizontalLayout {
-                        spacing:8px;
-                        Text {text:root.data.files.length>0 ? "Có "+root.data.files.length+" video đã hoàn tất sẵn sàng dựng." : "Chưa có video đã tải cho cảnh này. Bấm '⚡ Tự động chạy toàn bộ kịch bản' ở bước Tạo video để bắt đầu.";color:Theme.fg-muted;font-size:Theme.fs-sm;horizontal-stretch:1;vertical-alignment:center;}
-                        Button {label:"Làm mới kết quả";ghost:true;enabled:!root.data.busy;clicked=>{root.action(16,0,"");}}
-                    }
-                    for row[index] in root.data.scene-rows: HorizontalLayout {
-                        spacing:6px;
-                        Button {label:row.name;ghost:true;primary:root.data.scene==index;enabled:!root.data.busy;clicked=>{root.action(23,index,"");}}
-                        Text {text:row.status;color:row.status=="completed" ? Theme.accent : Theme.fg-muted;font-size:Theme.fs-xs;vertical-alignment:center;horizontal-stretch:1;wrap:word-wrap;}
-                    }
-                    for file[index] in root.data.files: Rectangle {
-                        background: Theme.field;
-                        border-radius: Theme.r;
-                        border-width: 1px;
-                        border-color: Theme.line;
-                        VerticalLayout {
-                            padding: 10px;
                             spacing: 8px;
+                            Text {
+                                text: "Mỗi cảnh cách nhau một dòng trống. Ghi rõ tên người nói trước lời thoại (vd: Codex: Xin chào!).";
+                                color: Theme.fg-muted;
+                                font-size: Theme.fs-xs;
+                                wrap: word-wrap;
+                                horizontal-stretch: 1;
+                                vertical-alignment: center;
+                            }
+                            Button {
+                                label: "🔄 Trích xuất Nhân vật & Phân vai";
+                                primary: root.data.scenes.length > 0 && root.data.characters.length == 0;
+                                ghost: !(root.data.scenes.length > 0 && root.data.characters.length == 0);
+                                enabled: root.data.ai-ready && !root.data.busy && root.data.scenes.length > 0;
+                                clicked => { root.action(46, 0, ""); }
+                            }
+                        }
+
+                        AiScriptEditor {
+                            editor-height: root.width >= 880px ? 240px : 140px;
+                            value: root.data.screenplay;
+                            enabled: !root.data.busy;
+                            ai-enabled: root.data.ai-ready;
+                            edited(text) => { root.action(20, 0, text); }
+                            ai-request(prompt) => { root.action(175, 20, prompt); }
+                        }
+
+                        FlowAccordionHeader {
+                            title: "📦 Sao lưu / Nhập xuất kịch bản (.JSON)";
+                            summary: root.data.transfer-path != "" ? root.data.transfer-path : "";
+                            expanded: root.show-json-transfer;
+                            toggled => { root.show-json-transfer = !root.show-json-transfer; }
+                        }
+
+                        if root.show-json-transfer: VerticalLayout {
+                            spacing: 6px;
                             HorizontalLayout {
-                                spacing: 12px;
-                                Rectangle {
-                                    width: 120px;
-                                    height: 68px;
+                                spacing: 6px;
+                                Field {
+                                    value: root.data.transfer-path;
+                                    placeholder: "Đường dẫn file JSON bộ cảnh để nhập...";
+                                    enabled: !root.data.busy;
+                                    horizontal-stretch: 1;
+                                    edited(text) => { root.action(70, 0, text); }
+                                }
+                                Button {
+                                    label: "📥 Nhập JSON";
+                                    enabled: !root.data.busy && root.data.transfer-path != "";
+                                    clicked => { root.action(72, 0, ""); }
+                                }
+                                Button {
+                                    label: "📤 Xuất JSON";
+                                    ghost: true;
+                                    enabled: !root.data.busy;
+                                    clicked => { root.action(71, 0, ""); }
+                                }
+                            }
+                            Text {
+                                text: "Nhập bộ cảnh sẽ tự động lưu bản sao dự phòng flow-before-import.json.";
+                                color: Theme.fg-muted;
+                                font-size: Theme.fs-xs;
+                                wrap: word-wrap;
+                            }
+                        }
+                    }
+
+                    // =====================================================
+                    // TAB 1: NHÂN VẬT & BỐI CẢNH (SUB-TABBED STUDIO)
+                    // =====================================================
+                    if root.tab == 1: HorizontalLayout {
+                        spacing: 6px;
+                        FlowFilterChip {
+                            label: "👤 Nhân vật dự án";
+                            count: root.data.characters.length;
+                            current: root.cast-subtab == 0;
+                            clicked => { root.cast-subtab = 0; }
+                        }
+                        FlowFilterChip {
+                            label: "🏞️ Bối cảnh & Phong cách";
+                            count: root.data.backgrounds.length > 0 ? root.data.backgrounds.length - 1 : 0;
+                            current: root.cast-subtab == 1;
+                            clicked => { root.cast-subtab = 1; }
+                        }
+                        FlowFilterChip {
+                            label: "⭐ Kho Preset dùng chung";
+                            count: root.data.character-presets.length + root.data.scene-presets.length;
+                            current: root.cast-subtab == 2;
+                            clicked => { root.cast-subtab = 2; }
+                        }
+                        FlowFilterChip {
+                            label: "☁️ Đồng bộ từ Flow";
+                            count: root.data.remote-characters.length;
+                            current: root.cast-subtab == 3;
+                            clicked => { root.cast-subtab = 3; }
+                        }
+                        Rectangle { horizontal-stretch: 1; }
+                    }
+
+                    // ── SUBTAB 0: HỒ SƠ NHÂN VẬT TRONG DỰ ÁN ─────────────
+                    if root.tab == 1 && root.cast-subtab == 0: DialogSection {
+                        first: true;
+                        title: "👤 Danh sách Nhân vật & Giọng nói trong dự án";
+
+                        HorizontalLayout {
+                            spacing: 6px;
+                            Button {
+                                label: "+ Thêm nhân vật";
+                                primary: root.data.characters.length == 0;
+                                enabled: !root.data.busy;
+                                clicked => { root.action(28, 0, ""); }
+                            }
+                            Button {
+                                label: "✨ AI viết hồ sơ nhân vật";
+                                primary: root.data.characters.length > 0;
+                                enabled: root.data.ai-ready && !root.data.busy;
+                                clicked => { root.action(42, 0, ""); }
+                            }
+                            Button {
+                                label: "🔒 Khóa Agent Instructions vào Flow";
+                                ghost: true;
+                                enabled: root.data.desktop && !root.data.busy && root.data.ai-ready;
+                                clicked => { root.action(160, 0, ""); }
+                            }
+                            Button {
+                                label: "☁️ Lấy từ Flow";
+                                ghost: true;
+                                clicked => { root.cast-subtab = 3; }
+                            }
+                            Button {
+                                label: "⭐ Chọn từ Preset";
+                                ghost: true;
+                                clicked => { root.cast-subtab = 2; }
+                            }
+                        }
+
+                        // Compact Image Generation Config Bar
+                        Rectangle {
+                            background: Theme.well;
+                            border-radius: Theme.r-sm;
+                            border-width: 1px;
+                            border-color: Theme.line;
+                            VerticalLayout {
+                                padding: 8px;
+                                spacing: 6px;
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    Text {
+                                        text: "🎨 Nguồn tạo ảnh tham chiếu:";
+                                        color: Theme.fg-muted;
+                                        font-size: Theme.fs-xs;
+                                        vertical-alignment: center;
+                                    }
+                                    Select {
+                                        options: ["Google Flow · tài khoản đã đăng nhập", "Gemini API · key trong Cài đặt"];
+                                        current: root.data.image-provider;
+                                        enabled: !root.data.busy;
+                                        horizontal-stretch: 1;
+                                        changed(index) => { root.action(124, index, ""); }
+                                    }
+                                    if root.data.image-provider == 0: Select {
+                                        options: ["Nano Banana Pro", "Nano Banana 2", "Nano Banana 2 Lite"];
+                                        current: root.data.flow-image-model;
+                                        enabled: !root.data.busy;
+                                        changed(index) => { root.action(125, index, ""); }
+                                    }
+                                    if root.data.image-provider == 0: Select {
+                                        options: ["1:1", "9:16", "16:9", "3:4", "4:3"];
+                                        current: root.data.flow-image-ratio;
+                                        enabled: !root.data.busy;
+                                        changed(index) => { root.action(126, index, ""); }
+                                    }
+                                    if root.data.image-provider == 0: Button {
+                                        label: "🔗 Kết nối Chrome Flow";
+                                        ghost: true;
+                                        enabled: root.data.desktop && !root.data.busy;
+                                        clicked => { root.action(10, 0, ""); }
+                                    }
+                                }
+                                if root.data.image-provider == 1: Field {
+                                    value: root.data.image-model;
+                                    placeholder: "Gemini image model ID";
+                                    enabled: !root.data.busy;
+                                    edited(text) => { root.action(79, 0, text); }
+                                }
+                                if root.data.image-ready-message != "": Text {
+                                    text: root.data.image-ready-message;
+                                    color: Theme.fg-muted;
+                                    font-size: Theme.fs-xs;
+                                    wrap: word-wrap;
+                                }
+                            }
+                        }
+
+                        if root.data.characters.length == 0: Rectangle {
+                            background: Theme.field;
+                            border-radius: Theme.r;
+                            HorizontalLayout {
+                                padding: 16px;
+                                Text {
+                                    text: "Chưa có nhân vật nào trong dự án. Hãy bấm '+ Thêm nhân vật', '☁️ Lấy từ Flow' hoặc '⭐ Chọn từ Preset' để bắt đầu.";
+                                    color: Theme.fg-muted;
+                                    font-size: Theme.fs-sm;
+                                    wrap: word-wrap;
+                                }
+                            }
+                        }
+
+                        // Character Cards
+                        for character[index] in root.data.characters: Rectangle {
+                            background: Theme.well;
+                            border-radius: Theme.r;
+                            border-width: 1px;
+                            border-color: Theme.line;
+
+                            VerticalLayout {
+                                padding: 10px;
+                                spacing: 8px;
+
+                                // Character Card Header
+                                HorizontalLayout {
+                                    spacing: 10px;
+                                    if root.data.character-images[index].path != "": Rectangle {
+                                        width: 56px;
+                                        height: 56px;
+                                        background: Theme.field;
+                                        border-radius: Theme.r-sm;
+                                        clip: true;
+                                        Image {
+                                            width: 100%;
+                                            height: 100%;
+                                            source: root.data.character-images[index].preview;
+                                            image-fit: contain;
+                                        }
+                                    }
+                                    VerticalLayout {
+                                        horizontal-stretch: 1;
+                                        spacing: 4px;
+                                        HorizontalLayout {
+                                            spacing: 8px;
+                                            Text {
+                                                text: "👤 " + root.data.character-names[index + 1];
+                                                color: Theme.fg;
+                                                font-size: Theme.fs-lg;
+                                                font-weight: Theme.weight-title;
+                                                vertical-alignment: center;
+                                                horizontal-stretch: 1;
+                                            }
+                                            Button {
+                                                label: "⭐ Lưu Preset";
+                                                ghost: true;
+                                                enabled: !root.data.busy;
+                                                clicked => { root.action(180, index, ""); }
+                                            }
+                                            Button {
+                                                label: "🗑️ Xóa";
+                                                ghost: true;
+                                                enabled: !root.data.busy;
+                                                clicked => { root.action(30, index, ""); }
+                                            }
+                                        }
+                                        AiField {
+                                            value: root.data.character-roles[index];
+                                            placeholder: "🎙️ Vai diễn & Giọng nói: vd. Nam 30 tuổi, giọng trầm ấm thuyết minh (hoặc mã giọng Flow)";
+                                            enabled: !root.data.busy;
+                                            ai-enabled: root.data.ai-ready;
+                                            edited(text) => { root.action(113, index, text); }
+                                            ai-request(prompt) => { root.action(175, 113, index + ":::" + prompt); }
+                                        }
+                                    }
+                                }
+
+                                // Profile Description
+                                AiScriptEditor {
+                                    editor-height: 85px;
+                                    value: character;
+                                    enabled: !root.data.busy;
+                                    ai-enabled: root.data.ai-ready;
+                                    edited(text) => { root.action(29, index, text); }
+                                    ai-request(prompt) => { root.action(175, 29, index + ":::" + prompt); }
+                                }
+
+                                // Image Actions Row
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    Button {
+                                        label: "📁 Chọn ảnh từ máy";
+                                        enabled: root.data.desktop && !root.data.busy;
+                                        clicked => { root.action(95, index, ""); }
+                                    }
+                                    Button {
+                                        label: root.data.image-provider == 0 ? "🎨 Tạo ảnh bằng Flow" : "🎨 Tạo ảnh Gemini";
+                                        primary: root.data.character-images[index].path == "";
+                                        enabled: !root.data.busy && (root.data.image-provider == 0 ? root.data.desktop && root.data.source-account >= 0 : root.data.ai-ready);
+                                        clicked => { root.action(80, index, ""); }
+                                    }
+                                    if root.data.image-provider == 0: Button {
+                                        label: "📐 Tạo bộ ảnh 3 góc";
+                                        enabled: root.data.desktop && !root.data.busy && root.data.character-images[index].path != "";
+                                        clicked => { root.action(127, index, ""); }
+                                    }
+                                    if root.data.character-images[index].path != "": Button {
+                                        label: "📥 Gắn ảnh vào cảnh hiện tại";
+                                        ghost: true;
+                                        enabled: !root.data.busy && root.data.scenes.length > 0;
+                                        clicked => { root.action(82, index, ""); }
+                                    }
+                                }
+
+                                // Character Gallery Items
+                                for reference[image-index] in root.data.character-galleries[index].items: Rectangle {
+                                    background: Theme.field;
+                                    border-radius: Theme.r-sm;
+                                    HorizontalLayout {
+                                        padding: 6px;
+                                        spacing: 8px;
+                                        Image {
+                                            width: 64px;
+                                            height: 64px;
+                                            source: reference.preview;
+                                            image-fit: contain;
+                                        }
+                                        VerticalLayout {
+                                            horizontal-stretch: 1;
+                                            spacing: 4px;
+                                            alignment: center;
+                                            Text {
+                                                text: reference.label + (reference.selected ? " · ⭐ Ảnh chuẩn" : "") + (reference.approved ? " · ✓ Đã duyệt" : "");
+                                                color: Theme.fg;
+                                                font-size: Theme.fs-sm;
+                                                wrap: word-wrap;
+                                            }
+                                            HorizontalLayout {
+                                                spacing: 4px;
+                                                Button {
+                                                    label: "👁️ Xem";
+                                                    ghost: true;
+                                                    enabled: !root.data.busy;
+                                                    clicked => { root.action(132, index, "" + image-index); }
+                                                }
+                                                if reference.kind == "sheet": Button {
+                                                    label: reference.approved ? "Bỏ duyệt" : "✓ Duyệt bộ 3 góc";
+                                                    enabled: !root.data.busy;
+                                                    clicked => { root.action(129, index, "" + image-index); }
+                                                }
+                                                if reference.kind != "sheet": Button {
+                                                    label: reference.selected ? "Đang làm ảnh chuẩn" : "Đặt làm ảnh chuẩn";
+                                                    enabled: !root.data.busy && !reference.selected;
+                                                    clicked => { root.action(128, index, "" + image-index); }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // ── SUBTAB 1: BỐI CẢNH & PHONG CÁCH CHUNG ────────────
+                    if root.tab == 1 && root.cast-subtab == 1: DialogSection {
+                        first: true;
+                        title: "🏞️ Bối cảnh & Phong cách Hình ảnh Chung";
+
+                        HorizontalLayout {
+                            spacing: 6px;
+                            Button {
+                                label: "✨ AI tự trích xuất bối cảnh";
+                                primary: true;
+                                enabled: root.data.ai-ready && !root.data.busy;
+                                clicked => { root.action(43, 0, ""); }
+                            }
+                            Button {
+                                label: "+ Thêm bối cảnh";
+                                enabled: !root.data.busy;
+                                clicked => { root.action(66, 0, ""); }
+                            }
+                            Button {
+                                label: "⭐ Lưu vào Kho Preset";
+                                ghost: true;
+                                enabled: !root.data.busy && root.data.background-edit > 0;
+                                clicked => { root.action(185, root.data.background-edit - 1, ""); }
+                            }
+                            Button {
+                                label: "🗑️ Xóa bối cảnh";
+                                ghost: true;
+                                enabled: !root.data.busy && root.data.background-edit > 0;
+                                clicked => { root.action(68, 0, ""); }
+                            }
+                        }
+
+                        DialogRow {
+                            label: "Chọn bối cảnh";
+                            Select {
+                                options: root.data.backgrounds;
+                                current: root.data.background-edit;
+                                enabled: !root.data.busy;
+                                changed(index) => { root.action(65, index, ""); }
+                            }
+                        }
+
+                        AiScriptEditor {
+                            editor-height: 95px;
+                            value: root.data.background-text;
+                            enabled: !root.data.busy && root.data.background-edit > 0;
+                            ai-enabled: root.data.ai-ready && root.data.background-edit > 0;
+                            edited(text) => { root.action(67, 0, text); }
+                            ai-request(prompt) => { root.action(175, 67, prompt); }
+                        }
+
+                        if root.data.background-image.path != "": Image {
+                            height: 130px;
+                            source: root.data.background-image.preview;
+                            image-fit: contain;
+                        }
+
+                        HorizontalLayout {
+                            spacing: 6px;
+                            Button {
+                                label: root.data.image-provider == 0 ? "🎨 Tạo ảnh bối cảnh (Flow)" : "🎨 Tạo ảnh bối cảnh (Gemini)";
+                                enabled: !root.data.busy && root.data.background-edit > 0 && (root.data.image-provider == 0 ? root.data.desktop && root.data.source-account >= 0 : root.data.ai-ready);
+                                clicked => { root.action(81, root.data.background-edit - 1, ""); }
+                            }
+                            if root.data.image-provider == 0: Button {
+                                label: "📐 Tạo bộ bối cảnh (3 góc)";
+                                enabled: root.data.desktop && !root.data.busy && root.data.background-edit > 0 && root.data.source-account >= 0;
+                                clicked => { root.action(138, root.data.background-edit - 1, ""); }
+                            }
+                            Button {
+                                label: "📥 Dùng ảnh cho cảnh hiện tại";
+                                ghost: true;
+                                enabled: !root.data.busy && root.data.scenes.length > 0 && root.data.background-image.path != "";
+                                clicked => { root.action(83, root.data.background-edit - 1, ""); }
+                            }
+                        }
+
+                        Rectangle { height: 1px; background: Theme.line; }
+
+                        Text {
+                            text: "🎨 Phong cách đạo diễn & Tính nhất quán xuyên suốt (Continuity)";
+                            color: Theme.fg;
+                            font-size: Theme.fs-sm;
+                            font-weight: Theme.weight-title;
+                        }
+
+                        HorizontalLayout {
+                            spacing: 6px;
+                            AiField {
+                                value: root.data.style;
+                                placeholder: "Phong cách hình ảnh, màu sắc, ánh sáng và âm hưởng chung...";
+                                enabled: !root.data.busy;
+                                ai-enabled: root.data.ai-ready;
+                                horizontal-stretch: 1;
+                                edited(text) => { root.action(22, 0, text); }
+                                ai-request(prompt) => { root.action(175, 22, prompt); }
+                            }
+                            Select {
+                                options: ["Mẫu phong cách…", "Điện ảnh chân thực (Cinematic realism)", "Phim tài liệu (Documentary)", "Hoạt hình 3D (3D animation)", "Hoạt hình 2D (2D animation)", "Màu nước (Watercolor)", "Stop-motion thủ công"];
+                                current: 0;
+                                enabled: !root.data.busy;
+                                changed(index) => {
+                                    if index > 0 {
+                                        root.action(22, 0, self.options[index]);
+                                        self.current = 0;
+                                    }
+                                }
+                            }
+                        }
+
+                        AiScriptEditor {
+                            editor-height: 75px;
+                            value: root.data.continuity;
+                            enabled: !root.data.busy;
+                            ai-enabled: root.data.ai-ready;
+                            edited(text) => { root.action(21, 0, text); }
+                            ai-request(prompt) => { root.action(175, 21, prompt); }
+                        }
+                    }
+
+                    // ── SUBTAB 2: KHO PRESET DÙNG CHUNG (GLOBAL LIBRARY) ─
+                    if root.tab == 1 && root.cast-subtab == 2: DialogSection {
+                        first: true;
+                        title: "⭐ Kho Nhân vật Preset dùng chung (" + root.data.character-presets.length + ")";
+
+                        Text {
+                            text: root.data.character-presets.length > 0
+                                ? "Nhân vật đã lưu trên máy · Bấm '📥 Thêm vào kịch bản' để tái sử dụng ngay cho dự án này:"
+                                : "Chưa có nhân vật Preset nào. Tại thẻ Nhân vật dự án, bấm '⭐ Lưu Preset' để lưu nhân vật dùng lâu dài.";
+                            color: Theme.fg-muted;
+                            font-size: Theme.fs-sm;
+                            wrap: word-wrap;
+                        }
+
+                        for preset[index] in root.data.character-presets: Rectangle {
+                            background: Theme.field;
+                            border-radius: Theme.r;
+                            border-width: 1px;
+                            border-color: Theme.line;
+                            HorizontalLayout {
+                                padding: 8px;
+                                spacing: 10px;
+                                if preset.has-image: Rectangle {
+                                    width: 52px;
+                                    height: 52px;
                                     background: Theme.well;
-                                    border-radius: Theme.r;
+                                    border-radius: Theme.r-sm;
                                     clip: true;
                                     Image {
                                         width: 100%;
                                         height: 100%;
-                                        source: file.preview;
+                                        source: preset.preview;
                                         image-fit: contain;
                                     }
                                 }
                                 VerticalLayout {
-                                    spacing: 4px;
+                                    spacing: 2px;
                                     horizontal-stretch: 1;
                                     alignment: center;
+                                    HorizontalLayout {
+                                        spacing: 6px;
+                                        Text {
+                                            text: preset.name;
+                                            color: Theme.fg;
+                                            font-size: Theme.fs;
+                                            font-weight: Theme.weight-title;
+                                        }
+                                        if preset.role != "": Text {
+                                            text: "· " + preset.role;
+                                            color: Theme.accent;
+                                            font-size: Theme.fs-xs;
+                                            vertical-alignment: center;
+                                        }
+                                    }
                                     Text {
-                                        text: file.name;
+                                        text: preset.profile;
+                                        color: Theme.fg-muted;
+                                        font-size: Theme.fs-xs;
+                                        max-height: 34px;
+                                        overflow: elide;
+                                        wrap: word-wrap;
+                                    }
+                                }
+                                HorizontalLayout {
+                                    spacing: 4px;
+                                    alignment: center;
+                                    Button {
+                                        label: "📥 Thêm vào kịch bản";
+                                        primary: true;
+                                        enabled: !root.data.busy;
+                                        clicked => { root.action(181, index, ""); root.cast-subtab = 0; }
+                                    }
+                                    Button {
+                                        label: "🗑️";
+                                        ghost: true;
+                                        enabled: !root.data.busy;
+                                        clicked => { root.action(182, index, ""); }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if root.tab == 1 && root.cast-subtab == 2: DialogSection {
+                        title: "🏞️ Kho Bối cảnh Preset dùng chung (" + root.data.scene-presets.length + ")";
+
+                        Text {
+                            text: root.data.scene-presets.length > 0
+                                ? "Bối cảnh đã lưu trên máy · Bấm '📥 Dùng cảnh này' để đưa vào dự án:"
+                                : "Chưa có bối cảnh Preset nào. Tại mục Bối cảnh & Phong cách, bấm '⭐ Lưu vào Kho Preset' để lưu.";
+                            color: Theme.fg-muted;
+                            font-size: Theme.fs-sm;
+                            wrap: word-wrap;
+                        }
+
+                        for preset[index] in root.data.scene-presets: Rectangle {
+                            background: Theme.field;
+                            border-radius: Theme.r;
+                            border-width: 1px;
+                            border-color: Theme.line;
+                            HorizontalLayout {
+                                padding: 8px;
+                                spacing: 10px;
+                                if preset.has-image: Rectangle {
+                                    width: 72px;
+                                    height: 52px;
+                                    background: Theme.well;
+                                    border-radius: Theme.r-sm;
+                                    clip: true;
+                                    Image {
+                                        width: 100%;
+                                        height: 100%;
+                                        source: preset.preview;
+                                        image-fit: cover;
+                                    }
+                                }
+                                VerticalLayout {
+                                    spacing: 2px;
+                                    horizontal-stretch: 1;
+                                    alignment: center;
+                                    HorizontalLayout {
+                                        spacing: 6px;
+                                        Text {
+                                            text: preset.name;
+                                            color: Theme.fg;
+                                            font-size: Theme.fs;
+                                            font-weight: Theme.weight-title;
+                                        }
+                                        if preset.style != "": Text {
+                                            text: "· " + preset.style;
+                                            color: Theme.accent;
+                                            font-size: Theme.fs-xs;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+                                    Text {
+                                        text: preset.description;
+                                        color: Theme.fg-muted;
+                                        font-size: Theme.fs-xs;
+                                        max-height: 34px;
+                                        overflow: elide;
+                                        wrap: word-wrap;
+                                    }
+                                }
+                                HorizontalLayout {
+                                    spacing: 4px;
+                                    alignment: center;
+                                    Button {
+                                        label: "📥 Dùng cảnh này";
+                                        primary: true;
+                                        enabled: !root.data.busy;
+                                        clicked => { root.action(186, index, ""); root.cast-subtab = 1; }
+                                    }
+                                    Button {
+                                        label: "🗑️";
+                                        ghost: true;
+                                        enabled: !root.data.busy;
+                                        clicked => { root.action(187, index, ""); }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // ── SUBTAB 3: ĐỒNG BỘ NHÂN VẬT TỪ GOOGLE FLOW ────────
+                    if root.tab == 1 && root.cast-subtab == 3: DialogSection {
+                        first: true;
+                        title: "☁️ Lấy Nhân vật & Giọng nói gốc từ dự án Google Flow";
+
+                        Text {
+                            text: "Đọc trực tiếp các thẻ Nhân vật (Character Ingredients) kèm mã giọng nói đã tạo sẵn trên Google Flow mà không tốn credit.";
+                            color: Theme.fg-muted;
+                            font-size: Theme.fs-sm;
+                            wrap: word-wrap;
+                        }
+
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Text {
+                                text: "Tài khoản nguồn:";
+                                color: Theme.fg-muted;
+                                font-size: Theme.fs-xs;
+                                vertical-alignment: center;
+                            }
+                            Select {
+                                options: root.data.account-names;
+                                current: root.data.source-account;
+                                enabled: !root.data.busy;
+                                horizontal-stretch: 1;
+                                changed(index) => { root.action(121, index, ""); }
+                            }
+                            Button {
+                                label: "⚙️ Quản lý tài khoản";
+                                ghost: true;
+                                clicked => { root.action(120, 0, ""); }
+                            }
+                        }
+
+                        HorizontalLayout {
+                            spacing: 6px;
+                            Field {
+                                value: root.data.url;
+                                placeholder: "https://flow.google.com/project/…";
+                                horizontal-stretch: 1;
+                                enabled: !root.data.busy;
+                                edited(text) => { root.action(2, 0, text); }
+                            }
+                            Button {
+                                label: "➕ Tạo dự án Flow mới";
+                                enabled: root.data.desktop && !root.data.busy;
+                                clicked => { root.action(161, 0, ""); }
+                            }
+                        }
+
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Button {
+                                label: "🔍 Đọc thư viện nhân vật từ Flow";
+                                primary: true;
+                                enabled: root.data.desktop && !root.data.busy;
+                                clicked => { root.action(100, 0, ""); }
+                            }
+                            Text {
+                                text: "Gắn vào:";
+                                color: Theme.fg-muted;
+                                font-size: Theme.fs-xs;
+                                vertical-alignment: center;
+                            }
+                            Select {
+                                options: root.data.character-names;
+                                current: root.data.flow-link-target;
+                                enabled: !root.data.busy;
+                                horizontal-stretch: 1;
+                                changed(index) => { root.action(112, index, ""); }
+                            }
+                        }
+
+                        for remote[index] in root.data.remote-characters: Rectangle {
+                            background: Theme.field;
+                            border-radius: Theme.r-sm;
+                            border-width: 1px;
+                            border-color: Theme.line;
+                            VerticalLayout {
+                                padding: 8px;
+                                spacing: 4px;
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    Text {
+                                        text: "☁️ " + remote.name;
                                         color: Theme.fg;
                                         font-size: Theme.fs;
-                                        font-weight: 600;
-                                        overflow: elide;
+                                        font-weight: Theme.weight-title;
+                                        horizontal-stretch: 1;
+                                        vertical-alignment: center;
+                                        wrap: word-wrap;
+                                    }
+                                    Button {
+                                        label: root.data.flow-link-target > 0 ? "🔗 Gắn vào hồ sơ đã chọn" : (remote.imported ? "🔄 Cập nhật từ Flow" : "📥 Nhập nhân vật");
+                                        primary: !remote.imported;
+                                        enabled: !root.data.busy;
+                                        clicked => { root.action(101, index, ""); }
+                                    }
+                                }
+                                Text {
+                                    text: remote.detail;
+                                    color: Theme.fg-muted;
+                                    font-size: Theme.fs-xs;
+                                    wrap: word-wrap;
+                                }
+                            }
+                        }
+                    }
+
+                    // =====================================================
+                    // TAB 2: DỰNG CẢNH (SCENE STUDIO & DIALOGUE)
+                    // =====================================================
+                    if root.tab == 2: DialogSection {
+                        first: true;
+                        title: "🎬 Nội dung Cảnh, Diễn xuất & Lời thoại";
+
+                        // Quick Scene Actions Header
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Text {
+                                text: "Bối cảnh:";
+                                color: Theme.fg-muted;
+                                font-size: Theme.fs-xs;
+                                vertical-alignment: center;
+                            }
+                            Select {
+                                options: root.data.backgrounds;
+                                current: root.data.background;
+                                enabled: !root.data.busy && root.data.scenes.length > 0;
+                                horizontal-stretch: 1;
+                                changed(index) => { root.action(64, index, ""); }
+                            }
+                            Button {
+                                label: "▶ Tạo video cảnh này";
+                                primary: true;
+                                enabled: root.data.desktop && !root.data.busy && root.data.scenes.length > 0;
+                                clicked => { root.action(13, 0, ""); }
+                            }
+                            Button {
+                                label: "🗑️ Xóa cảnh";
+                                ghost: true;
+                                enabled: !root.data.busy && root.data.scenes.length > 0;
+                                clicked => { root.action(26, 0, ""); }
+                            }
+                        }
+
+                        // Characters appearing in this scene
+                        Text {
+                            text: "👥 Nhân vật xuất hiện trong cảnh (Tự động gắn chip & giọng gốc trên Flow):";
+                            color: Theme.fg-muted;
+                            font-size: Theme.fs-xs;
+                            font-weight: Theme.weight-title;
+                        }
+
+                        for character[index] in root.data.cast-rows: Rectangle {
+                            background: character.selected ? Theme.well : Theme.field;
+                            border-radius: Theme.r-sm;
+                            border-width: 1px;
+                            border-color: character.selected ? Theme.accent.with-alpha(0.35) : Colors.transparent;
+                            VerticalLayout {
+                                padding: 6px;
+                                spacing: 4px;
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    Switch {
+                                        checked: character.selected;
+                                        enabled: !root.data.busy && root.data.scenes.length > 0;
+                                        toggled(on) => { root.action(61, index, ""); }
                                     }
                                     Text {
-                                        text: file.status != "" ? file.status : "Sẵn sàng đưa vào Timeline dựng";
-                                        color: Theme.accent;
-                                        font-size: Theme.fs-xs;
+                                        text: character.name;
+                                        color: character.selected ? Theme.fg : Theme.fg-muted;
+                                        font-size: Theme.fs-sm;
+                                        font-weight: character.selected ? Theme.weight-title : Theme.weight-body;
+                                        wrap: word-wrap;
+                                        horizontal-stretch: 1;
+                                        vertical-alignment: center;
                                     }
+                                }
+                                if character.selected: AiField {
+                                    value: character.action;
+                                    placeholder: "Hành động / biểu cảm riêng của nhân vật trong cảnh này...";
+                                    enabled: !root.data.busy && root.data.scenes.length > 0;
+                                    ai-enabled: root.data.ai-ready && root.data.scenes.length > 0;
+                                    edited(text) => { root.action(105, index, text); }
+                                    ai-request(prompt) => { root.action(175, 105, index + ":::" + prompt); }
+                                }
+                            }
+                        }
+
+                        Text {
+                            text: "📝 Mô tả hành động & diễn biến trong cảnh:";
+                            color: Theme.fg-muted;
+                            font-size: Theme.fs-xs;
+                            font-weight: Theme.weight-title;
+                        }
+
+                        AiScriptEditor {
+                            editor-height: 120px;
+                            value: root.data.scene-text;
+                            enabled: !root.data.busy;
+                            ai-enabled: root.data.ai-ready;
+                            edited(text) => { root.action(27, 0, text); }
+                            ai-request(prompt) => { root.action(175, 27, prompt); }
+                        }
+
+                        // Dialogue Section
+                        HorizontalLayout {
+                            spacing: 6px;
+                            Text {
+                                text: "💬 Lời thoại theo nhân vật (Khớp 1:1 với giọng nhân vật Flow):";
+                                color: Theme.fg;
+                                font-size: Theme.fs-sm;
+                                font-weight: Theme.weight-title;
+                                horizontal-stretch: 1;
+                                vertical-alignment: center;
+                            }
+                            Button {
+                                label: "+ Thêm câu thoại";
+                                enabled: !root.data.busy && root.data.scenes.length > 0 && root.data.characters.length > 0;
+                                clicked => { root.action(106, 0, ""); }
+                            }
+                            Button {
+                                label: "✨ AI trau chuốt thoại";
+                                ghost: true;
+                                enabled: root.data.ai-ready && !root.data.busy && root.data.dialogue != "";
+                                clicked => { root.action(45, 0, ""); }
+                            }
+                        }
+
+                        for line[index] in root.data.dialogue-rows: Rectangle {
+                            background: Theme.well;
+                            border-radius: Theme.r-sm;
+                            border-width: 1px;
+                            border-color: Theme.line;
+                            VerticalLayout {
+                                padding: 6px;
+                                spacing: 4px;
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    Text {
+                                        text: "🎙️ Người nói:";
+                                        color: Theme.fg-muted;
+                                        font-size: Theme.fs-xs;
+                                        vertical-alignment: center;
+                                    }
+                                    Select {
+                                        options: root.data.character-names;
+                                        current: line.speaker;
+                                        enabled: !root.data.busy;
+                                        horizontal-stretch: 1;
+                                        changed(speaker) => { root.action(107, index, "" + speaker); }
+                                    }
+                                    Button {
+                                        label: "✕ Xóa câu";
+                                        ghost: true;
+                                        enabled: !root.data.busy;
+                                        clicked => { root.action(109, index, ""); }
+                                    }
+                                }
+                                AiScriptEditor {
+                                    editor-height: 58px;
+                                    value: line.text;
+                                    enabled: !root.data.busy;
+                                    ai-enabled: root.data.ai-ready;
+                                    edited(text) => { root.action(108, index, text); }
+                                    ai-request(prompt) => { root.action(175, 108, index + ":::" + prompt); }
+                                }
+                            }
+                        }
+
+                        if root.data.dialogue-rows.length == 0: AiScriptEditor {
+                            editor-height: 60px;
+                            value: root.data.dialogue;
+                            enabled: !root.data.busy;
+                            ai-enabled: root.data.ai-ready;
+                            edited(text) => { root.action(58, 0, text); }
+                            ai-request(prompt) => { root.action(175, 58, prompt); }
+                        }
+
+                        // Collapsible Cinematography Parameters
+                        FlowAccordionHeader {
+                            title: "🎥 Thông số Góc máy, Chuyển động, Ánh sáng & Âm thanh";
+                            summary: (root.data.shot != "" ? root.data.shot + " · " : "") + (root.data.camera != "" ? root.data.camera + " · " : "") + (root.data.movement != "" ? root.data.movement : "Mặc định");
+                            expanded: root.show-cinematography;
+                            toggled => { root.show-cinematography = !root.show-cinematography; }
+                        }
+
+                        if root.show-cinematography: Rectangle {
+                            background: Theme.well;
+                            border-radius: Theme.r-sm;
+                            border-width: 1px;
+                            border-color: Theme.line;
+                            VerticalLayout {
+                                padding: 8px;
+                                spacing: 6px;
+
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    Select {
+                                        options: ["Cỡ cảnh…", "Đại toàn cảnh (Extreme wide shot)", "Toàn cảnh (Wide shot)", "Trung cảnh (Medium shot)", "Trung cận (Medium close-up)", "Cận cảnh (Close-up)", "Đặc tả (Extreme close-up)", "Cảnh đôi (Two-shot)", "Insert shot · chi tiết đạo cụ"];
+                                        current: 0;
+                                        enabled: !root.data.busy;
+                                        changed(index) => { if index > 0 { root.action(60, 0, self.options[index]); self.current = 0; } }
+                                    }
+                                    AiField {
+                                        value: root.data.shot;
+                                        placeholder: "Cỡ cảnh (Shot size)...";
+                                        enabled: !root.data.busy;
+                                        ai-enabled: root.data.ai-ready;
+                                        horizontal-stretch: 1;
+                                        edited(text) => { root.action(60, 0, text); }
+                                        ai-request(prompt) => { root.action(175, 60, prompt); }
+                                    }
+                                }
+
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    Select {
+                                        options: ["Góc máy…", "Ngang tầm mắt (Eye-level)", "Góc thấp (Low angle)", "Góc cao (High angle)", "Từ trên xuống (Overhead)", "Qua vai (Over-the-shoulder)", "Góc nhìn nhân vật (POV)", "Góc nghiêng (Dutch angle)"];
+                                        current: 0;
+                                        enabled: !root.data.busy;
+                                        changed(index) => { if index > 0 { root.action(55, 0, self.options[index]); self.current = 0; } }
+                                    }
+                                    AiField {
+                                        value: root.data.camera;
+                                        placeholder: "Góc máy (Camera angle)...";
+                                        enabled: !root.data.busy;
+                                        ai-enabled: root.data.ai-ready;
+                                        horizontal-stretch: 1;
+                                        edited(text) => { root.action(55, 0, text); }
+                                        ai-request(prompt) => { root.action(175, 55, prompt); }
+                                    }
+                                }
+
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    Select {
+                                        options: ["Chuyển động…", "Máy tĩnh (Static shot)", "Tiến gần chậm (Slow push-in)", "Lùi xa (Pull-out)", "Lia ngang (Pan)", "Ngước máy (Tilt up)", "Hạ máy (Tilt down)", "Bám theo (Tracking shot)", "Máy vòng quanh (Orbit)", "Cầm tay nhẹ (Gentle handheld)", "Cần cẩu nâng (Crane up)"];
+                                        current: 0;
+                                        enabled: !root.data.busy;
+                                        changed(index) => { if index > 0 { root.action(56, 0, self.options[index]); self.current = 0; } }
+                                    }
+                                    AiField {
+                                        value: root.data.movement;
+                                        placeholder: "Chuyển động máy (Camera motion)...";
+                                        enabled: !root.data.busy;
+                                        ai-enabled: root.data.ai-ready;
+                                        horizontal-stretch: 1;
+                                        edited(text) => { root.action(56, 0, text); }
+                                        ai-request(prompt) => { root.action(175, 56, prompt); }
+                                    }
+                                }
+
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    Select {
+                                        options: ["Ánh sáng…", "Ánh sáng tự nhiên dịu (Soft natural light)", "Nắng chiều ấm (Golden hour)", "Ánh sáng xanh chạng vạng (Blue hour)", "Trời nhiều mây (Overcast diffuse)", "Ánh sáng cửa sổ (Window light)", "Tương phản điện ảnh (Cinematic chiaroscuro)", "Neon ban đêm (Night neon)", "Ngược sáng viền (Rim backlight)"];
+                                        current: 0;
+                                        enabled: !root.data.busy;
+                                        changed(index) => { if index > 0 { root.action(62, 0, self.options[index]); self.current = 0; } }
+                                    }
+                                    AiField {
+                                        value: root.data.lighting;
+                                        placeholder: "Ánh sáng (Lighting)...";
+                                        enabled: !root.data.busy;
+                                        ai-enabled: root.data.ai-ready;
+                                        horizontal-stretch: 1;
+                                        edited(text) => { root.action(62, 0, text); }
+                                        ai-request(prompt) => { root.action(175, 62, prompt); }
+                                    }
+                                }
+
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    Select {
+                                        options: ["Âm thanh…", "Âm thanh môi trường tự nhiên, không nhạc", "Chỉ lời thoại, không nhạc nền", "Không lời thoại, không nhạc", "Tiếng chim và gió nhẹ", "Âm thanh xưởng thủ công chân thực", "Nhạc nền piano nhẹ", "Nhạc nền căng thẳng điện ảnh"];
+                                        current: 0;
+                                        enabled: !root.data.busy;
+                                        changed(index) => { if index > 0 { root.action(57, 0, self.options[index]); self.current = 0; } }
+                                    }
+                                    AiField {
+                                        value: root.data.sound;
+                                        placeholder: "Nhạc nền / SFX môi trường...";
+                                        enabled: !root.data.busy;
+                                        ai-enabled: root.data.ai-ready;
+                                        horizontal-stretch: 1;
+                                        edited(text) => { root.action(57, 0, text); }
+                                        ai-request(prompt) => { root.action(175, 57, prompt); }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Collapsible Start/End Frame & Scene Image Section
+                        FlowAccordionHeader {
+                            title: "🖼️ Ảnh tham chiếu Cảnh & Khung Đầu / Cuối (Scene Flow)";
+                            summary: root.data.visual-mode == 1 ? "Chế độ: Start & End Frame" : "Chế độ: Ingredients (Nhân vật/Bối cảnh)";
+                            expanded: root.show-scene-frame || root.data.scene-image.path != "" || root.data.scene-images.length > 0;
+                            toggled => { root.show-scene-frame = !root.show-scene-frame; }
+                        }
+
+                        if root.show-scene-frame || root.data.scene-image.path != "" || root.data.scene-images.length > 0: Rectangle {
+                            background: Theme.well;
+                            border-radius: Theme.r-sm;
+                            border-width: 1px;
+                            border-color: Theme.line;
+                            VerticalLayout {
+                                padding: 8px;
+                                spacing: 6px;
+
+                                DialogRow {
+                                    label: "Tham chiếu";
+                                    Select {
+                                        options: ["Ingredients (Tối đa 3 ảnh nhân vật/bối cảnh)", "Khung Đầu / Cuối (Start & End Frame)"];
+                                        current: root.data.visual-mode;
+                                        enabled: !root.data.busy;
+                                        changed(index) => { root.action(144, index, ""); }
+                                    }
+                                }
+
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    Switch {
+                                        checked: root.data.scene-flow-auto;
+                                        enabled: !root.data.busy;
+                                        toggled(on) => { root.action(143, 0, ""); }
+                                    }
+                                    Text {
+                                        text: "Tự động nối mượt (Scene Flow): Lấy frame cuối cảnh trước làm khung đầu cảnh sau";
+                                        color: Theme.fg;
+                                        font-size: Theme.fs-xs;
+                                        vertical-alignment: center;
+                                        horizontal-stretch: 1;
+                                    }
+                                    if root.data.scene > 0: Button {
+                                        label: "🔗 Lấy frame cuối cảnh trước";
+                                        ghost: true;
+                                        enabled: !root.data.busy;
+                                        clicked => { root.action(147, 0, ""); }
+                                    }
+                                }
+
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    Button {
+                                        label: "🎨 Tạo ảnh cảnh bằng Flow";
+                                        primary: true;
+                                        enabled: root.data.desktop && !root.data.busy && root.data.scenes.length > 0;
+                                        clicked => { root.action(131, 0, ""); }
+                                    }
+                                    Button {
+                                        label: "📐 Tạo ảnh cảnh (3 góc nhìn)";
+                                        enabled: root.data.desktop && !root.data.busy && root.data.scenes.length > 0;
+                                        clicked => { root.action(139, 0, ""); }
+                                    }
+                                    if root.data.scene-image.path != "": Button {
+                                        label: "Bỏ khung đầu";
+                                        ghost: true;
+                                        enabled: !root.data.busy;
+                                        clicked => { root.action(137, 0, ""); }
+                                    }
+                                }
+
+                                for reference[image-index] in root.data.scene-images: HorizontalLayout {
+                                    spacing: 8px;
+                                    Image {
+                                        width: 96px;
+                                        height: 64px;
+                                        source: reference.preview;
+                                        image-fit: contain;
+                                    }
+                                    VerticalLayout {
+                                        spacing: 4px;
+                                        alignment: center;
+                                        Text {
+                                            text: reference.label + (reference.selected ? " · ⭐ Khung đầu đã chọn" : " · Chờ duyệt");
+                                            color: Theme.fg;
+                                            font-size: Theme.fs-xs;
+                                            wrap: word-wrap;
+                                        }
+                                        HorizontalLayout {
+                                            spacing: 4px;
+                                            Button {
+                                                label: "Xem";
+                                                ghost: true;
+                                                enabled: !root.data.busy;
+                                                clicked => { root.action(136, 0, "" + image-index); }
+                                            }
+                                            Button {
+                                                label: "Duyệt làm khung đầu";
+                                                enabled: !root.data.busy;
+                                                clicked => { root.action(133, 0, "" + image-index); }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if root.data.visual-mode == 1: HorizontalLayout {
+                                    spacing: 8px;
+                                    VerticalLayout {
+                                        spacing: 4px;
+                                        horizontal-stretch: 1;
+                                        Text { text: "Khung mở đầu (Start Frame)"; color: Theme.fg-muted; font-size: Theme.fs-xs; }
+                                        if root.data.scene-image.path != "": Image { height: 72px; source: root.data.scene-image.preview; image-fit: contain; }
+                                    }
+                                    VerticalLayout {
+                                        spacing: 4px;
+                                        horizontal-stretch: 1;
+                                        Text { text: "Khung kết thúc (End Frame - Tùy chọn)"; color: Theme.fg-muted; font-size: Theme.fs-xs; }
+                                        if root.data.end-image.path != "": Image { height: 72px; source: root.data.end-image.preview; image-fit: contain; }
+                                        HorizontalLayout {
+                                            spacing: 4px;
+                                            Button { label: "Chọn End Frame"; enabled: !root.data.busy; clicked => { root.action(145, 0, ""); } }
+                                            if root.data.end-image.path != "": Button { label: "Xóa"; ghost: true; enabled: !root.data.busy; clicked => { root.action(145, 0, "clear"); } }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Prompt Section of Tab 2
+                    if root.tab == 2: DialogSection {
+                        title: "✨ Prompt hoàn chỉnh gửi sang Google Flow";
+
+                        HorizontalLayout {
+                            spacing: 6px;
+                            Button {
+                                label: "🔄 Ghép / cập nhật từ kịch bản";
+                                enabled: !root.data.busy && root.data.scenes.length > 0;
+                                clicked => { root.action(24, 0, ""); }
+                            }
+                            Button {
+                                label: "✨ AI viết tối ưu Prompt điện ảnh";
+                                primary: true;
+                                enabled: root.data.ai-ready && !root.data.busy && root.data.scenes.length > 0;
+                                clicked => { root.action(44, 0, ""); }
+                            }
+                            Button {
+                                label: root.show-prompt ? "Thu gọn" : "Mở rộng";
+                                ghost: true;
+                                clicked => { root.show-prompt = !root.show-prompt; }
+                            }
+                        }
+
+                        if root.data.validation != "": Text {
+                            text: "⚠️ " + root.data.validation;
+                            color: Theme.meter-mid;
+                            font-size: Theme.fs-xs;
+                            wrap: word-wrap;
+                        }
+
+                        if root.show-prompt: AiScriptEditor {
+                            editor-height: 150px;
+                            value: root.draft;
+                            enabled: !root.data.busy;
+                            ai-enabled: root.data.ai-ready && root.data.scenes.length > 0;
+                            edited(text) => {
+                                root.typing = true;
+                                root.action(3, 0, text);
+                            }
+                            ai-request(prompt) => {
+                                root.action(175, 3, prompt);
+                            }
+                        }
+                    }
+
+                    // =====================================================
+                    // TAB 3: TẠO VIDEO (HERO 1-CLICK AUTO BATCH FIRST)
+                    // =====================================================
+                    if root.tab == 3: Rectangle {
+                        background: Theme.well;
+                        border-radius: Theme.r-lg;
+                        border-width: 1px;
+                        border-color: Theme.accent.with-alpha(0.6);
+
+                        VerticalLayout {
+                            padding: 12px;
+                            spacing: 10px;
+
+                            HorizontalLayout {
+                                spacing: 8px;
+                                Text {
+                                    text: "⚡ QUY TRÌNH TỰ ĐỘNG HOÀN TOÀN (1-CLICK AUTO BATCH)";
+                                    color: Theme.fg;
+                                    font-size: Theme.fs-lg;
+                                    font-weight: Theme.weight-title;
+                                    horizontal-stretch: 1;
+                                    vertical-alignment: center;
+                                }
+                                if root.data.queued: Button {
+                                    label: "⏹ Dừng sau cảnh đang chạy (còn " + root.data.queue-count + ")";
+                                    enabled: root.data.queued;
+                                    clicked => { root.action(53, 0, ""); }
+                                }
+                            }
+
+                            Text {
+                                text: "Hệ thống tự động: Ghép prompt chuẩn & khóa giọng nhân vật Flow → Nối khung hình Scene Flow → Gửi Veo 3.1 / Omni Flash → Tự xoay tài khoản khi hết quota → Đưa clip vào Timeline.";
+                                color: Theme.fg-muted;
+                                font-size: Theme.fs-sm;
+                                wrap: word-wrap;
+                            }
+
+                            HorizontalLayout {
+                                spacing: 8px;
+                                Button {
+                                    label: root.data.busy ? "⏳ Đang chạy tiến trình…" : "⚡ TỰ ĐỘNG CHẠY TOÀN BỘ KỊCH BẢN";
+                                    primary: true;
+                                    enabled: root.data.desktop && !root.data.busy && root.data.scene-rows.length > 0;
+                                    clicked => { root.action(150, 0, ""); }
+                                }
+                                Button {
+                                    label: "▶ Tạo riêng cảnh đang chọn";
+                                    enabled: root.data.desktop && !root.data.busy && root.data.scenes.length > 0;
+                                    clicked => { root.action(13, 0, ""); }
+                                }
+                                Button {
+                                    label: "🔒 Khóa Agent Instructions";
+                                    ghost: true;
+                                    enabled: root.data.desktop && !root.data.busy && root.data.ai-ready;
+                                    clicked => { root.action(160, 0, ""); }
+                                }
+                            }
+
+                            HorizontalLayout {
+                                spacing: 16px;
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    Switch {
+                                        checked: root.data.scene-flow-auto;
+                                        enabled: !root.data.busy;
+                                        toggled(on) => { root.action(143, 0, ""); }
+                                    }
+                                    Text {
+                                        text: "Nối cảnh mượt (Scene Flow)";
+                                        color: Theme.fg;
+                                        font-size: Theme.fs-xs;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    Switch {
+                                        checked: root.data.auto-import-timeline;
+                                        enabled: !root.data.busy;
+                                        toggled(on) => { root.action(153, 0, ""); }
+                                    }
+                                    Text {
+                                        text: "Tự động đưa clip vào Timeline";
+                                        color: Theme.fg;
+                                        font-size: Theme.fs-xs;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if root.tab == 3: DialogSection {
+                        title: "🎛️ Thông số Video (Model · Thời lượng · Khung hình)";
+
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Text {
+                                text: "Nguồn tạo:";
+                                color: Theme.fg-muted;
+                                font-size: Theme.fs-xs;
+                                vertical-alignment: center;
+                            }
+                            Select {
+                                options: ["Google Flow", "Google Vids 8s (Free)"];
+                                current: root.data.video-provider;
+                                enabled: !root.data.busy;
+                                horizontal-stretch: 1;
+                                changed(index) => { root.action(146, index, ""); }
+                            }
+                            Text {
+                                text: "Model:";
+                                color: Theme.fg-muted;
+                                font-size: Theme.fs-xs;
+                                vertical-alignment: center;
+                            }
+                            Select {
+                                options: ["Omni Flash 1.2", "Veo 3.1 Lite (0 credit)", "Veo 3.1 Fast", "Veo 3.1 Quality"];
+                                current: root.data.model;
+                                enabled: !root.data.busy;
+                                horizontal-stretch: 1;
+                                changed(index) => { root.action(4, index, ""); }
+                            }
+                        }
+
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Text {
+                                text: "Thời lượng:";
+                                color: Theme.fg-muted;
+                                font-size: Theme.fs-xs;
+                                vertical-alignment: center;
+                            }
+                            Select {
+                                options: ["3 giây", "4 giây", "5 giây", "6 giây", "7 giây", "8 giây", "9 giây", "10 giây", "11 giây", "12 giây", "13 giây", "14 giây", "15 giây"];
+                                current: root.data.duration;
+                                enabled: !root.data.busy;
+                                horizontal-stretch: 1;
+                                changed(index) => { root.action(5, index, ""); }
+                            }
+                            Text {
+                                text: "Tỷ lệ:";
+                                color: Theme.fg-muted;
+                                font-size: Theme.fs-xs;
+                                vertical-alignment: center;
+                            }
+                            Select {
+                                options: ["Dọc 9:16 (Shorts/Reels)", "Ngang 16:9 (YouTube/Cinema)"];
+                                current: root.data.ratio;
+                                enabled: !root.data.busy;
+                                horizontal-stretch: 1;
+                                changed(index) => { root.action(6, index, ""); }
+                            }
+                        }
+                    }
+
+                    if root.tab == 3: DialogSection {
+                        title: "📋 Danh sách Hàng đợi theo Cảnh";
+
+                        HorizontalLayout {
+                            spacing: 6px;
+                            FlowFilterChip {
+                                label: "Tất cả";
+                                count: root.data.scene-rows.length;
+                                current: root.queue-filter == 0;
+                                clicked => { root.queue-filter = 0; }
+                            }
+                            FlowFilterChip {
+                                label: "Chưa xong";
+                                current: root.queue-filter == 1;
+                                clicked => { root.queue-filter = 1; }
+                            }
+                            FlowFilterChip {
+                                label: "Cần kiểm tra";
+                                current: root.queue-filter == 2;
+                                clicked => { root.queue-filter = 2; }
+                            }
+                            FlowFilterChip {
+                                label: "Đã xong";
+                                current: root.queue-filter == 3;
+                                clicked => { root.queue-filter = 3; }
+                            }
+                            Rectangle { horizontal-stretch: 1; }
+                            Button {
+                                label: "Chọn chưa chạy";
+                                ghost: true;
+                                enabled: !root.data.busy;
+                                clicked => { root.action(86, 1, ""); }
+                            }
+                            Button {
+                                label: "Bỏ chọn";
+                                ghost: true;
+                                enabled: !root.data.busy;
+                                clicked => { root.action(86, 0, ""); }
+                            }
+                        }
+
+                        for row[index] in root.data.scene-rows: Rectangle {
+                            visible: root.queue-filter == 0
+                                || (root.queue-filter == 1 && row.status != "Xong" && row.status != "completed" && row.status != "Cần kiểm tra Flow")
+                                || (root.queue-filter == 2 && row.status == "Cần kiểm tra Flow")
+                                || (root.queue-filter == 3 && (row.status == "Xong" || row.status == "completed"));
+                            height: 34px;
+                            background: root.data.scene == index ? Theme.well : Theme.field;
+                            border-radius: Theme.r-sm;
+
+                            HorizontalLayout {
+                                padding-left: 8px;
+                                padding-right: 8px;
+                                spacing: 8px;
+                                Switch {
+                                    checked: row.selected;
+                                    enabled: !root.data.busy;
+                                    toggled(on) => { root.action(50, index, ""); }
+                                }
+                                Button {
+                                    label: row.name;
+                                    ghost: true;
+                                    enabled: !root.data.busy;
+                                    clicked => { root.action(23, index, ""); }
+                                }
+                                Text {
+                                    text: row.status;
+                                    color: (row.status == "Xong" || row.status == "completed") ? Theme.green : Theme.fg-muted;
+                                    font-size: Theme.fs-xs;
+                                    horizontal-stretch: 1;
+                                    vertical-alignment: center;
+                                    overflow: elide;
+                                }
+                                Button {
+                                    label: "🔄 Tạo lại";
+                                    ghost: true;
+                                    enabled: root.data.desktop && !root.data.busy;
+                                    clicked => { root.action(190, index, ""); }
+                                }
+                            }
+                        }
+
+                        HorizontalLayout {
+                            spacing: 6px;
+                            Button {
+                                label: "🔄 Ghép / cập nhật toàn bộ Prompt";
+                                enabled: !root.data.busy;
+                                clicked => { root.action(51, 0, ""); }
+                            }
+                            Button {
+                                label: "📄 Xuất danh sách Prompt (.txt)";
+                                ghost: true;
+                                enabled: !root.data.busy;
+                                clicked => { root.action(59, 0, ""); }
+                            }
+                        }
+
+                        FlowAccordionHeader {
+                            title: "⚙️ Tài khoản xử lý & Ảnh tham chiếu thủ công (Nâng cao)";
+                            summary: root.data.account-summary;
+                            expanded: root.show-advanced-gen;
+                            toggled => { root.show-advanced-gen = !root.show-advanced-gen; }
+                        }
+
+                        if root.show-advanced-gen: VerticalLayout {
+                            spacing: 6px;
+                            Text {
+                                text: root.data.account-summary;
+                                color: Theme.fg-muted;
+                                font-size: Theme.fs-xs;
+                                wrap: word-wrap;
+                            }
+                            HorizontalLayout {
+                                spacing: 8px;
+                                Text {
+                                    text: "Tài khoản cảnh:";
+                                    color: Theme.fg-muted;
+                                    font-size: Theme.fs-xs;
+                                    vertical-alignment: center;
+                                }
+                                Select {
+                                    options: root.data.scene-account-names;
+                                    current: root.data.scene-account;
+                                    enabled: !root.data.busy;
+                                    horizontal-stretch: 1;
+                                    changed(index) => { root.action(122, index, ""); }
+                                }
+                                Button {
+                                    label: "⚙️ Cài đặt tài khoản Flow";
+                                    ghost: true;
+                                    clicked => { root.action(120, 0, ""); }
                                 }
                             }
                             HorizontalLayout {
                                 spacing: 6px;
-                                Button { label: "👁️ Xem"; ghost: true; enabled: !root.data.busy; clicked => { root.action(114, index, ""); } }
-                                Button { label: "✨ Xóa Logo"; ghost: true; enabled: !root.data.busy; clicked => { root.action(142, index, ""); } }
-                                Button { label: "🚀 1080p"; ghost: true; enabled: !root.data.busy; clicked => { root.action(140, index, ""); } }
-                                Button { label: "💎 2K"; ghost: true; enabled: !root.data.busy; clicked => { root.action(141, index, ""); } }
-                                Button { label: "📂 Mở"; ghost: true; enabled: !root.data.busy; clicked => { root.action(15, index, ""); } }
-                                Button { label: "📥 Nhập Timeline"; primary: true; enabled: root.data.can-import && !root.data.busy; clicked => { root.action(14, index, ""); } }
+                                Field {
+                                    value: root.data.scene-project-url;
+                                    placeholder: "URL dự án cho cảnh (để trống = tự lấy theo tài khoản/nhân vật)";
+                                    horizontal-stretch: 1;
+                                    enabled: !root.data.busy;
+                                    edited(text) => { root.action(123, 0, text); }
+                                }
+                                Button {
+                                    label: "➕ Dự án Flow mới";
+                                    enabled: root.data.desktop && !root.data.busy;
+                                    clicked => { root.action(161, 0, ""); }
+                                }
+                            }
+                            Text {
+                                text: "Ảnh tham chiếu bổ sung (mỗi dòng một đường dẫn, tối đa 8 ảnh):";
+                                color: Theme.fg-muted;
+                                font-size: Theme.fs-xs;
+                            }
+                            ScriptEditor {
+                                height: 60px;
+                                value: root.data.reference;
+                                enabled: !root.data.busy;
+                                edited(text) => { root.action(7, 0, text); }
                             }
                         }
                     }
-                    if !root.data.can-import: Text {text:"Mở một dự án Concat để nhập clip và dựng trên timeline.";color:Theme.fg-muted;font-size:Theme.fs-sm;wrap:word-wrap;}
+
+                    // =====================================================
+                    // TAB 4: THƯ VIỆN KẾT QUẢ & SỬA NHANH TẠI CHỖ
+                    // =====================================================
+                    if root.tab == 4: DialogSection {
+                        first: true;
+                        title: "🎞️ Kết quả Video — " + (root.data.scenes.length > root.data.scene ? root.data.scenes[root.data.scene] : "Cảnh hiện tại");
+
+                        // Top Control Bar
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Text {
+                                text: root.data.files.length > 0
+                                    ? "Đã hoàn tất " + root.data.files.length + " video cho cảnh này · sẵn sàng nâng 1080p hoặc đưa vào Timeline."
+                                    : "Chưa có video cho cảnh này. Bấm '🔄 Tạo lại cảnh này' hoặc chạy hàng đợi ở Bước 4.";
+                                color: Theme.fg-muted;
+                                font-size: Theme.fs-sm;
+                                horizontal-stretch: 1;
+                                vertical-alignment: center;
+                                wrap: word-wrap;
+                            }
+                            Button {
+                                label: root.quick-edit-open ? "▲ Đóng sửa nhanh" : "✏️ Sửa nhanh Thoại / Prompt";
+                                primary: root.quick-edit-open;
+                                ghost: !root.quick-edit-open;
+                                enabled: !root.data.busy && root.data.scenes.length > 0;
+                                clicked => { root.quick-edit-open = !root.quick-edit-open; }
+                            }
+                            Button {
+                                label: "🔄 Tạo lại cảnh này";
+                                primary: !root.quick-edit-open;
+                                enabled: root.data.desktop && !root.data.busy && root.data.scenes.length > 0;
+                                clicked => { root.action(190, root.data.scene, ""); }
+                            }
+                            Button {
+                                label: "Làm mới";
+                                ghost: true;
+                                enabled: !root.data.busy;
+                                clicked => { root.action(16, 0, ""); }
+                            }
+                        }
+
+                        // In-Context Quick Edit Drawer (No need to jump back to Tab 2!)
+                        if root.quick-edit-open: Rectangle {
+                            background: Theme.well;
+                            border-radius: Theme.r;
+                            border-width: 1px;
+                            border-color: Theme.accent.with-alpha(0.5);
+
+                            VerticalLayout {
+                                padding: 10px;
+                                spacing: 8px;
+
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    Text {
+                                        text: "✏️ Sửa nhanh Lời thoại & Prompt ngay tại chỗ (Giọng nhân vật tự động khóa theo hồ sơ Flow)";
+                                        color: Theme.fg;
+                                        font-size: Theme.fs-sm;
+                                        font-weight: Theme.weight-title;
+                                        horizontal-stretch: 1;
+                                        vertical-alignment: center;
+                                    }
+                                    Button {
+                                        label: "Mở đầy đủ ở Tab Cảnh →";
+                                        ghost: true;
+                                        clicked => { root.tab = 2; }
+                                    }
+                                }
+
+                                for line[index] in root.data.dialogue-rows: HorizontalLayout {
+                                    spacing: 6px;
+                                    Select {
+                                        options: root.data.character-names;
+                                        current: line.speaker;
+                                        enabled: !root.data.busy;
+                                        changed(speaker) => { root.action(107, index, "" + speaker); }
+                                    }
+                                    AiField {
+                                        value: line.text;
+                                        placeholder: "Lời thoại nhân vật...";
+                                        enabled: !root.data.busy;
+                                        ai-enabled: root.data.ai-ready;
+                                        horizontal-stretch: 1;
+                                        edited(text) => { root.action(108, index, text); }
+                                        ai-request(prompt) => { root.action(175, 108, index + ":::" + prompt); }
+                                    }
+                                }
+
+                                AiScriptEditor {
+                                    editor-height: 110px;
+                                    value: root.draft;
+                                    enabled: !root.data.busy;
+                                    ai-enabled: root.data.ai-ready;
+                                    edited(text) => {
+                                        root.typing = true;
+                                        root.action(3, 0, text);
+                                    }
+                                    ai-request(prompt) => {
+                                        root.action(175, 3, prompt);
+                                    }
+                                }
+
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    Button {
+                                        label: "🔄 Cập nhật Prompt từ Thoại";
+                                        enabled: !root.data.busy;
+                                        clicked => { root.action(24, 0, ""); }
+                                    }
+                                    Button {
+                                        label: "✨ AI viết lại Prompt";
+                                        enabled: root.data.ai-ready && !root.data.busy;
+                                        clicked => { root.action(44, 0, ""); }
+                                    }
+                                    Rectangle { horizontal-stretch: 1; }
+                                    Button {
+                                        label: "🚀 Chạy tạo lại cảnh này ngay";
+                                        primary: true;
+                                        enabled: root.data.desktop && !root.data.busy;
+                                        clicked => {
+                                            root.quick-edit-open = false;
+                                            root.action(190, root.data.scene, "");
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Video Result Cards
+                        for file[index] in root.data.files: Rectangle {
+                            background: Theme.field;
+                            border-radius: Theme.r;
+                            border-width: 1px;
+                            border-color: Theme.line;
+
+                            VerticalLayout {
+                                padding: 12px;
+                                spacing: 10px;
+
+                                HorizontalLayout {
+                                    spacing: 14px;
+                                    Rectangle {
+                                        width: 160px;
+                                        height: 90px;
+                                        background: Theme.well;
+                                        border-radius: Theme.r-sm;
+                                        border-width: 1px;
+                                        border-color: Theme.line;
+                                        clip: true;
+                                        Image {
+                                            width: 100%;
+                                            height: 100%;
+                                            source: file.preview;
+                                            image-fit: contain;
+                                        }
+                                    }
+
+                                    VerticalLayout {
+                                        spacing: 6px;
+                                        horizontal-stretch: 1;
+                                        alignment: center;
+
+                                        Text {
+                                            text: file.name;
+                                            color: Theme.fg;
+                                            font-size: Theme.fs-lg;
+                                            font-weight: Theme.weight-title;
+                                            overflow: elide;
+                                        }
+
+                                        Text {
+                                            text: file.status != "" ? "✓ " + file.status : "✓ Sẵn sàng đưa vào Timeline dựng";
+                                            color: Theme.green;
+                                            font-size: Theme.fs-xs;
+                                            font-weight: Theme.weight-title;
+                                        }
+
+                                        HorizontalLayout {
+                                            spacing: 6px;
+                                            Button {
+                                                label: "👁️ Xem trước";
+                                                primary: true;
+                                                enabled: !root.data.busy;
+                                                clicked => {
+                                                    if (Editor.flow-workspace-mode == 2) {
+                                                        Editor.flow-workspace-mode = 1;
+                                                        Editor.flow-workspace-changed(1, 0);
+                                                    }
+                                                    root.action(114, index, "");
+                                                }
+                                            }
+                                            Button {
+                                                label: "⭐ Nâng 1080p (Flow)";
+                                                enabled: root.data.desktop && !root.data.busy;
+                                                clicked => { root.action(140, index, ""); }
+                                            }
+                                            Button {
+                                                label: "📥 Nhập Timeline";
+                                                enabled: root.data.can-import && !root.data.busy;
+                                                clicked => { root.action(14, index, ""); }
+                                            }
+                                            Button {
+                                                label: "🔄 Tạo lại";
+                                                ghost: true;
+                                                enabled: root.data.desktop && !root.data.busy;
+                                                clicked => { root.action(190, root.data.scene, ""); }
+                                            }
+                                            Button {
+                                                label: "📂 Mở file";
+                                                ghost: true;
+                                                enabled: !root.data.busy;
+                                                clicked => { root.action(15, index, ""); }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        if !root.data.can-import: Text {
+                            text: "💡 Mở một dự án CDCedit để kích hoạt nút '📥 Nhập Timeline'.";
+                            color: Theme.fg-muted;
+                            font-size: Theme.fs-xs;
+                            wrap: word-wrap;
+                        }
+                    }
+                }
+            }
+
+            // Bottom Navigation Bar
+            HorizontalLayout {
+                spacing: 8px;
+                Button {
+                    label: "← Bước trước";
+                    ghost: true;
+                    enabled: root.tab > 0;
+                    clicked => { root.tab = root.tab - 1; }
+                }
+                Rectangle { horizontal-stretch: 1; }
+                if root.tab < 4: Button {
+                    label: "Tiếp theo: " + root.step-names[root.tab + 1] + " →";
+                    primary: true;
+                    clicked => { root.tab = root.tab + 1; }
                 }
             }
         }
-        HorizontalLayout {
-            spacing:8px;
-            Button {label:"← Quay lại";ghost:true;enabled:root.tab>0;clicked=>{root.tab=root.tab - 1;}}
-            Rectangle {horizontal-stretch:1;}
-            if root.tab<4: Button {label:"Tiếp: "+root.step-names[root.tab+1]+" →";primary:true;clicked=>{root.tab=root.tab+1;}}
-        }
-    }
     }
 }

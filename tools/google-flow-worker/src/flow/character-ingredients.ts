@@ -65,15 +65,23 @@ export async function attachCharacterIngredients(page: Page, input: Locator, cha
       await sleep(600);
     }
 
-    // Both exact name and Character type are required; a portrait Image is insufficient.
-    const candidate = options.filter({
+    // Both exact name and Character type are required; support English, Korean, Vietnamese, etc.
+    let candidate = options.filter({
       has: page.locator('.asset-title', { hasText: new RegExp(`^\\s*${escape(item.name)}\\s*$`, 'i') }),
     }).filter({
-      has: page.locator('.type-subtitle', { hasText: /^(?:Character|캐릭터)$/i }),
+      has: page.locator('.type-subtitle', { hasText: /^(?:Character|캐릭터|Nhân vật|Personnage|Personaje)$/i }),
     });
 
     if ((await candidate.count()) !== 1) {
-      throw new FlowError('REFERENCE_NOT_ATTACHED', `Cannot uniquely select saved character ${item.name}. Nothing was sent.`);
+      // Fallback: match by title if subtitle language differs
+      const byTitle = options.filter({
+        has: page.locator('.asset-title', { hasText: new RegExp(`^\\s*${escape(item.name)}\\s*$`, 'i') }),
+      });
+      if ((await byTitle.count()) === 1) {
+        candidate = byTitle;
+      } else {
+        throw new FlowError('REFERENCE_NOT_ATTACHED', `Cannot uniquely select saved character ${item.name}. Nothing was sent.`);
+      }
     }
 
     await candidate.click();
