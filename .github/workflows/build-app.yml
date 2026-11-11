@@ -534,7 +534,7 @@ jobs:
 
       - name: Build (Windows)
         if: matrix.platform == 'windows'
-        timeout-minutes: 60
+        timeout-minutes: 120
         shell: pwsh
         working-directory: src
         run: |

@@ -90,6 +90,14 @@ incremental = true
 opt-level = 0
 codegen-units = 1
 
+# Same rationale for release (used by Android/iOS mobile builds): compiling the
+# 145+ MB generated Slint UI crate at opt-level = 3 with multiple codegen units
+# exceeds CI runner memory (exit 143), while every engine, rendering and
+# backend crate still compiles at opt-level = 3.
+[profile.release.package.concat]
+opt-level = 0
+codegen-units = 1
+
 # The shipping build of the editor window: `cargo build --profile app -p concat`.
 #
 # Every knob here is set for the fastest possible binary, and each one costs
@@ -128,6 +136,13 @@ panic = "abort"
 # Symbols are worth nothing in a release binary that is not being profiled.
 # Build with `--profile release` instead before running Instruments or perf.
 strip = "symbols"
+
+# Inherits release's concat override (`opt-level = 0`, `codegen-units = 1`);
+# stated explicitly so the desktop shipping profile stays independent of
+# future release-profile tweaks while keeping all engine crates at O3.
+[profile.app.package.concat]
+opt-level = 0
+codegen-units = 1
 
 # Decoding and compositing are unusably slow in an unoptimised build, even when
 # the rest of the engine is being debugged.
