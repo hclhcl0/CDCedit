@@ -997,6 +997,7 @@ jobs:
             }
           }
           Copy-Item LICENSE, THIRD_PARTY_NOTICES.md $dir
+          if (Test-Path "docs\HUONG_DAN_SU_DUNG.pdf") { Copy-Item "docs\HUONG_DAN_SU_DUNG.pdf" $dir }
           # The Visual C++ runtime DLLs anything in the folder imports, from
           # the newest redistributable folder Visual Studio carries.
           $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -property installationPath

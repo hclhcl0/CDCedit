@@ -58,6 +58,12 @@ pub enum StartMsg {
     /// One of the learn-and-community cards, or the version line, by the
     /// name [`link`] knows it by.
     Link(String),
+    /// Open or switch chapters in the in-app User Guide dialog on Start.
+    OpenGuide(i32),
+    CloseGuide,
+    GuideSectionChanged(i32),
+    /// Jump from the User Guide directly into a Settings tab.
+    GuideOpenSettings(i32),
     /// Files or folders dropped on the launch screen: a project folder
     /// opens, and anything else starts a new project to go into.
     Dropped(Vec<PathBuf>),
@@ -107,6 +113,9 @@ pub fn link(name: &str) -> Option<String> {
     Some(match name {
         "guides" => format!("{SITE}#readme"),
         "first-edit" => format!("{SITE}#readme"),
+        "guide-pdf" => format!("{REPOSITORY}/blob/main/docs/HUONG_DAN_SU_DUNG.pdf"),
+        "gemini-aistudio" => "https://aistudio.google.com/apikey".to_owned(),
+        "elevenlabs-keys" => "https://elevenlabs.io/app/settings/api-keys".to_owned(),
         "report" => format!("{REPOSITORY}/issues"),
         "github" => REPOSITORY.to_owned(),
         // The invite the README carries.
@@ -116,6 +125,37 @@ pub fn link(name: &str) -> Option<String> {
         "release-notes" => format!("{REPOSITORY}/releases"),
         _ => return None,
     })
+}
+
+/// Maps launch-screen / guide action names to in-app User Guide chapter indices.
+pub fn guide_section_for_link(name: &str) -> Option<i32> {
+    match name {
+        "guides" | "first-edit" | "guide-overview" => Some(0),
+        "guide-api" => Some(1),
+        "guide-flow" => Some(2),
+        "guide-shortcuts" => Some(9),
+        _ => None,
+    }
+}
+
+/// Locates the bundled `HUONG_DAN_SU_DUNG.pdf` relative to the executable or working directory.
+pub fn find_local_guide_pdf() -> Option<PathBuf> {
+    let exe_dir = std::env::current_exe()
+        .ok()
+        .and_then(|path| path.parent().map(Path::to_path_buf));
+    let cwd = std::env::current_dir().ok();
+    find_local_guide_pdf_in(exe_dir.as_deref(), cwd.as_deref())
+}
+
+fn find_local_guide_pdf_in(exe_dir: Option<&Path>, cwd: Option<&Path>) -> Option<PathBuf> {
+    let mut candidates = Vec::new();
+    for base in [exe_dir, cwd].into_iter().flatten() {
+        candidates.push(base.join("HUONG_DAN_SU_DUNG.pdf"));
+        for ancestor in base.ancestors().take(6) {
+            candidates.push(ancestor.join("docs").join("HUONG_DAN_SU_DUNG.pdf"));
+        }
+    }
+    candidates.into_iter().find(|path| path.is_file())
 }
 
 /// The sheet on the launch screen.
@@ -147,6 +187,8 @@ pub struct StartPane {
     /// [`SORT_RECENT`] or [`SORT_NAME`].
     pub sort: i32,
     pub project_tab: i32,
+    pub guide_open: bool,
+    pub guide_section: i32,
     /// Media dropped on the launch screen, waiting for the project the
     /// sheet is about to make: imported into it once it opens, and let go
     /// if the sheet is put down instead.
@@ -172,6 +214,8 @@ impl Default for StartPane {
             query: String::new(),
             sort: SORT_RECENT,
             project_tab: 0,
+            guide_open: false,
+            guide_section: 0,
             dropped: Vec::new(),
         }
     }
@@ -251,6 +295,7 @@ impl StartPane {
     pub fn update(&mut self, msg: StartMsg, studio: &mut Studio) {
         match msg {
             StartMsg::Compose => {
+                self.guide_open = false;
                 self.composing = true;
                 // A name somebody typed is kept for next time; one this
                 // sheet made up moves on past the folders already there.
@@ -311,11 +356,15 @@ impl StartPane {
             StartMsg::FolderChosen(folder) => self.location = folder,
             StartMsg::Create => self.create(studio),
             StartMsg::Open => self.open(),
-            StartMsg::OpenChosen(folder) => Self::open_chosen(&folder, studio),
+            StartMsg::OpenChosen(folder) => {
+                self.guide_open = false;
+                Self::open_chosen(&folder, studio);
+            }
             // Both of the grid's verbs report through the toast, as Open
             // does: the sheet is down while a card is pressed, and a notice
             // inside it would go unseen.
             StartMsg::OpenRecent(path) => {
+                self.guide_open = false;
                 let p = Path::new(&path);
                 if !studio.meters.phone && crate::capcut_hub::is_capcut_draft(p) {
                     crate::capcut_import::import_capcut_draft_path(studio, p);
@@ -369,8 +418,25 @@ impl StartPane {
                 }
             }
             StartMsg::Link(name) => {
+                if let Some(section) = guide_section_for_link(&name) {
+                    self.guide_section = section.clamp(0, 9);
+                    self.guide_open = true;
+                    return;
+                }
+                if name == "guide-pdf" {
+                    let target = find_local_guide_pdf()
+                        .map(|path| path.to_string_lossy().into_owned())
+                        .or_else(|| link("guide-pdf"));
+                    if let Some(target) = target
+                        && let Err(error) = platform::open_link(&target)
+                    {
+                        studio.notify(&tf("start.couldNotOpenLink", &[&target, &error]), true);
+                    }
+                    return;
+                }
                 match name.as_str() {
                     "shortcuts" => {
+                        self.guide_open = false;
                         use crate::panes::settings::{SHORTCUTS_PAGE, SettingsMsg};
                         studio.handle(crate::panes::Msg::Settings(SettingsMsg::Open));
                         studio.handle(crate::panes::Msg::Settings(SettingsMsg::PageChanged(
@@ -382,12 +448,14 @@ impl StartPane {
                         return;
                     }
                     "import-capcut" => {
+                        self.guide_open = false;
                         if !studio.meters.phone {
                             crate::capcut_import::import_capcut_dialog(studio);
                         }
                         return;
                     }
                     "tool-captions" => {
+                        self.guide_open = false;
                         use crate::panes::captions::CaptionsMsg;
                         studio.handle(crate::panes::Msg::Captions(CaptionsMsg::Open));
                         studio.captions.from_voice = true;
@@ -399,6 +467,7 @@ impl StartPane {
                         return;
                     }
                     "tool-translation" => {
+                        self.guide_open = false;
                         studio.handle(crate::panes::Msg::Translation(
                             crate::panes::translation::TranslationMsg::Action(
                                 0,
@@ -415,6 +484,7 @@ impl StartPane {
                     | "tool-gemini-replication"
                     | "tool-gemini-library"
                     | "tool-gemini-reactions" => {
+                        self.guide_open = false;
                         let mode = match name.as_str() {
                             "tool-gemini-performance" => 1,
                             "tool-gemini-design" => 2,
@@ -433,6 +503,7 @@ impl StartPane {
                         return;
                     }
                     "tool-voice-changer" => {
+                        self.guide_open = false;
                         use crate::panes::speech::SpeechMsg;
                         studio.speech.dub.mode = 3;
                         studio.speech.dub.vc_method = 1;
@@ -446,12 +517,14 @@ impl StartPane {
                         return;
                     }
                     "tool-audio-studio" | "tool-tts" => {
+                        self.guide_open = false;
                         use crate::panes::speech::SpeechMsg;
                         studio.speech.dub.mode = 0;
                         studio.handle(crate::panes::Msg::Speech(SpeechMsg::Open));
                         return;
                     }
                     "tool-dubbing" => {
+                        self.guide_open = false;
                         use crate::panes::speech::SpeechMsg;
                         if studio.speech.dub.mode == 0 {
                             studio.speech.dub.mode = 2;
@@ -461,6 +534,7 @@ impl StartPane {
                         return;
                     }
                     "tool-links" => {
+                        self.guide_open = false;
                         use crate::panes::link_import::LinkMsg;
                         studio.handle(crate::panes::Msg::Links(LinkMsg::Action(
                             0,
@@ -470,10 +544,12 @@ impl StartPane {
                         return;
                     }
                     "tool-cutout" => {
+                        self.guide_open = false;
                         run_standalone_cutout();
                         return;
                     }
                     "tool-enhance" => {
+                        self.guide_open = false;
                         run_standalone_enhance();
                         return;
                     }
@@ -486,6 +562,22 @@ impl StartPane {
                 if let Err(error) = platform::open_link(&url) {
                     studio.notify(&tf("start.couldNotOpenLink", &[&url, &error]), true);
                 }
+            }
+            StartMsg::OpenGuide(section) => {
+                self.guide_section = section.clamp(0, 9);
+                self.guide_open = true;
+            }
+            StartMsg::CloseGuide => {
+                self.guide_open = false;
+            }
+            StartMsg::GuideSectionChanged(section) => {
+                self.guide_section = section.clamp(0, 9);
+            }
+            StartMsg::GuideOpenSettings(page) => {
+                self.guide_open = false;
+                use crate::panes::settings::SettingsMsg;
+                studio.handle(crate::panes::Msg::Settings(SettingsMsg::Open));
+                studio.handle(crate::panes::Msg::Settings(SettingsMsg::PageChanged(page)));
             }
             StartMsg::Dropped(paths) => self.dropped_on(paths, studio),
         }
@@ -502,6 +594,7 @@ impl StartPane {
         if let Some(folder) = paths.iter().find(|path| projects::is_project(path)) {
             self.dropped.clear();
             self.composing = false;
+            self.guide_open = false;
             Self::open_chosen(folder, studio);
             return;
         }
@@ -675,6 +768,8 @@ impl StartPane {
             query: self.query.as_str().into(),
             sort: self.sort,
             project_tab: self.project_tab,
+            guide_open: self.guide_open,
+            guide_section: self.guide_section,
         }
     }
 }
@@ -1047,6 +1142,9 @@ mod tests {
         for name in [
             "guides",
             "first-edit",
+            "guide-pdf",
+            "gemini-aistudio",
+            "elevenlabs-keys",
             "report",
             "github",
             "discord",
@@ -1062,6 +1160,28 @@ mod tests {
             format!("{REPOSITORY}/releases")
         );
         assert_eq!(link("nowhere"), None);
+    }
+
+    #[test]
+    fn in_app_guide_routes_and_local_pdf_lookup_work() {
+        assert_eq!(guide_section_for_link("guides"), Some(0));
+        assert_eq!(guide_section_for_link("first-edit"), Some(0));
+        assert_eq!(guide_section_for_link("guide-api"), Some(1));
+        assert_eq!(guide_section_for_link("guide-flow"), Some(2));
+        assert_eq!(guide_section_for_link("guide-shortcuts"), Some(9));
+        assert_eq!(guide_section_for_link("github"), None);
+
+        let root = std::env::temp_dir().join(format!("concat-guide-pdf-{}", std::process::id()));
+        let docs = root.join("docs");
+        let bin = root.join("src").join("target").join("quick");
+        std::fs::create_dir_all(&docs).unwrap();
+        std::fs::create_dir_all(&bin).unwrap();
+        let pdf = docs.join("HUONG_DAN_SU_DUNG.pdf");
+        std::fs::write(&pdf, b"%PDF-1.4\n").unwrap();
+
+        let found = find_local_guide_pdf_in(Some(&bin), None);
+        assert_eq!(found.as_deref(), Some(pdf.as_path()));
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     /// Only a name the sheet made up is replaced; a typed one is kept.

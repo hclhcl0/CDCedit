@@ -779,6 +779,15 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
     app.on_start_link(on_window!(|state, name: SharedString| {
         state.handle(Msg::Start(StartMsg::Link(name.to_string())));
     }));
+    app.on_start_guide_closed(on_window!(|state| {
+        state.handle(Msg::Start(StartMsg::CloseGuide));
+    }));
+    app.on_start_guide_section_changed(on_window!(|state, index: i32| {
+        state.handle(Msg::Start(StartMsg::GuideSectionChanged(index)));
+    }));
+    app.on_start_guide_open_settings(on_window!(|state, page: i32| {
+        state.handle(Msg::Start(StartMsg::GuideOpenSettings(page)));
+    }));
 
     // ── the workspace's arrangement ──
     editor.on_flow_workspace_changed(on_dock!(|state, mode: i32, seat: i32| {

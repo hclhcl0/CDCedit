@@ -159,6 +159,9 @@ export struct StartData {
     query: string,
     sort: int,
     project-tab: int,
+    /// Sổ tay hướng dẫn tích hợp ngay trên Trang chủ.
+    guide-open: bool,
+    guide-section: int,
 }
 
 // ── the small parts ──────────────────────────────────────────────────────
@@ -1511,12 +1514,16 @@ component VersionLine inherits HorizontalLayout {
 // card for one.
 global Learn {
     out property <LearnItem> docs: {
-        name: "guides", glyph: Glyph.book, external: true,
-        title: I18n.t("start.documentation"), note: I18n.t("start.documentationNote"),
+        name: "guides", glyph: Glyph.book, external: false,
+        title: I18n.t("start.documentation"), note: "Mở sổ tay 10 chuyên mục trực quan ngay trong app",
     };
     out property <LearnItem> guide: {
-        name: "first-edit", glyph: Glyph.circle-play, external: true,
+        name: "first-edit", glyph: Glyph.circle-play, external: false,
         title: I18n.t("start.firstEdit"), note: I18n.t("start.firstEditNote"),
+    };
+    out property <LearnItem> flow-setup: {
+        name: "guide-flow", glyph: Glyph.sparkle, external: false,
+        title: "API Key & Google Flow", note: "Lấy key Gemini/ElevenLabs & kết nối Chrome CDP",
     };
     out property <LearnItem> keys: {
         name: "shortcuts", glyph: Glyph.keyboard, external: false,
@@ -1530,8 +1537,8 @@ global Learn {
         name: "github", glyph: Glyph.github, external: true,
         title: "GitHub CDCedit (hclhcl0)", note: "Tài liệu, mã nguồn & bản phát hành mới nhất",
     };
-    out property <[LearnItem]> desk: [docs, guide, keys, report, github];
-    out property <[LearnItem]> phone: [docs, guide, report, github];
+    out property <[LearnItem]> desk: [docs, guide, flow-setup, keys, report, github];
+    out property <[LearnItem]> phone: [docs, guide, flow-setup, report, github];
 }
 
 global AiTools {
@@ -2001,7 +2008,115 @@ component WideHome inherits Rectangle {
                     }
                 }
 
-                Rectangle { height: 28px; }
+                Rectangle { height: 16px; }
+
+                // ── Dải truy cập nhanh Sổ tay Hướng dẫn ngay trên Trang chủ ──
+                Rectangle {
+                    width: root.main-w;
+                    height: 54px;
+                    border-radius: Theme.r-lg;
+                    background: Theme.dark ? #111827 : Theme.launch-panel;
+                    border-width: 1px;
+                    border-color: Theme.dark ? #38bdf8.with-alpha(0.32) : Theme.line-strong;
+
+                    HorizontalLayout {
+                        padding-left: 14px;
+                        padding-right: 12px;
+                        spacing: 12px;
+
+                        VerticalLayout {
+                            alignment: center;
+                            Rectangle {
+                                width: 34px;
+                                height: 34px;
+                                border-radius: Theme.r;
+                                background: Theme.dark ? #0e293d : Theme.accent-soft;
+                                border-width: 1px;
+                                border-color: Theme.dark ? #38bdf8.with-alpha(0.45) : Theme.accent.with-alpha(0.45);
+
+                                Icon {
+                                    x: (parent.width - self.width) / 2;
+                                    y: (parent.height - self.height) / 2;
+                                    glyph: Glyph.book;
+                                    size: 16px;
+                                    tint: Theme.dark ? #38bdf8 : Theme.accent;
+                                }
+                            }
+                        }
+
+                        VerticalLayout {
+                            alignment: center;
+                            horizontal-stretch: 1;
+                            spacing: 1px;
+
+                            Text {
+                                text: "Hướng dẫn sử dụng CDCedit 1.0";
+                                color: Theme.fg;
+                                font-size: Theme.fs-lg;
+                                font-weight: Theme.weight-display;
+                                overflow: elide;
+                            }
+
+                            Text {
+                                text: "Cách lấy API Key Gemini/ElevenLabs, kết nối Chrome Google Flow CDP & dựng phim 5 bước";
+                                color: Theme.fg-muted;
+                                font-size: Theme.fs-sm;
+                                overflow: elide;
+                            }
+                        }
+
+                        HorizontalLayout {
+                            alignment: center;
+                            spacing: 8px;
+
+                            VerticalLayout {
+                                alignment: center;
+                                Button {
+                                    label: "Lấy API Key";
+                                    clicked => { root.link("guide-api"); }
+                                }
+                            }
+
+                            VerticalLayout {
+                                alignment: center;
+                                Button {
+                                    label: "Kết nối Flow";
+                                    clicked => { root.link("guide-flow"); }
+                                }
+                            }
+
+                            if root.content-w >= 920px: VerticalLayout {
+                                alignment: center;
+                                Button {
+                                    label: "Phím tắt";
+                                    ghost: true;
+                                    clicked => { root.link("guide-shortcuts"); }
+                                }
+                            }
+
+                            VerticalLayout {
+                                alignment: center;
+                                Button {
+                                    label: "PDF";
+                                    ghost: true;
+                                    clicked => { root.link("guide-pdf"); }
+                                }
+                            }
+
+                            VerticalLayout {
+                                alignment: center;
+                                Button {
+                                    label: "Xem Sổ tay";
+                                    glyph: Glyph.book;
+                                    primary: true;
+                                    clicked => { root.link("guides"); }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Rectangle { height: 20px; }
 
                 // ── standalone AI tools ── 2 COLUMNS ──────────────────────────
                 SectionHead {
@@ -2568,6 +2683,18 @@ component NarrowHome inherits Rectangle {
                 note: I18n.t("start.newProjectNote");
                 enabled: !root.busy;
                 clicked => { root.compose(); }
+            }
+
+            Rectangle { height: 12px; }
+
+            CreateTile {
+                height: 60px;
+                primary: false;
+                glyph: Glyph.book;
+                title: "Hướng dẫn sử dụng & API Key / Flow";
+                note: "Sổ tay 10 chuyên mục trực quan ngay trên Trang chủ";
+                enabled: !root.busy;
+                clicked => { root.link("guides"); }
             }
 
             VerticalLayout {

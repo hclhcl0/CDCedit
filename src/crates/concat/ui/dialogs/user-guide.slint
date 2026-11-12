@@ -1,0 +1,1001 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jareer Abdullah and Concat contributors
+
+import { Theme } from "../theme/theme.slint";
+import { Glyph, Icon } from "../icons.slint";
+import { Button, Modal } from "../primitives/modal.slint";
+import { Kbd } from "../primitives/kbd.slint";
+import { PaneScroll } from "../workspace/pane.slint";
+
+struct GuideTabMeta {
+    index: int,
+    code: string,
+    title: string,
+    subtitle: string,
+    glyph: Glyph,
+}
+
+component GuideNavRow inherits Rectangle {
+    in property <GuideTabMeta> tab;
+    in property <bool> current;
+
+    callback clicked();
+
+    height: 46px;
+    border-radius: Theme.r;
+    background: root.current ? Theme.accent-soft
+        : touch.has-hover ? Theme.field
+        : Colors.transparent;
+    border-width: root.current ? 1px : 0px;
+    border-color: Theme.accent.with-alpha(0.55);
+
+    animate background { duration: 100ms; }
+
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 10px;
+        alignment: start;
+
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 26px;
+                height: 26px;
+                border-radius: 6px;
+                background: root.current ? Theme.accent : Theme.well;
+
+                Icon {
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    glyph: root.tab.glyph;
+                    size: 13px;
+                    tint: root.current ? Theme.on-accent : (touch.has-hover ? Theme.fg : Theme.fg-muted);
+                }
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 1;
+            spacing: 1px;
+
+            Text {
+                text: root.tab.title;
+                color: root.current ? Theme.fg : (touch.has-hover ? Theme.fg : Theme.fg-muted);
+                font-size: Theme.fs;
+                font-weight: root.current ? Theme.weight-display : Theme.weight-title;
+                overflow: elide;
+            }
+
+            Text {
+                text: root.tab.subtitle;
+                color: root.current ? Theme.accent : Theme.fg-dim;
+                font-size: 10px;
+                overflow: elide;
+            }
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+component GuideCompactChip inherits Rectangle {
+    in property <GuideTabMeta> tab;
+    in property <bool> current;
+
+    callback clicked();
+
+    height: 30px;
+    min-width: row.preferred-width + 20px;
+    border-radius: 15px;
+    background: root.current ? Theme.accent : (touch.has-hover ? Theme.field-hover : Theme.field);
+    border-width: 1px;
+    border-color: root.current ? Theme.accent : Theme.line;
+
+    row := HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 6px;
+        alignment: center;
+
+        VerticalLayout {
+            alignment: center;
+            Icon {
+                glyph: root.tab.glyph;
+                size: 12px;
+                tint: root.current ? Theme.on-accent : Theme.fg-muted;
+            }
+        }
+
+        Text {
+            text: root.tab.title;
+            color: root.current ? Theme.on-accent : Theme.fg;
+            font-size: Theme.fs-sm;
+            font-weight: Theme.weight-title;
+            vertical-alignment: center;
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+component GuideStepCard inherits Rectangle {
+    in property <string> badge;
+    in property <string> title;
+    in property <string> body;
+    in property <string> code: "";
+    in property <bool> accent-edge: false;
+
+    height: inner.preferred-height;
+    border-radius: Theme.r;
+    background: Theme.well;
+    border-width: 1px;
+    border-color: root.accent-edge ? Theme.accent.with-alpha(0.45) : Theme.line;
+
+    inner := VerticalLayout {
+        padding: 14px;
+        spacing: 8px;
+
+        HorizontalLayout {
+            spacing: 10px;
+            alignment: start;
+
+            if root.badge != "": VerticalLayout {
+                alignment: center;
+                Rectangle {
+                    height: 22px;
+                    min-width: badge-txt.preferred-width + 14px;
+                    border-radius: 11px;
+                    background: Theme.accent-soft;
+                    border-width: 1px;
+                    border-color: Theme.accent.with-alpha(0.45);
+
+                    badge-txt := Text {
+                        x: (parent.width - self.width) / 2;
+                        y: (parent.height - self.height) / 2;
+                        text: root.badge;
+                        color: Theme.accent;
+                        font-family: Theme.font-technical;
+                        font-size: 10px;
+                        font-weight: 700;
+                    }
+                }
+            }
+
+            Text {
+                horizontal-stretch: 1;
+                text: root.title;
+                color: Theme.fg;
+                font-size: Theme.fs-lg;
+                font-weight: Theme.weight-display;
+                wrap: word-wrap;
+                vertical-alignment: center;
+            }
+        }
+
+        if root.body != "": Text {
+            text: root.body;
+            color: Theme.fg-muted;
+            font-size: Theme.fs;
+            wrap: word-wrap;
+        }
+
+        if root.code != "": Rectangle {
+            height: code-txt.preferred-height + 16px;
+            border-radius: Theme.r-sm;
+            background: Theme.panel;
+            border-width: 1px;
+            border-color: Theme.line-strong;
+
+            code-txt := Text {
+                x: 10px;
+                y: 8px;
+                width: parent.width - 20px;
+                text: root.code;
+                color: Theme.fg;
+                font-family: Theme.font-technical;
+                font-size: Theme.fs-sm;
+                wrap: word-wrap;
+            }
+        }
+
+        @children
+    }
+}
+
+component GuideCallout inherits Rectangle {
+    in property <string> title;
+    in property <string> body;
+    in property <bool> warning: false;
+    in property <Glyph> glyph: Glyph.info;
+
+    height: box.preferred-height;
+    border-radius: Theme.r;
+    background: root.warning
+        ? (Theme.dark ? #2b1d0d : #fffbeb)
+        : (Theme.dark ? #0f1b2d : #f0f9ff);
+    border-width: 1px;
+    border-color: root.warning
+        ? (Theme.dark ? #f59e0b.with-alpha(0.45) : #fcd34d)
+        : (Theme.dark ? #38bdf8.with-alpha(0.4) : #bae6fd);
+
+    box := HorizontalLayout {
+        padding: 12px;
+        spacing: 10px;
+        alignment: start;
+
+        VerticalLayout {
+            alignment: start;
+            padding-top: 2px;
+            Icon {
+                glyph: root.glyph;
+                size: 15px;
+                tint: root.warning ? #f59e0b : #38bdf8;
+            }
+        }
+
+        VerticalLayout {
+            horizontal-stretch: 1;
+            spacing: 4px;
+
+            Text {
+                text: root.title;
+                color: root.warning ? (Theme.dark ? #fde68a : #92400e) : (Theme.dark ? #bae6fd : #0369a1);
+                font-size: Theme.fs;
+                font-weight: Theme.weight-display;
+                wrap: word-wrap;
+            }
+
+            Text {
+                text: root.body;
+                color: Theme.fg-muted;
+                font-size: Theme.fs-sm;
+                wrap: word-wrap;
+            }
+        }
+    }
+}
+
+component GuideScreenshot inherits Rectangle {
+    in property <image> shot;
+    in property <float> ratio: 0.76;
+    in property <string> caption;
+
+    height: col.preferred-height;
+    border-radius: Theme.r;
+    background: Theme.well;
+    border-width: 1px;
+    border-color: Theme.line-strong;
+
+    col := VerticalLayout {
+        padding: 10px;
+        spacing: 8px;
+
+        Rectangle {
+            height: self.width * root.ratio;
+            border-radius: Theme.r-sm;
+            background: #090d16;
+            border-width: 1px;
+            border-color: Theme.line;
+            clip: true;
+
+            Image {
+                width: 100%;
+                height: 100%;
+                source: root.shot;
+                image-fit: contain;
+            }
+        }
+
+        HorizontalLayout {
+            spacing: 6px;
+            alignment: start;
+
+            VerticalLayout {
+                alignment: center;
+                Icon {
+                    glyph: Glyph.image;
+                    size: 12px;
+                    tint: Theme.accent;
+                }
+            }
+
+            Text {
+                horizontal-stretch: 1;
+                text: root.caption;
+                color: Theme.fg-muted;
+                font-size: Theme.fs-sm;
+                wrap: word-wrap;
+            }
+        }
+    }
+}
+
+component GuideShortcutRow inherits Rectangle {
+    in property <string> keys;
+    in property <string> action;
+    in property <string> note: "";
+
+    height: Math.max(34px, row.preferred-height + 10px);
+    border-radius: Theme.r-sm;
+    background: Theme.well;
+    border-width: 1px;
+    border-color: Theme.line;
+
+    row := HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        spacing: 12px;
+        alignment: start;
+
+        VerticalLayout {
+            alignment: center;
+            width: 112px;
+            HorizontalLayout {
+                alignment: start;
+                Kbd { key: root.keys; }
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 1;
+            spacing: 1px;
+
+            Text {
+                text: root.action;
+                color: Theme.fg;
+                font-size: Theme.fs;
+                font-weight: Theme.weight-title;
+                wrap: word-wrap;
+            }
+
+            if root.note != "": Text {
+                text: root.note;
+                color: Theme.fg-dim;
+                font-size: Theme.fs-sm;
+                wrap: word-wrap;
+            }
+        }
+    }
+}
+
+export component UserGuideDialog inherits Modal {
+    in-out property <int> section: 0;
+    in property <bool> phone;
+
+    callback section-changed(index: int);
+    callback open-settings-page(page: int);
+    callback open-link(name: string);
+    callback new-project();
+
+    property <bool> compact: root.phone || root.width < 700px;
+    property <length> nav-w: root.compact ? 0px : 230px;
+
+    property <[GuideTabMeta]> chapters: [
+        {index: 0, code: "01", title: "Bắt đầu nhanh (5 bước)", subtitle: "Lần chỉnh sửa đầu tiên", glyph: Glyph.circle-play},
+        {index: 1, code: "02", title: "Lấy & dán API Key", subtitle: "Gemini · ElevenLabs · DPAPI", glyph: Glyph.settings},
+        {index: 2, code: "03", title: "Kết nối Google Flow", subtitle: "Chrome CDP · Đa tài khoản", glyph: Glyph.sparkle},
+        {index: 3, code: "04", title: "Trang chủ & AI Studio", subtitle: "5 công cụ chạy ngay", glyph: Glyph.book},
+        {index: 4, code: "05", title: "Giao diện 6 vùng", subtitle: "Kho Media · Xem trước", glyph: Glyph.film},
+        {index: 5, code: "06", title: "Timeline & Thuộc tính", subtitle: "Dao cắt · Keyframe · Màu", glyph: Glyph.sliders},
+        {index: 6, code: "07", title: "4 Công cụ AI & Voice", subtitle: "Phụ đề · Dịch · TTS · DSP", glyph: Glyph.subtitles},
+        {index: 7, code: "08", title: "Flow Studio 5 bước", subtitle: "Kịch bản · Nhân vật · Veo", glyph: Glyph.wand},
+        {index: 8, code: "09", title: "Tải Link & Xuất 4K", subtitle: "YouTube · HDR · CapCut PC", glyph: Glyph.export},
+        {index: 9, code: "10", title: "Phím tắt & Sửa lỗi", subtitle: "Phím nóng · Lỗi 429/403", glyph: Glyph.keyboard},
+    ];
+
+    title: "Sổ tay Hướng dẫn Sử dụng CDCedit 1.0";
+    note: "10 chuyên mục · Ngoại tuyến";
+    glyph: Glyph.book;
+    surface-width: 980px;
+    surface-height: 640px;
+
+    VerticalLayout {
+        vertical-stretch: 1;
+
+        body := Rectangle {
+            vertical-stretch: 1;
+
+            property <length> strip: root.compact ? 48px : 0px;
+
+            // ── Compact mobile/narrow chapter strip ──
+            if root.compact: Rectangle {
+                x: 0;
+                y: 0;
+                width: parent.width;
+                height: body.strip;
+
+                Flickable {
+                    content-width: Math.max(self.width, tabs.preferred-width);
+                    content-height: self.height;
+
+                    tabs := HorizontalLayout {
+                        padding: 8px;
+                        spacing: 6px;
+                        alignment: start;
+
+                        for ch in root.chapters: GuideCompactChip {
+                            tab: ch;
+                            current: root.section == ch.index;
+                            clicked => { root.section-changed(ch.index); }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    y: parent.height - 1px;
+                    width: parent.width;
+                    height: 1px;
+                    background: Theme.line;
+                }
+            }
+
+            // ── Desktop left chapter sidebar ──
+            if !root.compact: Rectangle {
+                x: 0;
+                y: 0;
+                width: root.nav-w;
+                height: parent.height;
+                background: Theme.well;
+
+                PaneScroll {
+                    width: parent.width;
+                    height: parent.height;
+                    finger: root.phone;
+
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 4px;
+                        alignment: start;
+
+                        for ch in root.chapters: GuideNavRow {
+                            tab: ch;
+                            current: root.section == ch.index;
+                            clicked => { root.section-changed(ch.index); }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    x: parent.width - 1px;
+                    y: 0;
+                    width: 1px;
+                    height: parent.height;
+                    background: Theme.line;
+                }
+            }
+
+            // ── Main scrollable chapter content ──
+            PaneScroll {
+                x: root.compact ? 0px : root.nav-w;
+                y: body.strip;
+                width: root.compact ? body.width : Math.max(0px, body.width - root.nav-w);
+                height: parent.height - body.strip;
+                finger: root.phone;
+                reset-token: root.section;
+
+                VerticalLayout {
+                    padding-left: 20px;
+                    padding-right: 24px;
+                    padding-top: 18px;
+                    padding-bottom: 24px;
+                    spacing: 14px;
+                    alignment: start;
+
+                    // ══ CHAPTER 0: TỔNG QUAN & 5 BƯỚC ══════════════════════
+                    if root.section == 0: VerticalLayout {
+                        spacing: 12px;
+
+                        Text {
+                            text: "Quy trình Dựng phim & Làm chủ CDCedit trong 5 bước";
+                            color: Theme.fg;
+                            font-size: 18px;
+                            font-weight: Theme.weight-display;
+                            wrap: word-wrap;
+                        }
+                        Text {
+                            text: "CDCedit kết hợp trình dựng phim đa track chạy trên GPU với PhoWhisper (phụ đề tiếng Việt offline), Piper TTS và Google Flow (Veo 3.1 + Nano Banana Pro). Bạn có thể chạy công cụ AI trực tiếp từ Trang chủ hoặc mở dự án dựng phim đầy đủ.";
+                            color: Theme.fg-muted;
+                            font-size: Theme.fs;
+                            wrap: word-wrap;
+                        }
+
+                        GuideStepCard {
+                            badge: "Bước 1";
+                            accent-edge: true;
+                            title: "Khởi tạo Dự án Mới hoặc chạy nhanh AI Studio";
+                            body: "Nhấn Dự án mới (hoặc kéo-thả video trực tiếp vào Trang chủ) để chọn tỉ lệ khung hình 16:9 / 9:16 / 1:1 / 4:3, độ phân giải tới 4K và FPS. Nếu chỉ muốn tạo phụ đề, dịch SRT hoặc thu giọng, dùng ngay 5 công cụ AI Studio bên trái Trang chủ.";
+                            HorizontalLayout {
+                                spacing: 8px;
+                                alignment: start;
+                                Button { label: "Tạo dự án mới"; glyph: Glyph.plus; primary: true; clicked => { root.new-project(); } }
+                                Button { label: "Cách lấy API Key"; glyph: Glyph.settings; clicked => { root.section-changed(1); } }
+                                Button { label: "Kết nối Google Flow"; glyph: Glyph.sparkle; clicked => { root.section-changed(2); } }
+                            }
+                        }
+
+                        GuideStepCard {
+                            badge: "Bước 2";
+                            title: "Nhập Video, Ảnh, Tải Link hoặc Mở Dự án CapCut";
+                            body: "Trong không gian biên tập, nhấn Nhập để đưa file từ máy vào Kho Media, chọn Tab Dự án CapCut ở Trang chủ để mở trực tiếp draft_content.json / .zip, hoặc dùng Tải Link (YouTube, TikTok, Facebook, Google Drive).";
+                        }
+
+                        GuideStepCard {
+                            badge: "Bước 3";
+                            title: "Cắt ghép trên Timeline & Kích hoạt AI (Phụ đề, Dịch, TTS, Flow)";
+                            body: "Kéo thả clip xuống Timeline V1/A1, dùng C (Dao cắt), Q/W (Xóa trái/phải), bật S (Nam châm). Nhấn Google Flow trên thanh Tiêu đề để tạo phim AI 5 bước hoặc dùng bộ công cụ Phụ đề AI & Lồng tiếng.";
+                        }
+
+                        GuideStepCard {
+                            badge: "Bước 4";
+                            title: "Chỉnh Màu, Hiệu ứng, Chuyển cảnh & Tốc độ";
+                            body: "Chọn clip bất kỳ để mở bảng Thuộc tính bên phải: xoay/cắt khung, mặt nạ (Mask), Keyframe chuyển động, cân màu Lift/Gamma/Gain, Đường cong tốc độ (Speed Ramp) và 10 Preset biến giọng DSP.";
+                        }
+
+                        GuideStepCard {
+                            badge: "Bước 5";
+                            title: "Xuất Video 4K 10-bit hoặc Xuất sang CapCut PC";
+                            body: "Nhấn Xuất (Ctrl+E) ở góc phải thanh Tiêu đề để xuất MP4/MOV chuẩn H.264, HEVC, AV1 hoặc ProRes với hỗ trợ 10-bit/HDR và tăng tốc GPU, hoặc xuất ngược dự án sang CapCut PC.";
+                        }
+
+                        GuideScreenshot {
+                            shot: @image-url("../assets/guide/01.jpg");
+                            ratio: 884 / 1160;
+                            caption: "Hình 1: Màn hình Khởi động thực tế — nút Dự án mới/Mở/Cài đặt API, khối 5 Công cụ AI Studio & Dự án gần đây.";
+                        }
+                    }
+
+                    // ══ CHAPTER 1: API KEY & MODEL OFFLINE ═════════════════
+                    if root.section == 1: VerticalLayout {
+                        spacing: 12px;
+
+                        Text {
+                            text: "Hướng dẫn lấy & dán API Key (Gemini / ElevenLabs) + Model Offline";
+                            color: Theme.fg;
+                            font-size: 18px;
+                            font-weight: Theme.weight-display;
+                            wrap: word-wrap;
+                        }
+                        Text {
+                            text: "CDCedit bảo mật mọi API Key bằng mã hóa Windows DPAPI cục bộ và hỗ trợ cơ chế Xoay vòng đa key (Multi-Key Rotation) khi key gặp giới hạn lưu lượng.";
+                            color: Theme.fg-muted;
+                            font-size: Theme.fs;
+                            wrap: word-wrap;
+                        }
+
+                        GuideStepCard {
+                            badge: "Gemini";
+                            accent-edge: true;
+                            title: "1. Lấy Google Gemini API Key miễn phí tại Google AI Studio";
+                            body: "Truy cập aistudio.google.com/apikey -> Đăng nhập tài khoản Google -> Nhấn Create API key -> Chọn dự án hoặc Create API key in new project -> Sao chép chuỗi khóa dạng AIzaSy... dùng cho Dịch SRT, Chuẩn hóa phụ đề, Hội thoại Gemini và Kịch bản Google Flow.";
+                            HorizontalLayout {
+                                spacing: 8px;
+                                alignment: start;
+                                Button { label: "Mở Google AI Studio"; glyph: Glyph.arrow-up-right; primary: true; clicked => { root.open-link("gemini-aistudio"); } }
+                                Button { label: "Mở Cài đặt API Key"; glyph: Glyph.settings; clicked => { root.open-settings-page(0); } }
+                            }
+                        }
+
+                        GuideStepCard {
+                            badge: "ElevenLabs";
+                            title: "2. Lấy ElevenLabs API Key (Tùy chọn cho Voice Changer AI & TTS nâng cao)";
+                            body: "Đăng nhập elevenlabs.io -> Nhấn biểu tượng tài khoản góc dưới trái -> API Keys -> Create Key -> Sao chép mã xi-... để mở khóa chế độ Speech-to-Speech và các giọng đọc đa ngữ ElevenLabs.";
+                            HorizontalLayout {
+                                spacing: 8px;
+                                alignment: start;
+                                Button { label: "Mở trang ElevenLabs Key"; glyph: Glyph.arrow-up-right; clicked => { root.open-link("elevenlabs-keys"); } }
+                            }
+                        }
+
+                        GuideStepCard {
+                            badge: "Xoay vòng";
+                            title: "3. Dán nhiều Key ngăn cách bằng dấu ; hoặc , (Tối đa 32 key)";
+                            body: "Mở Cài đặt API -> Trang Chung -> dán 1 hoặc nhiều khóa vào ô Gemini API keys / ElevenLabs API keys theo định dạng bên dưới. Khi một khóa chạm ngưỡng 429 Rate Limit, ứng dụng tự động chuyển ngay sang khóa tiếp theo:";
+                            code: "AIzaSyKeyThuNhat...; AIzaSyKeyThuHai...; AIzaSyKeyThuBa...";
+                        }
+
+                        GuideStepCard {
+                            badge: "Offline";
+                            title: "4. Dùng AI Ngoại tuyến 100% miễn phí không cần API Key";
+                            body: "Với nhận diện giọng nói và đọc thuyết minh tiếng Việt offline hoàn toàn, vào Cài đặt › Chép lời để tải PhoWhisper Vietnamese (Base/Small) và Cài đặt › Giọng nói để tải Piper TTS (Ngọc Huyền / Minh Quang).";
+                            HorizontalLayout {
+                                spacing: 8px;
+                                alignment: start;
+                                Button { label: "Tải Model Chép lời"; glyph: Glyph.cloud-download; clicked => { root.open-settings-page(2); } }
+                                Button { label: "Tải Giọng nói Tiếng Việt"; glyph: Glyph.music; clicked => { root.open-settings-page(3); } }
+                            }
+                        }
+
+                        GuideCallout {
+                            warning: true;
+                            title: "Lưu ý bảo mật API Key";
+                            body: "Không chụp ảnh hoặc chia sẻ công khai mã AIzaSy... / xi-.... Tất cả API Key lưu trong cài đặt CDCedit đều được mã hóa cục bộ bằng Windows DPAPI trước khi ghi xuống ổ cứng.";
+                        }
+
+                        GuideScreenshot {
+                            shot: @image-url("../assets/guide/06.jpg");
+                            ratio: 936 / 1160;
+                            caption: "Hình 2: Trang Cài đặt Google Flow (CDP) & Cài đặt Chung nơi quản lý danh sách Gemini / ElevenLabs API keys.";
+                        }
+                    }
+
+                    // ══ CHAPTER 2: KẾT NỐI GOOGLE FLOW CDP ═══════════════════
+                    if root.section == 2: VerticalLayout {
+                        spacing: 12px;
+
+                        Text {
+                            text: "Kết nối Google Flow với Chrome (CDP Đa tài khoản & Đa luồng)";
+                            color: Theme.fg;
+                            font-size: 18px;
+                            font-weight: Theme.weight-display;
+                            wrap: word-wrap;
+                        }
+                        Text {
+                            text: "CDCedit điều khiển trực tiếp phiên Chrome đã đăng nhập labs.google/fx thông qua giao thức Chrome DevTools Protocol (CDP), giúp bạn giữ toàn quyền kiểm soát tài khoản và không phải nhập mật khẩu bên ngoài trình duyệt Chrome.";
+                            color: Theme.fg-muted;
+                            font-size: Theme.fs;
+                            wrap: word-wrap;
+                        }
+
+                        GuideStepCard {
+                            badge: "Cơ bản";
+                            accent-edge: true;
+                            title: "Bước 1: Mở Cài đặt › Google Flow và chọn Chế độ kết nối";
+                            body: "Vào Cài đặt (nút Tím ở Trang chủ hoặc Thanh Tiêu đề) -> chọn mục Google Flow bên trái. Chọn 1 trong 3 chế độ cho từng tài khoản:\n• Profile riêng của Concat (Khuyên dùng): Tự khởi tạo cửa sổ Chrome riêng tại cổng CDP 9337, giữ cookie lâu dài.\n• Chrome đang mở (CDP): Kết nối thẳng vào cửa sổ Chrome bạn đã bật Remote Debugging Port.\n• Profile có sẵn · thư mục riêng: Trỏ trực tiếp tới thư mục User Data và Profile 1/2/3 trên máy.";
+                            HorizontalLayout {
+                                spacing: 8px;
+                                alignment: start;
+                                Button { label: "Mở Cài đặt Google Flow"; glyph: Glyph.sparkle; primary: true; clicked => { root.open-settings-page(8); } }
+                            }
+                        }
+
+                        GuideStepCard {
+                            badge: "Chrome CDP";
+                            title: "Bước 2: Mở Chrome thủ công bằng cổng CDP (khi dùng Chế độ Chrome đang mở)";
+                            body: "Đóng toàn bộ Chrome dùng cùng thư mục hồ sơ (hoặc truyền --user-data-dir riêng), sau đó chạy lệnh sau trên Windows PowerShell / Win+R:";
+                            code: "\"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe\" --remote-debugging-port=9337 --user-data-dir=\"C:\\cdc-flow-profile\"";
+                        }
+
+                        GuideStepCard {
+                            badge: "Xác thực";
+                            title: "Bước 3: Đăng nhập Google Labs & Kiểm tra trạng thái";
+                            body: "1) Trong Cài đặt › Google Flow, nhấn Kết nối / mở Chrome.\n2) Ở cửa sổ Chrome vừa mở, đăng nhập tài khoản Google đã kích hoạt Google Labs / Flow.\n3) Quay lại CDCedit nhấn Lưu cấu hình rồi nhấn Kiểm tra -> trạng thái chuyển sang \"Đã kết nối & đăng nhập Google Flow\" là sẵn sàng!";
+                        }
+
+                        GuideStepCard {
+                            badge: "Đa luồng";
+                            title: "Bước 4: Chạy song song 1–4 tài khoản / 1–4 luồng Video";
+                            body: "Tăng mục Số tài khoản tối đa và Tổng luồng đồng thời lên 2–4, nhấn + Thêm tài khoản và gán cổng CDP riêng cho từng tài khoản: 9337, 9338, 9339, 9340. Tắt công tắc Enable của các tài khoản tạm thời không dùng.";
+                        }
+
+                        GuideCallout {
+                            title: "Mẹo sửa nhanh lỗi mất kết nối hoặc Chrome không mở cổng CDP";
+                            body: "Windows không cho phép 2 tiến trình Chrome mở cổng CDP trên cùng Default User Data nếu Chrome gốc đang chạy ngầm. Hãy tắt hẳn Chrome nền (kiểm tra Khay hệ thống System Tray) hoặc ưu tiên chọn chế độ 'Profile riêng của Concat' để tách biệt hoàn toàn.";
+                        }
+
+                        GuideScreenshot {
+                            shot: @image-url("../assets/guide/06.jpg");
+                            ratio: 936 / 1160;
+                            caption: "Hình 3: Giao diện cấu hình tài khoản Google Flow — chọn số luồng, cổng CDP, thư mục profile và nút Kiểm tra.";
+                        }
+                    }
+
+                    // ══ CHAPTER 3: TRANG CHỦ & AI STUDIO ═════════════════════
+                    if root.section == 3: VerticalLayout {
+                        spacing: 12px;
+
+                        Text {
+                            text: "Trang chủ & Bộ 5 Công cụ AI Studio Chạy Ngay";
+                            color: Theme.fg;
+                            font-size: 18px;
+                            font-weight: Theme.weight-display;
+                            wrap: word-wrap;
+                        }
+                        GuideStepCard {
+                            badge: "Khu vực 1";
+                            title: "Thanh Tiêu đề & Nút Thao tác Nhanh";
+                            body: "Góc trên bên phải cho phép Tạo dự án mới (nút xanh neon), Mở dự án (.cdcedit / thư mục) và truy cập nhanh Cài đặt API (Gemini / ElevenLabs / Google Flow). Dải Sổ tay ngay bên dưới đưa bạn tới đúng chuyên mục hướng dẫn cần tra cứu.";
+                        }
+                        GuideStepCard {
+                            badge: "Khu vực 2";
+                            title: "Công cụ & Tiện ích AI Studio (Chạy không cần tạo Project)";
+                            body: "Nhấn bất kỳ thẻ nào bên trái để thao tác ngay trên bảng phải:\n• Tạo Phụ Đề AI (.SRT): Nhận diện giọng nói PhoWhisper / Whisper & xuất phụ đề.\n• Dịch Phụ Đề & Lồng Tiếng Việt: Dịch SRT đa ngữ & tự đọc voice-over khớp nhịp.\n• Phòng Thu Âm & Giọng Nói AI (TTS): Tổng hợp giọng Piper/Gemini & hội thoại 2 vai.\n• Voice Changer: Biến giọng ElevenLabs Speech-to-Speech hoặc 10 preset DSP.\n• Tải Video & Nhạc Từ Link: Tải từ YouTube, TikTok, Facebook, Google Drive.";
+                            HorizontalLayout {
+                                spacing: 8px;
+                                alignment: start;
+                                Button { label: "Mở Phụ đề AI"; glyph: Glyph.subtitles; clicked => { root.open-link("tool-captions"); } }
+                                Button { label: "Mở Phòng thu TTS"; glyph: Glyph.audio-studio; clicked => { root.open-link("tool-audio-studio"); } }
+                                Button { label: "Mở Tải Link"; glyph: Glyph.cloud-download; clicked => { root.open-link("tool-links"); } }
+                            }
+                        }
+                        GuideStepCard {
+                            badge: "Khu vực 3";
+                            title: "Dự án CDCedit & Nhập trực tiếp Dự án CapCut PC";
+                            body: "Ở mục Dự án gần đây, chuyển Tab sang \"Dự án CapCut\" để tự động quét các draft CapCut trên máy hoặc mở trực tiếp tệp draft_content.json, draft_info.json hay gói .zip.";
+                        }
+                        GuideScreenshot {
+                            shot: @image-url("../assets/guide/01.jpg");
+                            ratio: 884 / 1160;
+                            caption: "Hình 4: Toàn cảnh Màn hình Khởi động — lưới thẻ AI Studio bên trái, biểu mẫu chạy thẳng bên phải.";
+                        }
+                    }
+
+                    // ══ CHAPTER 4: GIAO DIỆN 6 VÙNG ═════════════════════════
+                    if root.section == 4: VerticalLayout {
+                        spacing: 12px;
+
+                        Text {
+                            text: "Không gian Biên tập 6 Vùng & Kho Media";
+                            color: Theme.fg;
+                            font-size: 18px;
+                            font-weight: Theme.weight-display;
+                            wrap: word-wrap;
+                        }
+                        GuideStepCard {
+                            badge: "6 Vùng";
+                            title: "Cấu trúc màn hình làm việc khi mở một dự án";
+                            body: "1) Thanh Tiêu đề (TitleBar): Menu Tệp/Sửa/Xem, nút Google Flow, Mở trong CapCut và Xuất.\n2) Kho Media (Bên trái): Chứa tab Phương tiện (Video/Ảnh/Âm thanh + Nút Tải Link), Chuyển cảnh (Transitions), Bộ lọc (Effects & Color), và Chữ (Text/Subtitles).\n3) Màn hình Xem trước (Giữa): Bật Khung An toàn (Safe Margin), Lưới 3×3 và xem khung hình gốc.\n4) Thanh Thuộc tính Inspector (Bên phải): Chỉnh thông số clip đang chọn hoặc Mở Google Flow Studio.\n5) Khay công cụ & Phím cắt Timeline.\n6) Timeline Đa Track: V1, V2... (Hình/Chữ) và A1, A2... (Âm thanh/Nhạc nền).";
+                        }
+                        GuideCallout {
+                            title: "Tùy biến Bố cục Dock linh hoạt";
+                            body: "Bạn có thể kéo đường viền phân chia giữa Kho Media, Xem trước, Thuộc tính và Timeline để thay đổi kích thước từng vùng theo màn hình của mình.";
+                        }
+                        GuideScreenshot {
+                            shot: @image-url("../assets/guide/02.jpg");
+                            ratio: 891 / 1160;
+                            caption: "Hình 5: Màn hình Biên tập chính với 6 khu vực làm việc trực quan.";
+                        }
+                    }
+
+                    // ══ CHAPTER 5: TIMELINE & INSPECTOR ══════════════════════
+                    if root.section == 5: VerticalLayout {
+                        spacing: 12px;
+
+                        Text {
+                            text: "Làm chủ Timeline, Cắt ghép & Bảng Thuộc tính";
+                            color: Theme.fg;
+                            font-size: 18px;
+                            font-weight: Theme.weight-display;
+                            wrap: word-wrap;
+                        }
+                        GuideStepCard {
+                            badge: "Timeline";
+                            title: "Công cụ cắt ghép & Nam châm hút mép";
+                            body: "• Chọn (V) / Dao cắt (C): Cắt đôi đoạn phim hoặc âm thanh ngay tại kim thời gian.\n• Xóa phần trái (Q) / Xóa phần phải (W): Cắt gọn đầu/cuối clip chỉ bằng 1 phím bấm.\n• Nam châm hút mép (S): Tự hít chặt đầu-cuối clip khi kéo ghép.\n• Thu âm Voiceover trực tiếp từ micro xuống track âm thanh và Chụp khung hình (Freeze Frame).";
+                        }
+                        GuideStepCard {
+                            badge: "Inspector";
+                            title: "Biến đổi, Cân màu, Keyframe & Speed Ramp";
+                            body: "• Biến đổi & Cắt (Transform/Crop): Kéo vị trí X/Y, thu phóng, xoay góc, làm mờ.\n• Cân màu (Color Grading): Nhiệt độ màu, Tương phản, Bão hòa, Bánh xe Lift/Gamma/Gain & Đường cong Curve RGB.\n• Tốc độ (Speed & Ramp): Tua nhanh/chậm đều hoặc uốn cong đường tốc độ mượt.\n• Hiệu ứng Chữ & Phụ đề: Đổi font Việt Be Vietnam Pro, viền chữ, bóng đổ và nền chữ.";
+                        }
+                        GuideScreenshot {
+                            shot: @image-url("../assets/guide/03.jpg");
+                            ratio: 776 / 1160;
+                            caption: "Hình 6: Khay công cụ Timeline đa track, thước đo mức âm thanh VU Meter và bảng Thuộc tính.";
+                        }
+                    }
+
+                    // ══ CHAPTER 6: BỘ 4 CÔNG CỤ AI & VOICE CHANGER ═══════════
+                    if root.section == 6: VerticalLayout {
+                        spacing: 12px;
+
+                        Text {
+                            text: "Bộ 4 Công cụ AI & Voice Changer Chuyên sâu";
+                            color: Theme.fg;
+                            font-size: 18px;
+                            font-weight: Theme.weight-display;
+                            wrap: word-wrap;
+                        }
+                        GuideStepCard {
+                            badge: "Phụ đề AI";
+                            title: "1. Tạo Phụ đề AI (.SRT) & Chuẩn hóa Gemini";
+                            body: "Hỗ trợ PhoWhisper offline tiếng Việt chính xác cao hoặc chế độ Gemini Cloud với tính năng: Tự hiệu đính chính tả tiếng Việt, Tách dòng thông minh không bị tràn khung, Nhận diện 2 người nói (tách 2 màu chữ) và Từ điển thuật ngữ riêng.";
+                        }
+                        GuideStepCard {
+                            badge: "Dịch & Đọc";
+                            title: "2. Dịch Phụ đề & Lồng tiếng bám Timestamp";
+                            body: "Dịch tệp .SRT hoặc trực tiếp từ audio video giữa nhiều ngôn ngữ (Anh, Việt, Trung, Nhật, Hàn...), chỉnh từng dòng song ngữ và tạo thuyết minh co tốc độ khớp từng mốc thời gian.";
+                        }
+                        GuideStepCard {
+                            badge: "TTS & Clone";
+                            title: "3. Phòng Thu Âm Thanh, Nhân bản Giọng & Thẻ Cảm xúc";
+                            body: "Đọc văn bản với giọng Piper Tiếng Việt miễn phí hoặc Gemini Pro TTS. Hỗ trợ nhân bản giọng nói từ tệp mẫu WAV, và chèn thẻ diễn xuất ngay trong lời thoại như [cười], [thở dài], [nói nhanh], [thì thầm].";
+                        }
+                        GuideStepCard {
+                            badge: "Voice FX";
+                            title: "4. Voice Changer AI (ElevenLabs) & 10 Preset DSP Offline";
+                            body: "Biến đổi chất giọng sang nhân vật mới qua ElevenLabs Speech-to-Speech hoặc áp dụng tức thì 10 bộ lọc DSP chạy ngoại tuyến: Giọng trầm điện ảnh, Nữ thanh thoát, Em bé, Robot, Phát thanh FM, Vang nhà thờ...";
+                            HorizontalLayout {
+                                spacing: 8px;
+                                alignment: start;
+                                Button { label: "Mở Tạo Phụ Đề AI"; glyph: Glyph.subtitles; clicked => { root.open-link("tool-captions"); } }
+                                Button { label: "Mở Dịch & Lồng Tiếng"; glyph: Glyph.translate; clicked => { root.open-link("tool-translation"); } }
+                                Button { label: "Mở Voice Changer"; glyph: Glyph.voice-changer; clicked => { root.open-link("tool-voice-changer"); } }
+                            }
+                        }
+                        GuideScreenshot {
+                            shot: @image-url("../assets/guide/05.jpg");
+                            ratio: 853 / 1160;
+                            caption: "Hình 7: Studio Tạo Phụ Đề AI, Dịch Song Ngữ, Phòng Thu Giọng Nói và Voice Changer.";
+                        }
+                    }
+
+                    // ══ CHAPTER 7: GOOGLE FLOW STUDIO 5 BƯỚC ═════════════════
+                    if root.section == 7: VerticalLayout {
+                        spacing: 12px;
+
+                        Text {
+                            text: "Google Flow Studio — Sản xuất Phim AI 5 Bước";
+                            color: Theme.fg;
+                            font-size: 18px;
+                            font-weight: Theme.weight-display;
+                            wrap: word-wrap;
+                        }
+                        GuideCallout {
+                            title: "Yêu cầu chuẩn bị trước khi dùng Flow Studio";
+                            body: "Đảm bảo đã nhập Gemini API Key (để viết kịch bản) trong Cài đặt Chung và đã Kết nối Chrome CDP thành công tại Cài đặt › Google Flow (Xem Chuyên mục 02 & 03).";
+                        }
+                        GuideStepCard {
+                            badge: "Bước 1";
+                            title: "Ý tưởng & Chia Cảnh Kịch bản (Script & Prompts)";
+                            body: "Nhập chủ đề, chọn thể loại (Phim ngắn, Quảng cáo, Tài liệu, Hướng dẫn, Truyện thiếu nhi) và phong cách hình ảnh. Gemini tự tách cảnh quay, lời thoại và prompt điện ảnh chuyên nghiệp cho Veo 3.1.";
+                        }
+                        GuideStepCard {
+                            badge: "Bước 2";
+                            title: "Tạo & Khóa Tạo hình Nhân vật (Character Consistency)";
+                            body: "Sinh bảng tham chiếu khuôn mặt/trang phục nhân vật hoặc chọn lại từ Thư viện Nhân vật của bạn để mọi cảnh quay về sau giữ đúng một gương mặt đồng nhất.";
+                        }
+                        GuideStepCard {
+                            badge: "Bước 3";
+                            title: "Tạo Ảnh Mở Đầu Cảnh (Opening Frame — Nano Banana Pro)";
+                            body: "Flow render ảnh đầu cảnh sắc nét từ prompt cảnh + ảnh nhân vật đã gắn tag, giúp bạn duyệt trước bố cục và ánh sáng trước khi tốn thời gian render video.";
+                        }
+                        GuideStepCard {
+                            badge: "Bước 4 & 5";
+                            title: "Tạo Video Veo 3.1 (Fast/Quality/Extend) & Đưa xuống Timeline";
+                            body: "Chạy render tự động qua 1–4 luồng Chrome CDP song song, hỗ trợ nối dài video (Extend Scene), rồi bấm 'Đưa toàn bộ lên Timeline' để ghép nhạc, lời thoại và xuất bản.";
+                        }
+                        GuideScreenshot {
+                            shot: @image-url("../assets/guide/04.jpg");
+                            ratio: 1066 / 1160;
+                            caption: "Hình 8: Giao diện Google Flow Studio 5 bước bên trong bảng Inspector của dự án.";
+                        }
+                    }
+
+                    // ══ CHAPTER 8: TẢI LINK & XUẤT VIDEO ═════════════════════
+                    if root.section == 8: VerticalLayout {
+                        spacing: 12px;
+
+                        Text {
+                            text: "Tải Link YouTube/TikTok/Drive & Xuất Video 4K / CapCut";
+                            color: Theme.fg;
+                            font-size: 18px;
+                            font-weight: Theme.weight-display;
+                            wrap: word-wrap;
+                        }
+                        GuideStepCard {
+                            badge: "Tải Link";
+                            title: "Tải Video & Tách Nhạc Nhanh (yt-dlp & Google Drive)";
+                            body: "Dán một hoặc nhiều URL từ YouTube, TikTok, Facebook, Google Drive vào hộp thoại Tải Link. Chọn tải toàn bộ Video chất lượng cao, chỉ Tách nhạc MP3/WAV hoặc tải kèm phụ đề rồi chèn thẳng vào Kho Media.";
+                            HorizontalLayout {
+                                spacing: 8px;
+                                alignment: start;
+                                Button { label: "Mở Hộp thoại Tải Link"; glyph: Glyph.cloud-download; clicked => { root.open-link("tool-links"); } }
+                            }
+                        }
+                        GuideStepCard {
+                            badge: "Xuất File";
+                            title: "Xuất Video 4K 10-bit/HDR & Xuất sang CapCut PC";
+                            body: "Mở Hộp thoại Xuất (Ctrl+E): chọn FPS (24–60), Codec (H.264 tương thích rộng, HEVC/H.265 dung lượng gọn, AV1 nén tối đa, ProRes dựng hậu kỳ), bật 10-bit và HDR nếu cần dải màu rộng, chỉnh Bitrate hoặc bấm 'Xuất sang CapCut' để bàn giao trọn bộ track + phụ đề qua CapCut PC.";
+                        }
+                        GuideScreenshot {
+                            shot: @image-url("../assets/guide/07.jpg");
+                            ratio: 713 / 1160;
+                            caption: "Hình 9: Hộp thoại Tải Video Từ Link đa nền tảng và Hộp thoại Xuất Video chuyên sâu.";
+                        }
+                    }
+
+                    // ══ CHAPTER 9: PHÍM TẮT & XỬ LÝ SỰ CỐ ════════════════════
+                    if root.section == 9: VerticalLayout {
+                        spacing: 12px;
+
+                        Text {
+                            text: "Phím tắt Chuẩn & Xử lý Sự cố Thường gặp";
+                            color: Theme.fg;
+                            font-size: 18px;
+                            font-weight: Theme.weight-display;
+                            wrap: word-wrap;
+                        }
+
+                        HorizontalLayout {
+                            spacing: 8px;
+                            alignment: start;
+                            Button { label: "Đổi Phím tắt trong Cài đặt"; glyph: Glyph.keyboard; primary: true; clicked => { root.open-settings-page(7); } }
+                            Button { label: "Báo cáo sự cố (GitHub)"; glyph: Glyph.bug; clicked => { root.open-link("report"); } }
+                        }
+
+                        GuideShortcutRow { keys: "Space"; action: "Phát / Tạm dừng video xem trước"; note: "Bấm giữ K rồi bấm J/L để tua chậm lùi hoặc tiến"; }
+                        GuideShortcutRow { keys: "J / K / L"; action: "Tua lùi / Dừng / Tua nhanh 2x–4x"; }
+                        GuideShortcutRow { keys: "I / O"; action: "Đặt điểm vào (In) / Điểm ra (Out) cho vùng chọn"; }
+                        GuideShortcutRow { keys: "V / C"; action: "Chuyển công cụ Chọn (V) hoặc Dao Cắt clip (C)"; }
+                        GuideShortcutRow { keys: "Q / W"; action: "Cắt & Xóa nhanh đoạn bên trái (Q) hoặc bên phải (W) kim thời gian"; }
+                        GuideShortcutRow { keys: "S"; action: "Bật / Tắt Nam châm hút mép clip (Snapping)"; }
+                        GuideShortcutRow { keys: "Ctrl + Z"; action: "Hoàn tác (Undo) · Ctrl + Shift + Z để Làm lại (Redo)"; }
+                        GuideShortcutRow { keys: "Ctrl + E"; action: "Mở Hộp thoại Xuất Video & Xuất sang CapCut"; }
+
+                        GuideCallout {
+                            warning: true;
+                            title: "Khắc phục nhanh các lỗi thường gặp";
+                            body: "• Lỗi 429 Quota Gemini: Dán 2–5 API Key ngăn cách bằng dấu ';' để app tự xoay vòng.\n• Flow báo chưa đăng nhập / 403: Kiểm tra lại Chrome CDP đang chạy cùng cổng 9337 và đăng nhập labs.google/fx.\n• Không tìm thấy file sau khi đổi ổ đĩa: Mở lại dự án và chọn 'Relink Media' trỏ vào thư mục mới.";
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── Bottom Footer Navigation Bar ──
+        Rectangle {
+            height: 1px;
+            background: Theme.line;
+        }
+
+        Rectangle {
+            height: 50px;
+            background: Theme.panel;
+
+            HorizontalLayout {
+                padding-left: 16px;
+                padding-right: 16px;
+                spacing: 8px;
+
+                Button {
+                    label: "Mở bản PDF (13 trang)";
+                    glyph: Glyph.book;
+                    clicked => { root.open-link("guide-pdf"); }
+                }
+
+                Button {
+                    label: "Cài đặt API";
+                    glyph: Glyph.settings;
+                    ghost: true;
+                    clicked => { root.open-settings-page(0); }
+                }
+
+                Rectangle { horizontal-stretch: 1; }
+
+                VerticalLayout {
+                    alignment: center;
+                    Text {
+                        text: "Mục \{root.section + 1} / 10";
+                        color: Theme.fg-dim;
+                        font-family: Theme.font-technical;
+                        font-size: Theme.fs-sm;
+                    }
+                }
+
+                Button {
+                    label: "Trước";
+                    glyph: Glyph.chevron-left;
+                    enabled: root.section > 0;
+                    clicked => { root.section-changed(Math.max(0, root.section - 1)); }
+                }
+
+                Button {
+                    label: "Tiếp";
+                    glyph: Glyph.chevron-right;
+                    primary: root.section < 9;
+                    enabled: root.section < 9;
+                    clicked => { root.section-changed(Math.min(9, root.section + 1)); }
+                }
+            }
+        }
+    }
+}

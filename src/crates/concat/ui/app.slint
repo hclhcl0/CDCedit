@@ -60,6 +60,7 @@ import {
 } from "dialogs/relink.slint";
 import { ConfirmData, ConfirmDialog } from "dialogs/confirm.slint";
 import { TranslationDialog, TranslationData, TranslationRowData } from "dialogs/translation.slint";
+import { UserGuideDialog } from "dialogs/user-guide.slint";
 import { GeminiStudioDialog, GeminiStudioData, GeminiTurnData, GeminiVoiceData } from "dialogs/gemini-studio.slint";
 import { LinkImportData, LinkImportItem, LinkImportDialog } from "dialogs/link-import.slint";
 import { FlowData, FlowFile, FlowSceneRow, FlowCastRow, FlowDialogueRow, FlowAsset, FlowRemoteCharacter, FlowCharacterPreset, FlowScenePreset, GoogleFlowDialog } from "dialogs/google-flow.slint";
@@ -255,7 +256,7 @@ export component App inherits Window {
     }
     property <bool> sheet-open: root.export.open || root.settings.open
         || root.project-sheet.open || root.captions.open || root.speech.open
-        || root.start.composing || root.new-voice.open;
+        || root.start.composing || root.start.guide-open || root.new-voice.open;
     changed sheet-open => {
         if (!root.sheet-open) {
             keys.focus();
@@ -304,6 +305,9 @@ export component App inherits Window {
     /// One of the launch screen's links, by name; see `start::link`.
     callback start-link(name: string);
     callback start-dismiss-error();
+    callback start-guide-closed();
+    callback start-guide-section-changed(index: int);
+    callback start-guide-open-settings(page: int);
     /// How many projects the recents list holds, before the search: the
     /// grid's search and sort come up past a page of them.
     in property <int> recents-total;
@@ -711,6 +715,7 @@ export component App inherits Window {
                     if (root.export.phase != ExportPhase.running) { root.export-closed(); }
                     return accept;
                 }
+                if (root.start.guide-open) { root.start-guide-closed(); return accept; }
                 if (root.start.composing) {
                     if (!root.start.busy) { root.start-dismiss(); }
                     return accept;
@@ -1231,6 +1236,27 @@ export component App inherits Window {
         inset-left:root.safe-area-insets.left;inset-right:root.safe-area-insets.right;
         data:root.translation;
         action(action,index,text,value)=>{root.translation-action(action,index,text,value);}
+    }
+
+    UserGuideDialog {
+        x: 0;
+        y: 0;
+        width: root.width;
+        height: root.height;
+        open: root.start.guide-open;
+        section: root.start.guide-section;
+        fill: root.sheets-fill;
+        phone: root.phone;
+        inset-top: root.safe-area-insets.top;
+        inset-bottom: root.safe-area-insets.bottom;
+        inset-left: root.safe-area-insets.left;
+        inset-right: root.safe-area-insets.right;
+
+        closed => { root.start-guide-closed(); }
+        section-changed(index) => { root.start-guide-section-changed(index); }
+        open-settings-page(page) => { root.start-guide-open-settings(page); }
+        open-link(name) => { root.start-link(name); }
+        new-project => { root.start-guide-closed(); root.start-compose(); }
     }
 
     ConfirmDialog {
