@@ -315,11 +315,12 @@ impl Api {
         let live = self.live_window.clone();
         let pending_edits = Arc::clone(&self.pending_edits);
         let project_path = crate::key_of(path);
+        let source_output = source.path.clone();
 
         let started = self.spawn_job(
             "captions.transcribe",
             path,
-            &source.path,
+            &source_output,
             move |job_id, cancel, events| {
                 let req = TranscribeRequest {
                     path: source.path,
