@@ -75,6 +75,7 @@ pub enum SettingsMsg {
     DownloadSourceChanged(i32),
     DownloadBaseEdited(String),
     ServerEnabledChanged(bool),
+    ServerLiveWindowChanged(bool),
     /// The address half of where the server listens; the port is its own
     /// field, so a person types "127.0.0.1" and "7420" and never a colon.
     ServerHostEdited(String),
@@ -339,17 +340,18 @@ impl SettingsPane {
                                 self.flow_accounts.message="Chờ hàng đợi/tác vụ Flow hoàn tất trước khi thay đổi danh sách hoặc kết nối tài khoản.".into();
                                 return;
                             }
-                            let changing_busy = self.flow_accounts.config.accounts.iter().any(|a| {
-                                self.flow_accounts
-                                    .draft
-                                    .accounts
-                                    .iter()
-                                    .find(|other| other.id == a.id)
-                                    != Some(a)
-                                    && (crate::flow_worker::in_use(&a.state_dir(&root))
-                                        || studio.flow.account_in_use(&a.id)
-                                        || self.flow_accounts.pending.contains(&a.id))
-                            });
+                            let changing_busy =
+                                self.flow_accounts.config.accounts.iter().any(|a| {
+                                    self.flow_accounts
+                                        .draft
+                                        .accounts
+                                        .iter()
+                                        .find(|other| other.id == a.id)
+                                        != Some(a)
+                                        && (crate::flow_worker::in_use(&a.state_dir(&root))
+                                            || studio.flow.account_in_use(&a.id)
+                                            || self.flow_accounts.pending.contains(&a.id))
+                                });
                             if changing_busy {
                                 self.flow_accounts.message="Tài khoản đang xử lý tác vụ. Chờ hoàn tất trước khi đổi/xóa kết nối.".into();
                                 return;
@@ -663,6 +665,14 @@ impl SettingsPane {
                 studio.prefs.server.enabled = on;
                 studio.prefs.save(&studio.host.dirs);
                 self.apply_server(studio);
+            }
+            SettingsMsg::ServerLiveWindowChanged(on) => {
+                studio.prefs.server.live_window = on;
+                studio.prefs.save(&studio.host.dirs);
+                studio
+                    .host
+                    .live_window
+                    .set_enabled(studio.prefs.server.enabled && studio.prefs.server.live_window);
             }
             SettingsMsg::ServerHostEdited(text) => {
                 let (_, port) = split_listen(&studio.prefs.server.listen);
@@ -982,7 +992,12 @@ impl SettingsPane {
         self.server_error.clear();
         let exporter = studio.host.exporter.clone();
         let open_projects = studio.host.open_projects.clone();
+        let flow_lock = studio.host.flow_lock.clone();
+        let live_window = Arc::clone(&studio.host.live_window);
+        let transcriber = Arc::clone(&studio.host.transcriber);
+        let speech = Arc::clone(&studio.host.speech);
         let dirs = studio.host.dirs.clone();
+        live_window.set_enabled(studio.prefs.server.enabled && studio.prefs.server.live_window);
         let prefs = &studio.prefs.server;
         if !prefs.enabled {
             return;
@@ -1008,13 +1023,17 @@ impl SettingsPane {
                     discovery: Some(concat_server::discovery::path_in(&dirs.config)),
                     ..concat_server::Config::default()
                 };
-                // The window's export slot and its register of open
-                // projects, so one export at a time holds across the two
-                // and a caller never edits the project on screen.
+                // The window's export slot, register of open projects, and Live Mode
+                // bridge so one export at a time holds across the two and agents can
+                // edit the active window project only when Live Mode is switched on.
                 concat_server::Server::start(config, move |events| {
                     let mut api = concat_api::Api::new(events)?;
                     api.share_exporter(exporter);
                     api.share_open_projects(open_projects);
+                    api.share_flow_lock(flow_lock);
+                    api.share_transcriber(transcriber);
+                    api.share_speech(speech);
+                    api.share_live_window(Arc::new(crate::host::WindowLiveBridge(live_window)));
                     Ok(api)
                 })
             });
@@ -1299,6 +1318,7 @@ impl SettingsPane {
             download_source: self.download_source as i32,
             download_base: self.download_base.as_str().into(),
             server_enabled: studio.prefs.server.enabled,
+            server_live_window: studio.prefs.server.live_window,
             server_host: split_listen(&studio.prefs.server.listen).0.into(),
             server_port: i32::from(split_listen(&studio.prefs.server.listen).1),
             server_token: match &studio.host.server {

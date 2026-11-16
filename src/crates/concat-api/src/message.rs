@@ -244,6 +244,823 @@ pub enum Request {
         #[serde(default)]
         height: Option<u32>,
     },
+
+    /// Current status of any background job (export, link download, AI speech, or Flow).
+    #[serde(rename = "job.status")]
+    JobStatus {
+        /// The job [`Started`] named.
+        job: String,
+    },
+    /// Cancels a running background job.
+    #[serde(rename = "job.cancel")]
+    JobCancel {
+        /// The job [`Started`] named.
+        job: String,
+    },
+
+    /// Inspects video or Google Drive links and lists downloadable items without downloading.
+    #[serde(rename = "link.probe")]
+    LinkProbe {
+        /// Video page URLs or Google Drive file/folder URLs (1 to 50).
+        links: Vec<String>,
+        /// True to use saved Google Drive OAuth credentials for private Drive links.
+        #[serde(default)]
+        use_drive: bool,
+        /// Optional Netscape `cookies.txt` path for authenticated video sites.
+        #[serde(default)]
+        cookies_path: Option<String>,
+    },
+    /// Downloads items returned by `link.probe` into an open project's `media/downloads/`
+    /// folder on a background thread and optionally probes/adds them to the media bin.
+    #[serde(rename = "link.download")]
+    LinkDownload {
+        /// The open project folder where downloaded files land under `media/downloads/`.
+        path: String,
+        /// Items to download (typically from `link.probe`).
+        items: Vec<LinkItem>,
+        /// Maximum video height in pixels; `0` selects best available (`1080` when absent).
+        #[serde(default)]
+        height: Option<u32>,
+        /// Download audio only as `.m4a` instead of video.
+        #[serde(default)]
+        audio_only: bool,
+        /// Probe downloaded media and add it to the project bin automatically (`true` when absent).
+        #[serde(default)]
+        auto_import: Option<bool>,
+        /// Optional Netscape `cookies.txt` path for authenticated video sites.
+        #[serde(default)]
+        cookies_path: Option<String>,
+    },
+
+    /// Imports a CapCut PC draft (`draft_content.json`, `draft_info.json`, draft folder,
+    /// or `.zip`) as a new CDCAi project under `location`, opens it, and returns its view.
+    #[serde(rename = "capcut.import")]
+    CapCutImport {
+        /// Path to the CapCut draft folder, `.json`, or `.zip` file.
+        input_path: String,
+        /// Parent directory where the new CDCAi project folder will be created.
+        location: String,
+        /// Optional project name; defaults to `<draft>_imported`.
+        #[serde(default)]
+        name: Option<String>,
+    },
+    /// Exports an open CDCAi project's active timeline into a CapCut PC draft folder.
+    #[serde(rename = "capcut.export")]
+    CapCutExport {
+        /// The open project folder.
+        path: String,
+        /// Optional destination folder; defaults to CapCut PC's local drafts folder.
+        #[serde(default)]
+        output_dir: Option<String>,
+        /// Optional subtitle styling overrides for CapCut text segments.
+        #[serde(default)]
+        text_options: Option<CapCutTextSpec>,
+    },
+
+    /// Lists downloaded/available local Whisper and TTS models, voices, and whether
+    /// Gemini / ElevenLabs API keys are configured on this machine (keys themselves are never returned).
+    #[serde(rename = "models.speechStatus")]
+    ModelsSpeechStatus,
+
+    /// Runs speech-to-text transcription on a timeline clip or standalone media file
+    /// using offline Whisper (`engine: "whisper"`) or Gemini (`engine: "gemini"`), optionally
+    /// adding caption titles above the timeline (`autoApply` defaults to `true`).
+    #[serde(rename = "captions.transcribe")]
+    CaptionsTranscribe {
+        /// The open project folder.
+        path: String,
+        /// Timeline clip id whose audio window will be transcribed (mutually exclusive with `mediaPath`).
+        #[serde(default)]
+        clip_id: Option<String>,
+        /// Standalone audio/video file path to transcribe when `clipId` is omitted.
+        #[serde(default)]
+        media_path: Option<String>,
+        /// Transcription engine: `"whisper"` (offline, default) or `"gemini"` (cloud API key required).
+        #[serde(default)]
+        engine: Option<String>,
+        /// Whisper model id (e.g. `"base"`, `"small"`); defaults to the first installed model.
+        #[serde(default)]
+        model: Option<String>,
+        /// Language code hint (e.g. `"vi"`, `"en"`, `"auto"`); defaults to `"vi"`.
+        #[serde(default)]
+        language: Option<String>,
+        /// Enable two-speaker diarization `[A]` / `[B]` (Gemini engine).
+        #[serde(default)]
+        two_speakers: bool,
+        /// Smart dubbing sentence segmentation after Gemini transcription.
+        #[serde(default)]
+        smart_split: bool,
+        /// Optional domain glossary / proper nouns hint for higher accuracy.
+        #[serde(default)]
+        glossary: Option<String>,
+        /// Place generated captions as text clips on the timeline when finished (`true` by default).
+        #[serde(default)]
+        auto_apply: Option<bool>,
+        /// Vertical caption placement as a fraction of frame height (`0.35` by default).
+        #[serde(default)]
+        offset_y: Option<f64>,
+        /// Estimate duration and validate credentials without running cloud transcription.
+        #[serde(default)]
+        dry_run: bool,
+    },
+
+    /// Contextual AI translation for subtitle lines or a timeline text track using Gemini.
+    #[serde(rename = "captions.translate")]
+    CaptionsTranslate {
+        /// Optional open project folder (required when reading from or applying to `trackId`).
+        #[serde(default)]
+        path: Option<String>,
+        /// Text track id on the active timeline to translate when `lines` is omitted.
+        #[serde(default)]
+        track_id: Option<String>,
+        /// Explicit timed subtitle lines to translate; when omitted, reads text clips from `path`.
+        #[serde(default)]
+        lines: Option<Vec<CaptionLineSpec>>,
+        /// Target translation language name (e.g. `"Vietnamese"`, `"English"`, `"Japanese"`).
+        target_language: String,
+        /// Gemini model name (defaults to `"gemini-3.8-flash"`).
+        #[serde(default)]
+        model: Option<String>,
+        /// Optional glossary of names, terms, and pronoun rules.
+        #[serde(default)]
+        glossary: Option<String>,
+        /// Favor natural spoken phrasing suited to voiceover (`false` by default).
+        #[serde(default)]
+        natural: bool,
+        /// Condense translated text to fit each subtitle's spoken slot duration.
+        #[serde(default)]
+        condense_to_fit: bool,
+        /// Update matching text clips in the open project when translating a track (`true` when `path` given cleanly unless `false`).
+        #[serde(default)]
+        apply_to_track: Option<bool>,
+        /// Count lines/characters and verify Gemini key configuration without billing.
+        #[serde(default)]
+        dry_run: bool,
+    },
+
+    /// Synthesizes narration or two-speaker A/B dialogue using local TTS (`"local"`),
+    /// Gemini (`"gemini"`), or ElevenLabs (`"elevenlabs"`), importing and optionally placing the WAV.
+    #[serde(rename = "speech.tts")]
+    SpeechTts {
+        /// The open project folder where generated audio lands under `audio/`.
+        path: String,
+        /// Single-speaker narration text (provide either `text` or `turns`).
+        #[serde(default)]
+        text: Option<String>,
+        /// Two-speaker dialogue turns for Gemini multi-speaker mode.
+        #[serde(default)]
+        turns: Option<Vec<DialogueTurnSpec>>,
+        /// Synthesis provider: `"local"` (offline Kokoro/Pocket/Chatterbox, default), `"gemini"`, or `"elevenlabs"`.
+        #[serde(default)]
+        provider: Option<String>,
+        /// Model id (local bundle id, or cloud model name).
+        #[serde(default)]
+        model: Option<String>,
+        /// Voice identifier (name or numeric id for local voices; Gemini prebuilt voice name or ElevenLabs voice id).
+        voice_id: String,
+        /// Optional second speaker voice id when `turns` has speaker `1`.
+        #[serde(default)]
+        voice_b_id: Option<String>,
+        /// Optional delivery/style prompt for cloud synthesis.
+        #[serde(default)]
+        style: Option<String>,
+        /// Speaking speed multiplier (`1.0` default).
+        #[serde(default)]
+        speed: Option<f32>,
+        /// Silence scale between sentences for local sherpa-onnx engines (`0.0..=1.0`).
+        #[serde(default)]
+        pauses: Option<f32>,
+        /// Sampling temperature for Gemini synthesis (`1.0` default).
+        #[serde(default)]
+        temperature: Option<f32>,
+        /// Import and place generated clip onto the timeline automatically (`true` by default).
+        #[serde(default)]
+        place_on_timeline: Option<bool>,
+        /// Timeline start position in seconds when placing (`0.0` by default).
+        #[serde(default)]
+        start: Option<f64>,
+        /// Destination track id when placing on timeline (first free track when absent).
+        #[serde(default)]
+        track_id: Option<String>,
+        /// Return character count and check readiness without running synthesis.
+        #[serde(default)]
+        dry_run: bool,
+    },
+
+    /// Time-aligned multi-cue AI dubbing: synthesizes each cue and time-stretches it cleanly
+    /// into its timeline `[start, end]` slot, mixing a continuous dubbing WAV track.
+    #[serde(rename = "speech.dub")]
+    SpeechDub {
+        /// The open project folder.
+        path: String,
+        /// Timed cues to synthesize; when omitted, reads text clips from `sourceTrackId` (or timeline titles).
+        #[serde(default)]
+        cues: Option<Vec<DubCueSpec>>,
+        /// Timeline text track id to read cues from when `cues` is omitted.
+        #[serde(default)]
+        source_track_id: Option<String>,
+        /// Synthesis provider: `"gemini"` (default), `"local"`, or `"elevenlabs"`.
+        #[serde(default)]
+        provider: Option<String>,
+        /// Model id for the chosen provider.
+        #[serde(default)]
+        model: Option<String>,
+        /// Primary voice id (`speaker: 0`).
+        voice_a: String,
+        /// Optional second voice id (`speaker: 1`).
+        #[serde(default)]
+        voice_b: Option<String>,
+        /// Sampling temperature for Gemini (`1.0` default).
+        #[serde(default)]
+        temperature: Option<f32>,
+        /// Import and place rendered dubbing track on the timeline (`true` by default).
+        #[serde(default)]
+        place_on_timeline: Option<bool>,
+        /// Optional destination track id for the dubbed audio clip.
+        #[serde(default)]
+        target_track_id: Option<String>,
+        /// Validate cues and report character/cue estimate without running synthesis.
+        #[serde(default)]
+        dry_run: bool,
+    },
+
+    /// Transforms an audio clip or media file using the 10 offline DSP studio presets (`"dsp"`)
+    /// or cloud AI speech-to-speech (`"elevenlabs"` or `"gemini"`).
+    #[serde(rename = "speech.voiceChange")]
+    SpeechVoiceChange {
+        /// The open project folder.
+        path: String,
+        /// Timeline clip id to transform (mutually exclusive with `sourcePath`).
+        #[serde(default)]
+        clip_id: Option<String>,
+        /// Standalone audio/video path to transform when `clipId` is omitted.
+        #[serde(default)]
+        source_path: Option<String>,
+        /// Conversion method: `"dsp"` (offline FFmpeg, default), `"elevenlabs"`, or `"gemini"`.
+        #[serde(default)]
+        method: Option<String>,
+        /// Offline DSP preset `0..=9` (0 studio clean, 1 deep male, 2 bright female, 3 anonymous, 4 chipmunk, 5 giant, 6 robot, 7 radio, 8 hall echo, 9 custom).
+        #[serde(default)]
+        preset: Option<i32>,
+        /// Custom pitch shift in semitones (`-12.0..=12.0`, overrides preset pitch when set).
+        #[serde(default)]
+        pitch_semitones: Option<f32>,
+        /// Output speed multiplier (`0.5..=2.0`, `1.0` default).
+        #[serde(default)]
+        speed: Option<f32>,
+        /// Apply noise reduction pre-filter before conversion.
+        #[serde(default)]
+        denoise: Option<bool>,
+        /// Cloud S2S model id when using `"elevenlabs"` or `"gemini"`.
+        #[serde(default)]
+        model: Option<String>,
+        /// Target voice id required for `"elevenlabs"` or `"gemini"` speech-to-speech.
+        #[serde(default)]
+        voice_id: Option<String>,
+        /// Import and place transformed audio on timeline (`true` by default).
+        #[serde(default)]
+        place_on_timeline: Option<bool>,
+        /// Timeline placement start in seconds (defaults to original clip start or `0.0`).
+        #[serde(default)]
+        start: Option<f64>,
+        /// Destination track id for placement.
+        #[serde(default)]
+        track_id: Option<String>,
+        /// Estimate duration and check cloud key readiness without running conversion.
+        #[serde(default)]
+        dry_run: bool,
+    },
+
+    /// Lists configured Google Flow Chrome CDP accounts (`google-flow/accounts.json`),
+    /// concurrency limits, detected emails, active lock status, and unresolved receipts.
+    #[serde(rename = "flow.accountsList")]
+    FlowAccountsList,
+
+    /// Connects (or launches for managed/custom profiles) Google Flow's Chrome session on the
+    /// configured CDP port and checks whether the user is signed in to Flow.
+    #[serde(rename = "flow.connect")]
+    FlowConnect {
+        /// Account id from `flow.accountsList` (defaults to the first enabled account / `"primary"`).
+        #[serde(default)]
+        account_id: Option<String>,
+        /// Optional Google Flow URL to open instead of the Flow home page or account default URL.
+        #[serde(default)]
+        open_url: Option<String>,
+    },
+
+    /// Checks Google Flow browser connection, login state, current Flow project/scene URL,
+    /// in-flight jobs, and unresolved receipts without launching a browser when none is running.
+    #[serde(rename = "flow.status")]
+    FlowStatus {
+        /// Account id from `flow.accountsList` (defaults to the first enabled account / `"primary"`).
+        #[serde(default)]
+        account_id: Option<String>,
+    },
+
+    /// Generates 1–4 images in Google Flow (Nano Banana models) as a background job and downloads
+    /// them into `google-flow/output/`, optionally importing into an open CDCAi project.
+    /// Requires explicit `allowCredit: true` before spending Flow credits.
+    #[serde(rename = "flow.generateImage")]
+    FlowGenerateImage {
+        /// Account id from `flow.accountsList` (defaults to the first enabled account).
+        #[serde(default)]
+        account_id: Option<String>,
+        /// Scene or image description prompt (may be omitted when `resume: true`).
+        #[serde(default)]
+        prompt: String,
+        /// Image model (`"nano-banana-pro"` default, `"nano-banana-2"`, or `"nano-banana-2-lite"`).
+        #[serde(default)]
+        model: Option<String>,
+        /// Aspect ratio (`"1:1"` default, `"9:16"`, `"16:9"`, `"4:3"`, or `"3:4"`).
+        #[serde(default)]
+        ratio: Option<String>,
+        /// Number of images to generate (`1..=4`, default `1`).
+        #[serde(default)]
+        count: Option<u32>,
+        /// Optional local visual reference image paths.
+        #[serde(default)]
+        reference_images: Vec<String>,
+        /// Google Flow project URL (falls back to the selected account's saved `projectUrl` if omitted).
+        #[serde(default)]
+        project_url: Option<String>,
+        /// Submit generation immediately (`true` default) or prepare without sending (`false`, 0 credits).
+        #[serde(default)]
+        auto_confirm: Option<bool>,
+        /// Resume waiting for / downloading an already-running Flow job without creating a new request.
+        #[serde(default)]
+        resume: bool,
+        /// Worker Flow job id to resume when `resume: true`.
+        #[serde(default)]
+        job_id: Option<String>,
+        /// Explicit confirmation to spend account credits (defaults to `false`; must be `true` when submitting).
+        #[serde(default)]
+        allow_credit: bool,
+        /// Acknowledge existing `uncertain` receipts on this account after checking Flow manually.
+        #[serde(default)]
+        acknowledge_uncertain: bool,
+        /// Optional open CDCAi project folder where downloaded images are auto-imported into the bin.
+        #[serde(default)]
+        project_path: Option<String>,
+        /// Automatically import downloaded outputs into `projectPath` (`true` by default).
+        #[serde(default)]
+        auto_import: Option<bool>,
+        /// Also place imported output onto the timeline when `projectPath` is given (`false` default).
+        #[serde(default)]
+        place_on_timeline: bool,
+        /// Timeline start position in seconds when `placeOnTimeline` is `true` (`0.0` default).
+        #[serde(default)]
+        start: Option<f64>,
+        /// Destination track id when `placeOnTimeline` is `true` (first free track when absent).
+        #[serde(default)]
+        track_id: Option<String>,
+        /// Validate account, project URL, references, receipts, and credit gate without running Chrome.
+        #[serde(default)]
+        dry_run: bool,
+    },
+
+    /// Generates a video in Google Flow (Veo 3.1 / Omni Flash) as a background job and downloads
+    /// `.mp4` output into `google-flow/output/`, optionally importing into an open CDCAi project.
+    /// Requires explicit `allowCredit: true` before spending Flow credits and never auto-retries on error.
+    #[serde(rename = "flow.generateVideo")]
+    FlowGenerateVideo {
+        /// Account id from `flow.accountsList` (defaults to the first enabled account).
+        #[serde(default)]
+        account_id: Option<String>,
+        /// Video scene prompt (may be omitted when `resume: true`).
+        #[serde(default)]
+        prompt: String,
+        /// Video model (`"veo-3.1-fast"` default, `"veo-3.1-lite"`, `"veo-3.1-quality"`, `"omni-flash"`, `"omni-flash-1.2"`).
+        #[serde(default)]
+        model: Option<String>,
+        /// Aspect ratio (`"9:16"` default or `"16:9"`).
+        #[serde(default)]
+        ratio: Option<String>,
+        /// Duration in seconds (`8` default; `omni-flash-1.2`: `3..=15`, `omni-flash`: `4|6|8|10`, Veo: `4|6|8`).
+        #[serde(default)]
+        duration: Option<u32>,
+        /// Optional local first-frame / reference image paths.
+        #[serde(default)]
+        reference_images: Vec<String>,
+        /// Google Flow project URL (falls back to the selected account's saved `projectUrl` if omitted).
+        #[serde(default)]
+        project_url: Option<String>,
+        /// Submit generation immediately (`true` default) or prepare without sending (`false`, 0 credits).
+        #[serde(default)]
+        auto_confirm: Option<bool>,
+        /// Resume waiting for / downloading an in-flight Flow job without spending new credits.
+        #[serde(default)]
+        resume: bool,
+        /// Worker Flow job id to resume when `resume: true`.
+        #[serde(default)]
+        job_id: Option<String>,
+        /// Edit the last generated video of the current Flow session instead of creating a new one.
+        #[serde(default)]
+        edit_mode: bool,
+        /// Use direct in-browser Flow API when available (`true` default).
+        #[serde(default)]
+        use_direct_api: Option<bool>,
+        /// Explicit confirmation to spend account credits (defaults to `false`; must be `true` when submitting).
+        #[serde(default)]
+        allow_credit: bool,
+        /// Acknowledge existing `uncertain` receipts on this account after checking Flow manually.
+        #[serde(default)]
+        acknowledge_uncertain: bool,
+        /// Optional open CDCAi project folder where downloaded videos are auto-imported into the bin.
+        #[serde(default)]
+        project_path: Option<String>,
+        /// Automatically import downloaded outputs into `projectPath` (`true` by default).
+        #[serde(default)]
+        auto_import: Option<bool>,
+        /// Also place imported clip onto the timeline when `projectPath` is given (`false` default).
+        #[serde(default)]
+        place_on_timeline: bool,
+        /// Timeline start position in seconds when `placeOnTimeline` is `true` (`0.0` default).
+        #[serde(default)]
+        start: Option<f64>,
+        /// Destination track id when `placeOnTimeline` is `true` (first free track when absent).
+        #[serde(default)]
+        track_id: Option<String>,
+        /// Validate account, project URL, duration, receipts, and credit gate without running Chrome.
+        #[serde(default)]
+        dry_run: bool,
+    },
+
+    /// Lists verified downloaded outputs on disk and any unresolved (`running` / `uncertain`)
+    /// Google Flow job receipts without spawning Chrome or spending credits.
+    #[serde(rename = "flow.recentOutputs")]
+    FlowRecentOutputs {
+        /// Optional account id to inspect (defaults to inspecting all configured accounts).
+        #[serde(default)]
+        account_id: Option<String>,
+    },
+}
+
+/// One downloadable link entry discovered by [`Request::LinkProbe`].
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LinkItem {
+    /// Display title.
+    pub title: String,
+    /// Original URL.
+    pub url: String,
+    /// Drive file id for authenticated Drive transfers; empty for public video URLs.
+    #[serde(default)]
+    pub drive_id: String,
+    /// True for anonymous public Google Drive downloads.
+    #[serde(default)]
+    pub public_drive: bool,
+    /// Duration in seconds when known.
+    #[serde(default)]
+    pub duration: f64,
+    /// Estimated file size in bytes; `0` when unknown.
+    #[serde(default)]
+    pub size: u64,
+    /// Optional local cached thumbnail path.
+    #[serde(default)]
+    pub thumbnail: String,
+    /// Available video heights returned during probing.
+    #[serde(default)]
+    pub heights: Vec<u32>,
+}
+
+/// [`Request::LinkProbe`]'s reply.
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LinkProbeInfo {
+    /// Downloadable items discovered for the requested URLs.
+    pub items: Vec<LinkItem>,
+    /// Whether yt-dlp and ffmpeg helpers are installed on this machine.
+    pub tools_ready: bool,
+    /// Whether Google Drive OAuth remote is configured on this machine.
+    pub drive_connected: bool,
+}
+
+/// Subtitle styling overrides when exporting a CapCut PC draft.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct CapCutTextSpec {
+    /// Text font size on CapCut canvas (`1..=100`; `5.0` by default).
+    pub font_size: Option<f64>,
+    /// Scale percentage (`83.0` by default).
+    pub scale_percent: Option<f64>,
+    /// Vertical offset in CapCut pixels (`-870.0` by default).
+    pub position_y: Option<f64>,
+    /// Enable text stroke outline (`true` by default).
+    pub stroke_enabled: Option<bool>,
+    /// Outline colour in `#rrggbb` (`"#000000"` by default).
+    pub stroke_color: Option<String>,
+    /// Outline thickness percentage (`25.0` by default).
+    pub stroke_width: Option<f64>,
+}
+
+/// [`Request::CapCutExport`]'s reply.
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CapCutExportInfo {
+    /// Generated CapCut draft folder path containing `draft_content.json`.
+    pub draft_dir: String,
+    /// True when written directly into CapCut PC's local drafts folder.
+    pub in_capcut_app: bool,
+    /// True if clips have unbaked CDCAi effects/cutouts/masks.
+    pub has_unbaked_effects: bool,
+}
+
+/// One timed caption row supplied to [`Request::CaptionsTranslate`].
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CaptionLineSpec {
+    /// Start time in seconds.
+    pub start: f64,
+    /// End time in seconds.
+    pub end: f64,
+    /// Source subtitle text.
+    pub text: String,
+    /// Optional speaker index (`0` or `1`).
+    #[serde(default)]
+    pub speaker: usize,
+}
+
+/// One speaker turn supplied to [`Request::SpeechTts`].
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DialogueTurnSpec {
+    /// Speaker index (`0` for primary voice, `1` for secondary voice).
+    #[serde(default)]
+    pub speaker: usize,
+    /// Spoken line.
+    pub text: String,
+    /// Optional delivery / mood instruction.
+    #[serde(default)]
+    pub style: String,
+}
+
+/// One timed dubbing cue supplied to [`Request::SpeechDub`].
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DubCueSpec {
+    /// Text to synthesize into this slot.
+    pub text: String,
+    /// Slot start on the timeline in seconds.
+    pub start: f64,
+    /// Slot end on the timeline in seconds.
+    pub end: f64,
+    /// Speaker index (`0` or `1`).
+    #[serde(default)]
+    pub speaker: usize,
+    /// Optional delivery / mood instruction.
+    #[serde(default)]
+    pub style: String,
+}
+
+/// Transcriber model entry in [`SpeechStatusInfo`].
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpeechTranscriberInfo {
+    /// Model id (`"base"`, `"small"`, ...).
+    pub id: String,
+    /// Display name.
+    pub label: String,
+    /// Model trade-off description.
+    pub blurb: String,
+    /// True if model supports English only.
+    pub english_only: bool,
+    /// Approximate size in bytes.
+    pub size_bytes: u64,
+    /// True if model file is present on disk.
+    pub downloaded: bool,
+}
+
+/// Local TTS model bundle entry in [`SpeechStatusInfo`].
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpeechTtsModelInfo {
+    /// Bundle id.
+    pub id: String,
+    /// Engine family (`"kokoro"`, `"pocket"`, or `"chatterbox"`).
+    pub family: String,
+    /// Display name.
+    pub label: String,
+    /// Description.
+    pub blurb: String,
+    /// Approximate size in bytes.
+    pub size_bytes: u64,
+    /// True if bundle is unpacked on disk.
+    pub downloaded: bool,
+}
+
+/// Built-in local TTS voice entry in [`SpeechStatusInfo`].
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpeechVoiceInfo {
+    /// Numeric voice id.
+    pub id: i32,
+    /// Voice name (`"af_heart"`, `"pocket_alba"`, ...).
+    pub name: String,
+    /// Engine family (`"kokoro"`, `"pocket"`, or `"chatterbox"`).
+    pub family: String,
+}
+
+/// [`Request::ModelsSpeechStatus`]'s reply.
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpeechStatusInfo {
+    /// Local Whisper models directory.
+    pub transcribers_dir: String,
+    /// Available Whisper / PhoWhisper models.
+    pub transcribers: Vec<SpeechTranscriberInfo>,
+    /// Local TTS models directory.
+    pub tts_models_dir: String,
+    /// Available local TTS bundles.
+    pub tts_models: Vec<SpeechTtsModelInfo>,
+    /// Available local voices.
+    pub voices: Vec<SpeechVoiceInfo>,
+    /// Whether one or more Gemini API keys are configured (keys themselves are never returned).
+    pub gemini_configured: bool,
+    /// Number of configured Gemini API keys available for rotation.
+    pub gemini_key_count: usize,
+    /// Whether one or more ElevenLabs API keys are configured.
+    pub eleven_configured: bool,
+    /// Number of configured ElevenLabs API keys available for rotation.
+    pub eleven_key_count: usize,
+}
+
+/// Pre-flight estimate returned when `dryRun: true` on AI speech / caption / translation requests.
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DryRunInfo {
+    /// Always `true`.
+    pub dry_run: bool,
+    /// Target operation (`"captions.transcribe"`, `"captions.translate"`, `"speech.tts"`, ...).
+    pub operation: String,
+    /// Provider or engine selected.
+    pub provider: String,
+    /// Model identifier that would run.
+    pub model: String,
+    /// Total input text characters (when text-based).
+    pub estimated_characters: usize,
+    /// Total audio duration seconds (when audio-based).
+    pub estimated_seconds: f64,
+    /// Whether required local model or cloud API key is configured.
+    pub ready: bool,
+    /// Human-readable readiness note or cost reminder.
+    pub note: String,
+}
+
+/// Summary of one configured Google Flow account in [`FlowAccountsInfo`].
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FlowAccountInfo {
+    /// Profile identifier (`"primary"`, `"account-..."`, ...).
+    pub id: String,
+    /// Display name shown in Settings.
+    pub name: String,
+    /// Whether this account is enabled for generation.
+    pub enabled: bool,
+    /// Connection mode (`"managed"`, `"attachOnly"`, or `"customProfile"`).
+    pub mode: String,
+    /// Local Chrome CDP port.
+    pub port: u16,
+    /// Chrome profile subdirectory (`"Default"`, `"Profile 1"`, ...).
+    pub profile_directory: String,
+    /// Saved default Flow project URL, if configured.
+    pub project_url: String,
+    /// Detected Chrome signed-in email or profile label, when readable from `Local State`.
+    pub detected_email: Option<String>,
+    /// True if a Flow worker or generation slot is currently active on this account.
+    pub busy: bool,
+    /// Number of unresolved (`running` or `uncertain`) receipts in this account's state directory.
+    pub unresolved_receipts: usize,
+}
+
+/// [`Request::FlowAccountsList`]'s reply.
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FlowAccountsInfo {
+    /// Data directory storing Google Flow profiles, receipts, and generated outputs.
+    pub root_dir: String,
+    /// True when `accounts.json` passed validation.
+    pub config_valid: bool,
+    /// Validation or configuration notice, if any.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub config_error: Option<String>,
+    /// Configured max parallel accounts (`1..=4`).
+    pub parallel_accounts: usize,
+    /// Configured max simultaneous generation slots (`1..=4`).
+    pub total_slots: usize,
+    /// Effective concurrency limit `min(parallelAccounts, totalSlots)`.
+    pub effective_limit: usize,
+    /// Configured Flow accounts.
+    pub accounts: Vec<FlowAccountInfo>,
+}
+
+/// [`Request::FlowConnect`]'s reply.
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FlowConnectionInfo {
+    /// Selected account id.
+    pub account_id: String,
+    /// True if attached to an already-running Chrome on the CDP port.
+    pub attached_existing: bool,
+    /// CDP debugging port.
+    pub cdp_port: u16,
+    /// Current Flow browser tab URL.
+    pub tab_url: String,
+    /// Whether the Chrome profile appears signed in to Google Flow.
+    pub logged_in: bool,
+    /// Manual sign-in or Chrome launch hint when not yet signed in.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hint: Option<String>,
+}
+
+/// Summary of one Flow job receipt on disk (`receipts/*.json`).
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FlowReceiptInfo {
+    /// Request identifier.
+    pub id: String,
+    /// Receipt lifecycle phase (`"running"`, `"finished"`, `"failed"`, or `"uncertain"`).
+    pub phase: String,
+    /// Tool name (`"flow_generate_video"`, `"flow_generate_image"`, ...).
+    pub tool: String,
+    /// ISO-8601 last updated timestamp.
+    pub updated: String,
+    /// Model name if recorded.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    /// Recorded error text, if any.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    /// Verified existing local output paths attached to this receipt.
+    pub files: Vec<String>,
+}
+
+/// [`Request::FlowStatus`]'s reply.
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FlowStatusInfo {
+    /// Selected account id.
+    pub account_id: String,
+    /// Configured CDP port.
+    pub cdp_port: u16,
+    /// True if this account is currently executing another Flow operation.
+    pub busy: bool,
+    /// Whether Chrome CDP was reachable without launching a browser.
+    pub connected: bool,
+    /// Whether Google Flow login is detected (`None` when busy/offline).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub logged_in: Option<bool>,
+    /// Current Flow tab URL, if connected.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    /// Current Flow project UUID parsed from the tab URL, if any.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project_id: Option<String>,
+    /// Current Flow scene id parsed from the tab URL, if any.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scene_id: Option<String>,
+    /// Tool name currently holding the worker lock, if any.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub running_tool: Option<String>,
+    /// In-flight jobs reported by the Flow worker.
+    pub jobs_in_flight: Vec<Value>,
+    /// Unresolved (`running` / `uncertain`) receipts stored locally for this account.
+    pub unresolved_receipts: Vec<FlowReceiptInfo>,
+    /// Optional status note (for example, why live Chrome polling was skipped while busy).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
+}
+
+/// Per-account output and unresolved-receipt summary inside [`FlowRecentInfo`].
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FlowAccountRecentInfo {
+    /// Account identifier.
+    pub account_id: String,
+    /// State directory path scanned.
+    pub state_dir: String,
+    /// Verified existing generated media paths on disk.
+    pub files: Vec<String>,
+    /// Unresolved (`running` or `uncertain`) receipts requiring inspection before retry.
+    pub unresolved: Vec<FlowReceiptInfo>,
+}
+
+/// [`Request::FlowRecentOutputs`]'s reply.
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FlowRecentInfo {
+    /// Root `google-flow` directory.
+    pub root_dir: String,
+    /// Total verified existing generated files across inspected accounts.
+    pub total_files: usize,
+    /// Total unresolved (`running` or `uncertain`) receipts across inspected accounts.
+    pub total_unresolved: usize,
+    /// Per-account breakdown.
+    pub accounts: Vec<FlowAccountRecentInfo>,
 }
 
 /// One template slot and the file that takes it.
@@ -333,6 +1150,22 @@ pub enum Reply {
     Written(Written),
     /// [`Request::PreviewFrame`] without one: the picture itself.
     Picture(Picture),
+    /// [`Request::LinkProbe`].
+    LinkItems(LinkProbeInfo),
+    /// [`Request::CapCutExport`].
+    CapCutExport(CapCutExportInfo),
+    /// [`Request::ModelsSpeechStatus`].
+    SpeechStatus(SpeechStatusInfo),
+    /// [`Request::FlowAccountsList`].
+    FlowAccounts(FlowAccountsInfo),
+    /// [`Request::FlowConnect`].
+    FlowConnection(FlowConnectionInfo),
+    /// [`Request::FlowStatus`].
+    FlowStatus(FlowStatusInfo),
+    /// [`Request::FlowRecentOutputs`].
+    FlowRecent(FlowRecentInfo),
+    /// Pre-flight dry-run response.
+    DryRun(DryRunInfo),
     /// Methods with nothing to say beyond having worked.
     Done(Done),
 }
@@ -414,12 +1247,16 @@ pub enum JobState {
     Failed,
 }
 
-/// How one job stands: [`Request::ExportStatus`]'s reply.
+/// How one job stands: [`Request::JobStatus`] / [`Request::ExportStatus`]'s reply.
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct JobStatus {
     /// The job's name.
     pub job: String,
+    /// Kind of background job (`"export"`, `"link.download"`, `"speech.tts"`,
+    /// `"captions.transcribe"`, `"flow.generate"`, etc.).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
     /// The project it works on.
     pub path: String,
     /// The file it writes.
@@ -445,16 +1282,25 @@ pub struct JobStatus {
     /// The written file's picture size, once done.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub height: Option<u32>,
+    /// Structured JSON output once done for non-export background jobs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<Value>,
     /// Why it failed, or that it was cancelled.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<ApiError>,
 }
 
 impl JobStatus {
-    /// A job that has just begun.
+    /// An export job that has just begun.
     pub fn running(job: &str, path: &str, output: &str) -> JobStatus {
+        Self::running_kind(job, "export", path, output)
+    }
+
+    /// A typed background job that has just begun.
+    pub fn running_kind(job: &str, kind: &str, path: &str, output: &str) -> JobStatus {
         JobStatus {
             job: job.to_owned(),
+            kind: Some(kind.to_owned()),
             path: path.to_owned(),
             output: output.to_owned(),
             state: JobState::Running,
@@ -464,6 +1310,7 @@ impl JobStatus {
             fraction: 0.0,
             width: None,
             height: None,
+            result: None,
             error: None,
         }
     }
@@ -711,6 +1558,42 @@ pub enum Event {
         /// went wrong.
         error: ApiError,
     },
+    /// Progress update from a non-export background job.
+    #[serde(rename = "job.progress")]
+    JobProgress {
+        /// The job.
+        job: String,
+        /// The project folder, or empty when project-less.
+        path: String,
+        /// Stage or status line.
+        stage: String,
+        /// Progress fraction in `0..=1`.
+        fraction: f64,
+    },
+    /// A non-export background job completed.
+    #[serde(rename = "job.done")]
+    JobDone {
+        /// The job.
+        job: String,
+        /// The project folder, or empty when project-less.
+        path: String,
+        /// Main written file path, if any.
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        output: String,
+        /// Structured JSON outcome.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        result: Option<Value>,
+    },
+    /// A non-export background job failed or was cancelled.
+    #[serde(rename = "job.failed")]
+    JobFailed {
+        /// The job.
+        job: String,
+        /// The project folder, or empty when project-less.
+        path: String,
+        /// Failure details.
+        error: ApiError,
+    },
 }
 
 impl Event {
@@ -732,7 +1615,10 @@ impl Event {
             | Event::StabilizeProgress { job, .. }
             | Event::ExportProgress { job, .. }
             | Event::ExportDone { job, .. }
-            | Event::ExportFailed { job, .. } => job,
+            | Event::ExportFailed { job, .. }
+            | Event::JobProgress { job, .. }
+            | Event::JobDone { job, .. }
+            | Event::JobFailed { job, .. } => job,
         }
     }
 }

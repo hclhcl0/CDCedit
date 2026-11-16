@@ -618,6 +618,8 @@
   "settings.language": "Language",
   "settings.light": "Light",
   "settings.lime": "Lime",
+  "settings.liveWindow": "Live Mode (edit open project)",
+  "settings.liveWindowHint": "Allow connected AI agents and scripts to edit, import into, preview, and export the project currently open in the window, with full Undo (Ctrl+Z) support.",
   "settings.lineAcrossLanesMarks": "The line across the lanes that marks the current time. Pick any colour for it, or the first dot to go back to the theme's own.",
   "settings.listeningOnConnected": "Listening on {0} · {1} connected",
   "settings.logDebug": "Debug",

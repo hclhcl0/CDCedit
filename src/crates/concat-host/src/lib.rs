@@ -20,6 +20,7 @@
 //! and cancels through flags, and the caller decides which thread it runs on.
 
 pub mod brush;
+pub mod capcut;
 pub mod cards;
 pub mod consolidate;
 pub mod crash;
@@ -27,6 +28,7 @@ pub mod cutout;
 pub mod dirs;
 pub mod enhance;
 pub mod export;
+pub mod flow;
 pub mod jobs;
 pub mod lock;
 pub mod logs;
@@ -42,6 +44,7 @@ pub mod proxy;
 pub mod record;
 pub mod reverse;
 mod route;
+pub mod secrets;
 pub mod session;
 pub mod sounds;
 pub mod stabilize;

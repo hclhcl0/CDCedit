@@ -12,6 +12,7 @@ concat-project.workspace = true
 concat-effects.workspace = true
 concat-export.workspace = true
 concat-host.workspace = true
+concat-speech = { workspace = true, optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json.workspace = true
 # The frame method hands back a PNG: the one picture format every
@@ -22,6 +23,8 @@ base64 = "0.22"
 schemars = { workspace = true, optional = true }
 
 [features]
+default = ["speech"]
+speech = ["dep:concat-speech"]
 # A JSON Schema for every request, generated from the types and their doc
 # comments: what concat-mcp gives an agent for each tool's arguments.
 schema = ["dep:schemars", "concat-project/schema"]

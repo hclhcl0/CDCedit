@@ -302,6 +302,26 @@ impl Session {
         self.editor.to_document(&self.settings)
     }
 
+    /// A read-only in-memory snapshot of this session's current state
+    /// (including unsaved edits), for off-thread preview rendering or export
+    /// without blocking the window thread.
+    pub fn snapshot(&self) -> Session {
+        let project = self.editor.project().clone();
+        let mut settings = self.settings.clone();
+        let video = project.active().video;
+        settings.width = video.width;
+        settings.height = video.height;
+        settings.rate_num = video.rate_num;
+        settings.rate_den = video.rate_den;
+        Session {
+            path: self.path.clone(),
+            settings,
+            editor: Editor::with_project(project),
+            upgraded: Vec::new(),
+            retired: Default::default(),
+        }
+    }
+
     /// The active timeline flattened for rendering. This is what export and
     /// preview consume: the engine flattens its own session, so the pixels
     /// rendered are the model's, never a copy of it.

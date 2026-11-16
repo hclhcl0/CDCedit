@@ -2959,6 +2959,210 @@ impl Studio {
         }
     }
 
+    /// Ensures Live Mode is turned on and `path` matches the project open in
+    /// the window.
+    pub fn ensure_live_target(&self, path: &str) -> Result<(), concat_api::ApiError> {
+        if !self.host.live_window.is_enabled() {
+            return Err(concat_api::ApiError::new(
+                concat_api::ErrorCode::Refused,
+                "Live Mode is turned off in Settings > Automation",
+            ));
+        }
+        if !self.live_same_project(path) {
+            return Err(concat_api::ApiError::new(
+                concat_api::ErrorCode::NotOpen,
+                format!("{path} is not open in the window"),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Whether an active pointer drag or modal prompt currently owns the
+    /// project and must finish before an external live edit can apply.
+    pub fn live_busy_reason(&self) -> Option<&'static str> {
+        if !matches!(self.gesture, Gesture::None) {
+            return Some(
+                "The window is in the middle of a pointer gesture; try again once it finishes",
+            );
+        }
+        if self.divider_press.is_some() {
+            return Some("The window layout is being resized; try again in a moment");
+        }
+        if self.confirm.is_some() {
+            return Some("A confirmation dialog is open in the window");
+        }
+        None
+    }
+
+    /// Whether `path` points to the project currently open in the window.
+    pub fn live_same_project(&self, path: &str) -> bool {
+        self.session
+            .as_ref()
+            .is_some_and(|session| same_folder(session.path(), path))
+    }
+
+    /// Current live session view for MCP / JSON-RPC inspection.
+    pub fn live_view(&self) -> Result<concat_host::session::EditorView, concat_api::ApiError> {
+        self.session
+            .as_ref()
+            .map(concat_host::Session::view)
+            .ok_or_else(|| {
+                concat_api::ApiError::new(concat_api::ErrorCode::NotOpen, "No project is open")
+            })
+    }
+
+    /// Current live document JSON for MCP / JSON-RPC inspection.
+    pub fn live_document(&self) -> Result<serde_json::Value, concat_api::ApiError> {
+        self.session
+            .as_ref()
+            .map(concat_host::Session::document)
+            .ok_or_else(|| {
+                concat_api::ApiError::new(concat_api::ErrorCode::NotOpen, "No project is open")
+            })
+    }
+
+    /// Clones a read-only snapshot of the active session for off-thread
+    /// rendering or export without blocking the window thread.
+    pub fn live_snapshot(&self) -> Result<concat_host::Session, concat_api::ApiError> {
+        self.session
+            .as_ref()
+            .map(concat_host::Session::snapshot)
+            .ok_or_else(|| {
+                concat_api::ApiError::new(concat_api::ErrorCode::NotOpen, "No project is open")
+            })
+    }
+
+    /// Saves the active project synchronously for Live Mode.
+    pub fn live_save(&mut self, name: Option<&str>) -> Result<(), concat_api::ApiError> {
+        if let Some(reason) = self.live_busy_reason() {
+            return Err(concat_api::ApiError::new(
+                concat_api::ErrorCode::Busy,
+                reason,
+            ));
+        }
+        self.flush_commit();
+        self.autosave.stop();
+        let session = self.session.as_mut().ok_or_else(|| {
+            concat_api::ApiError::new(concat_api::ErrorCode::NotOpen, "No project is open")
+        })?;
+        session.save(name).map_err(concat_api::ApiError::failed)?;
+        self.dirty = false;
+        if let Some(name) = name {
+            let trimmed = name.trim();
+            if !trimmed.is_empty() {
+                self.project_name = trimmed.to_owned();
+                self.export.name = projects::folder_name(trimmed);
+            }
+        }
+        Ok(())
+    }
+
+    /// Updates the active timeline's video format as an undoable live edit.
+    pub fn live_set_video(
+        &mut self,
+        video: model::VideoSettings,
+    ) -> Result<concat_host::session::EditorView, concat_api::ApiError> {
+        if let Some(reason) = self.live_busy_reason() {
+            return Err(concat_api::ApiError::new(
+                concat_api::ErrorCode::Busy,
+                reason,
+            ));
+        }
+        self.end_burst();
+        self.flush_commit();
+        self.echo = None;
+        self.last_commit = None;
+        let session = self.session.as_mut().ok_or_else(|| {
+            concat_api::ApiError::new(concat_api::ErrorCode::NotOpen, "No project is open")
+        })?;
+        let before = session.video().color_space;
+        let view = session
+            .set_video(video)
+            .map_err(|error| concat_api::ApiError::new(concat_api::ErrorCode::Refused, error))?;
+        let after = session.video().color_space;
+        self.after_change();
+        self.tell_of_hdr(before, after);
+        Ok(view)
+    }
+
+    /// Applies one edit command to the active window project and pushes it
+    /// onto the UI undo stack.
+    pub fn live_apply(
+        &mut self,
+        command: Command,
+    ) -> Result<concat_host::session::EditorView, concat_api::ApiError> {
+        if let Some(reason) = self.live_busy_reason() {
+            return Err(concat_api::ApiError::new(
+                concat_api::ErrorCode::Busy,
+                reason,
+            ));
+        }
+        self.end_burst();
+        log::info!("live edit: {}", command_name(&command));
+        self.flush_commit();
+        self.echo = None;
+        self.last_commit = None;
+        let session = self.session.as_mut().ok_or_else(|| {
+            concat_api::ApiError::new(concat_api::ErrorCode::NotOpen, "No project is open")
+        })?;
+        let before = session.video().color_space;
+        let view = session
+            .apply(command)
+            .map_err(|error| concat_api::ApiError::new(concat_api::ErrorCode::Refused, error))?;
+        let after = session.video().color_space;
+        self.after_change();
+        self.tell_of_hdr(before, after);
+        Ok(view)
+    }
+
+    /// Steps the active window project back one undo step.
+    pub fn live_undo(&mut self) -> Result<concat_host::session::EditorView, concat_api::ApiError> {
+        if let Some(reason) = self.live_busy_reason() {
+            return Err(concat_api::ApiError::new(
+                concat_api::ErrorCode::Busy,
+                reason,
+            ));
+        }
+        self.flush_commit();
+        self.echo = None;
+        self.words = None;
+        let session = self.session.as_mut().ok_or_else(|| {
+            concat_api::ApiError::new(concat_api::ErrorCode::NotOpen, "No project is open")
+        })?;
+        let view = if session.can_undo() {
+            let view = session.undo();
+            self.after_change();
+            view
+        } else {
+            session.view()
+        };
+        Ok(view)
+    }
+
+    /// Steps the active window project forward one redo step.
+    pub fn live_redo(&mut self) -> Result<concat_host::session::EditorView, concat_api::ApiError> {
+        if let Some(reason) = self.live_busy_reason() {
+            return Err(concat_api::ApiError::new(
+                concat_api::ErrorCode::Busy,
+                reason,
+            ));
+        }
+        self.flush_commit();
+        self.echo = None;
+        self.words = None;
+        let session = self.session.as_mut().ok_or_else(|| {
+            concat_api::ApiError::new(concat_api::ErrorCode::NotOpen, "No project is open")
+        })?;
+        let view = if session.can_redo() {
+            let view = session.redo();
+            self.after_change();
+            view
+        } else {
+            session.view()
+        };
+        Ok(view)
+    }
+
     /// Starts a gesture's preview: the echo is a clone of the project the
     /// pointer will mutate.
     pub fn begin_echo(&mut self) {
@@ -9056,6 +9260,9 @@ impl Studio {
                 self.gemini_studio = crate::panes::gemini_studio::GeminiStudio::default();
                 self.flow = crate::panes::flow::Flow::default();
                 self.translation = crate::panes::translation::Translation::default();
+                self.host
+                    .live_window
+                    .set_active_path(Some(session.path().to_owned()));
                 self.session = Some(session);
                 self.handle(crate::panes::Msg::Flow(
                     crate::panes::flow::FlowMsg::Action(0, 0, String::new()),
@@ -9300,6 +9507,7 @@ impl Studio {
         self.gemini_studio = crate::panes::gemini_studio::GeminiStudio::default();
         self.flow = crate::panes::flow::Flow::default();
         self.translation = crate::panes::translation::Translation::default();
+        self.host.live_window.set_active_path(None);
         self.session = None;
         // Whatever a worker still brings back for this project is dropped
         // at delivery; the sheets that were waiting on one stop waiting.

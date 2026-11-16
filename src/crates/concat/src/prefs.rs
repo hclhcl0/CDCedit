@@ -155,29 +155,7 @@ pub struct Preferences {
 }
 
 /// Preferences for subtitle styling when exporting to CapCut.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
-pub struct CapCutExportPrefs {
-    pub font_size: f64,
-    pub scale_percent: f64,
-    pub position_y: f64,
-    pub stroke_enabled: bool,
-    pub stroke_color: String,
-    pub stroke_width: f64,
-}
-
-impl Default for CapCutExportPrefs {
-    fn default() -> Self {
-        Self {
-            font_size: 5.0,
-            scale_percent: 83.0,
-            position_y: -870.0,
-            stroke_enabled: true,
-            stroke_color: "#000000".to_string(),
-            stroke_width: 25.0,
-        }
-    }
-}
+pub type CapCutExportPrefs = concat_host::capcut::CapCutTextOptions;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -298,6 +276,9 @@ impl Preferences {
 pub struct ServerPrefs {
     /// Serve while the window is open.
     pub enabled: bool,
+    /// Allow connected agents and scripts to edit the project currently open
+    /// on screen in the window (Live Mode), pushing onto the undo stack.
+    pub live_window: bool,
     /// The TCP address JSON-RPC lines are served on.
     pub listen: String,
     /// What a connection presents first. Empty means none, which the
@@ -309,6 +290,7 @@ impl Default for ServerPrefs {
     fn default() -> Self {
         ServerPrefs {
             enabled: false,
+            live_window: false,
             listen: DEFAULT_LISTEN.to_owned(),
             token: String::new(),
         }

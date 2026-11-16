@@ -51,6 +51,21 @@ fn stage_place(stage: &str) -> usize {
     }
 }
 
+fn is_export_stage(stage: &str) -> bool {
+    matches!(
+        stage,
+        "cutout"
+            | "stabilize"
+            | "video"
+            | "rendering"
+            | "rendering in software"
+            | "audio"
+            | "mixing audio"
+            | "mux"
+            | "muxing"
+    )
+}
+
 /// What a tool does with its arguments.
 #[derive(Clone, Copy, Debug)]
 pub enum Action {
@@ -75,6 +90,8 @@ pub enum Action {
     Captions,
     /// `export.status` until the job ends or the time is up.
     ExportWait,
+    /// `job.status` until any background job ends or the time is up.
+    JobWait,
     /// `updateClip` with only a mask.
     Mask,
     /// `preview.frame`, as an image.
@@ -169,7 +186,7 @@ pub fn catalogue() -> Vec<Tool> {
         Tool {
             name: "concat_version",
             title: "CDCAi version",
-            description: "What this CDCAi speaks: the API version, the build, its capabilities, and how this MCP server reaches it (`mcp.mode`: \"window\" when it goes through the open CDCAi window's server, \"headless\" when it runs the editor engine itself). Call it first if unsure what is available.",
+            description: "What this CDCAi speaks: the API version, the build, its capabilities (including `liveWindow` when Settings > Automation > Live Mode is enabled), and how this MCP server reaches it (`mcp.mode`: \"window\" when it goes through the open CDCAi window's server, \"headless\" when it runs the editor engine itself). Call it first if unsure what is available.",
             read_only: true,
             destructive: false,
             idempotent: true,
@@ -193,7 +210,7 @@ pub fn catalogue() -> Vec<Tool> {
         method(
             "project_open",
             "Open a project",
-            "Opens a project folder so it can be read and edited. Opening one already open returns it as it stands, unsaved edits included. Refused when the CDCAi window has that project open. Returns the project summary.",
+            "Opens a project folder so it can be read and edited. Opening one already open returns it as it stands, unsaved edits included. Refused when the CDCAi window has that project open unless Live Mode is enabled in Settings > Automation (`liveWindow` capability). Returns the project summary.",
             "project.open",
             Summary,
         )
@@ -488,6 +505,148 @@ pub fn catalogue() -> Vec<Tool> {
             idempotent: true,
             action: Action::PreviewFrame,
         },
+        method(
+            "job_status",
+            "Job status",
+            "Current state of any background job (export, link download, AI speech, or Google Flow): `kind`, `state` (\"running\", \"done\", \"cancelled\" or \"failed\"), `stage`, `fraction` (0-1), `output`, structured `result`, or `error`.",
+            "job.status",
+            Raw,
+        )
+        .reading(),
+        Tool {
+            name: "job_wait",
+            title: "Wait for a job",
+            description: "Waits for any background job (`job`) to finish, up to `timeoutSeconds` (60 by default, 600 at most), reporting progress along the way, and returns its final status and structured `result`.",
+            read_only: true,
+            destructive: false,
+            idempotent: true,
+            action: Action::JobWait,
+        },
+        method(
+            "job_cancel",
+            "Cancel a job",
+            "Requests cancellation of any running background job named `job`; it finishes in the \"cancelled\" state.",
+            "job.cancel",
+            Raw,
+        )
+        .destroying(),
+        method(
+            "link_probe",
+            "Probe video or Drive links",
+            "Inspects 1 to 50 video platform or Google Drive links and returns downloadable item metadata (`title`, `url`, `driveId`, `publicDrive`, `duration`, `size`, `heights`) without downloading yet.",
+            "link.probe",
+            Raw,
+        )
+        .reading(),
+        method(
+            "link_download",
+            "Download media from links",
+            "Starts a background job to download selected `items` from `link_probe` into an open project's `media/downloads/` folder and automatically probe/import them into the media bin (`autoImport` defaults to true). Follow with `job_wait`.",
+            "link.download",
+            Raw,
+        ),
+        method(
+            "capcut_import",
+            "Import a CapCut draft",
+            "Converts a CapCut PC draft (`draft_content.json`, `draft_info.json`, draft directory, or `.zip`) at `inputPath` into a new CDCAi project under `location`, opens it, and returns the project timeline summary.",
+            "capcut.import",
+            Summary,
+        ),
+        method(
+            "capcut_export",
+            "Export a CapCut draft",
+            "Exports an open project's active timeline into a CapCut PC draft folder (`outputDir` optional; defaults to CapCut PC's local drafts folder) with `draft_content.json` and `draft_meta_info.json`.",
+            "capcut.export",
+            Raw,
+        ),
+        method(
+            "models_speech_status",
+            "List speech & TTS models and key readiness",
+            "Reports installed/available local Whisper and TTS models, built-in local voice ids/names, and whether Gemini / ElevenLabs API keys are configured (keys themselves are never returned).",
+            "models.speechStatus",
+            Raw,
+        )
+        .reading(),
+        method(
+            "captions_transcribe",
+            "Transcribe clip or media to captions",
+            "Runs speech-to-text on a timeline clip (`clipId`) or media file (`mediaPath`) via offline Whisper (`engine: \"whisper\"`, default) or Gemini (`engine: \"gemini\"`), placing timed text clips onto the timeline (`autoApply: true` default). Pass `dryRun: true` first for cloud cost/readiness check.",
+            "captions.transcribe",
+            Raw,
+        ),
+        method(
+            "captions_translate",
+            "Translate captions or text track",
+            "Translates subtitle lines (`lines`) or all text clips on an open project's text track (`path` + optional `trackId`) into `targetLanguage` via Gemini, optionally updating clips in place (`applyToTrack`). Pass `dryRun: true` to count characters and check API readiness.",
+            "captions.translate",
+            Raw,
+        ),
+        method(
+            "speech_tts",
+            "Synthesize AI narration or A/B dialogue",
+            "Generates speech WAV using local sherpa-onnx (`provider: \"local\"`, default), Gemini (`\"gemini\"`), or ElevenLabs (`\"elevenlabs\"`) from `text` or `turns`, imports it into the project, and places it on the timeline (`placeOnTimeline: true` default). Call `models_speech_status` first or `dryRun: true`.",
+            "speech.tts",
+            Raw,
+        ),
+        method(
+            "speech_dub",
+            "Render time-aligned multi-cue AI dubbing",
+            "Synthesizes timed cues (`cues` or text clips read from `sourceTrackId`) via Gemini/local/ElevenLabs, time-stretches each cue into its timeline slot, mixes a continuous dubbing WAV track, and imports/places it. Use `dryRun: true` first to validate slots and character budget.",
+            "speech.dub",
+            Raw,
+        ),
+        method(
+            "speech_voice_change",
+            "Transform voice with DSP preset or cloud S2S",
+            "Converts a timeline clip (`clipId`) or file (`sourcePath`) via 10 offline FFmpeg DSP presets (`method: \"dsp\"`, `preset: 0..=9`) or cloud speech-to-speech (`\"elevenlabs\"` / `\"gemini\"`), importing and placing the new audio clip.",
+            "speech.voiceChange",
+            Raw,
+        ),
+        method(
+            "flow_accounts_list",
+            "List Google Flow Chrome CDP accounts",
+            "Lists configured Google Flow accounts (`Flow 1`, CDP port, mode, detected email), concurrency limit, busy lock state, and unresolved (`running`/`uncertain`) receipt count without launching Chrome.",
+            "flow.accountsList",
+            Raw,
+        )
+        .reading(),
+        method(
+            "flow_connect",
+            "Connect to Google Flow Chrome session",
+            "Attaches to Chrome on the configured CDP port (or launches the managed/custom Chrome profile) and checks Google Flow sign-in state; returns manual login instructions if not yet logged in.",
+            "flow.connect",
+            Raw,
+        ),
+        method(
+            "flow_status",
+            "Check Google Flow session status",
+            "Inspects Chrome CDP connection, login state, current Flow project/scene URL, in-flight jobs, and unresolved receipts without launching a new Chrome browser when none is open.",
+            "flow.status",
+            Raw,
+        )
+        .reading(),
+        method(
+            "flow_generate_image",
+            "Generate images via Google Flow (Nano Banana)",
+            "Generates 1–4 images on Google Flow (`nano-banana-pro` default) as a background job and downloads them to `google-flow/output/`, optionally importing into an open project (`projectPath`). Submitting spends real credits and requires `allowCredit: true` (`false` default refuses); check `flow_recent_outputs` / `resume: true` rather than retrying `uncertain` jobs.",
+            "flow.generateImage",
+            Raw,
+        ),
+        method(
+            "flow_generate_video",
+            "Generate a video via Google Flow (Veo 3.1 / Omni Flash)",
+            "Generates a video clip on Google Flow (`veo-3.1-fast`, `veo-3.1-quality`, `omni-flash-1.2`, ...) as a background job and downloads `.mp4` to `google-flow/output/`, optionally importing into an open project (`projectPath`). Requires `allowCredit: true` (`false` default refuses); never auto-retries on `uncertain` failures.",
+            "flow.generateVideo",
+            Raw,
+        ),
+        method(
+            "flow_recent_outputs",
+            "List recent Google Flow outputs and unresolved receipts",
+            "Scans `google-flow` receipts and verified outputs on disk without spawning Chrome or spending credits; inspect any `running`/`uncertain` receipts here before re-submitting a Flow generation.",
+            "flow.recentOutputs",
+            Raw,
+        )
+        .reading(),
     ]
 }
 
@@ -613,6 +772,18 @@ impl Default for Toolbox {
     }
 }
 
+fn wait_schema(schemas: &Schemas, method: &str) -> Option<Value> {
+    let mut schema = schemas.method(method)?;
+    schema["properties"]["timeoutSeconds"] = json!({
+        "type": "number",
+        "minimum": 0,
+        "maximum": WAIT_LONGEST,
+        "default": WAIT_DEFAULT,
+        "description": "How long to wait, in seconds.",
+    });
+    Some(schema)
+}
+
 /// The schema a tool's arguments follow.
 fn input_schema(schemas: &Schemas, tool: &Tool) -> Option<Value> {
     match tool.action {
@@ -620,17 +791,8 @@ fn input_schema(schemas: &Schemas, tool: &Tool) -> Option<Value> {
         Action::Command { op } => schemas.command(op),
         Action::Version => schemas.method("version"),
         Action::TimelineRead => schemas.method("project.get"),
-        Action::ExportWait => {
-            let mut schema = schemas.method("export.status")?;
-            schema["properties"]["timeoutSeconds"] = json!({
-                "type": "number",
-                "minimum": 0,
-                "maximum": WAIT_LONGEST,
-                "default": WAIT_DEFAULT,
-                "description": "How long to wait, in seconds.",
-            });
-            Some(schema)
-        }
+        Action::ExportWait => wait_schema(schemas, "export.status"),
+        Action::JobWait => wait_schema(schemas, "job.status"),
         Action::PreviewFrame => schemas.method("preview.frame"),
         Action::Mask => {
             let update = schemas.command("updateClip")?;
@@ -739,7 +901,22 @@ fn run(tool: &Tool, arguments: Value, context: Context<'_>) -> Result<Outcome, A
             let result = backend.call(captions(arguments)?)?;
             Ok(Outcome::json(summary::view(&result)))
         }
-        Action::ExportWait => export_wait(arguments, backend, context.cancelled, context.progress),
+        Action::ExportWait => wait_job(
+            "export.status",
+            "export_wait",
+            arguments,
+            backend,
+            context.cancelled,
+            context.progress,
+        ),
+        Action::JobWait => wait_job(
+            "job.status",
+            "job_wait",
+            arguments,
+            backend,
+            context.cancelled,
+            context.progress,
+        ),
         Action::PreviewFrame => preview(arguments, backend),
         Action::Mask => {
             let result = backend.call(mask(arguments)?)?;
@@ -843,9 +1020,11 @@ fn captions(mut arguments: Value) -> Result<Request, ApiError> {
     )
 }
 
-/// `export_wait`: the job's status once it has ended, or when the time is
-/// up, with progress reported on the way.
-fn export_wait(
+/// `export_wait` / `job_wait`: the job's status once it has ended, or when the
+/// time is up, with progress reported on the way.
+fn wait_job(
+    status_method: &str,
+    tool_name: &str,
     mut arguments: Value,
     backend: &mut dyn Backend,
     cancelled: &AtomicBool,
@@ -864,7 +1043,7 @@ fn export_wait(
             })?
             .min(WAIT_LONGEST),
     };
-    let status = request("export.status", arguments)?;
+    let status = request(status_method, arguments)?;
     let until = Instant::now() + Duration::from_secs_f64(timeout);
     let mut reported = -1.0_f64;
     loop {
@@ -872,12 +1051,15 @@ fn export_wait(
         let running = current["state"] == "running";
         if let Some(progress) = progress {
             let stage = current["stage"].as_str().unwrap_or_default();
-            let place = stage_place(stage) as f64;
             let fraction = current["fraction"].as_f64().unwrap_or(0.0).clamp(0.0, 1.0);
-            let overall = if running {
+            let export_like = current["kind"].as_str() == Some("export") || is_export_stage(stage);
+            let overall = if !running {
+                100.0
+            } else if export_like {
+                let place = stage_place(stage) as f64;
                 ((place + fraction) / STAGES as f64 * 100.0).min(99.9)
             } else {
-                100.0
+                (fraction * 100.0).min(99.9)
             };
             // A progress value must rise; a stage that starts over at 0
             // says nothing new until it passes where the last one was.
@@ -901,15 +1083,37 @@ fn export_wait(
         if cancelled.load(Ordering::Relaxed) {
             return Err(ApiError::new(
                 ErrorCode::Cancelled,
-                "stopped waiting; the export goes on",
+                format!("stopped waiting; the {tool_name} job goes on"),
             ));
         }
         if Instant::now() >= until {
-            current["note"] = json!("still running: call export_wait again, or export_status");
+            let follow_up = if tool_name == "export_wait" {
+                "still running: call export_wait again, or export_status"
+            } else {
+                "still running: call job_wait again, or job_status"
+            };
+            current["note"] = json!(follow_up);
             return Ok(Outcome::json(current));
         }
         std::thread::sleep(POLL);
     }
+}
+
+#[cfg(test)]
+fn export_wait(
+    arguments: Value,
+    backend: &mut dyn Backend,
+    cancelled: &AtomicBool,
+    progress: Option<&dyn Fn(f64, f64, String)>,
+) -> Result<Outcome, ApiError> {
+    wait_job(
+        "export.status",
+        "export_wait",
+        arguments,
+        backend,
+        cancelled,
+        progress,
+    )
 }
 
 /// `preview_frame`: the picture as an image, or the file written.
@@ -1104,6 +1308,75 @@ mod tests {
                 "preview_frame",
                 json!({ "path": "/tmp/Cut", "time": 1.5, "width": 320, "height": 180 }),
             ),
+            ("job_status", json!({ "job": "j1" })),
+            ("job_wait", json!({ "job": "j1", "timeoutSeconds": 5 })),
+            ("job_cancel", json!({ "job": "j1" })),
+            (
+                "link_probe",
+                json!({ "links": ["https://example.com/video"], "useDrive": false }),
+            ),
+            (
+                "link_download",
+                json!({
+                    "path": "/tmp/Cut",
+                    "items": [{ "title": "Sample", "url": "https://example.com/video" }],
+                    "height": 1080,
+                    "audioOnly": false,
+                    "autoImport": true
+                }),
+            ),
+            (
+                "capcut_import",
+                json!({ "inputPath": "/tmp/draft/draft_content.json", "location": "/tmp", "name": "Imported" }),
+            ),
+            (
+                "capcut_export",
+                json!({ "path": "/tmp/Cut", "outputDir": "/tmp/CapCutDrafts" }),
+            ),
+            ("models_speech_status", json!({})),
+            (
+                "captions_transcribe",
+                json!({ "path": "/tmp/Cut", "clipId": "c1", "engine": "whisper", "language": "vi", "dryRun": true }),
+            ),
+            (
+                "captions_translate",
+                json!({ "path": "/tmp/Cut", "trackId": "t2", "targetLanguage": "English", "natural": true, "dryRun": true }),
+            ),
+            (
+                "speech_tts",
+                json!({ "path": "/tmp/Cut", "text": "Xin chào các bạn.", "provider": "local", "voiceId": "af_heart", "dryRun": true }),
+            ),
+            (
+                "speech_dub",
+                json!({ "path": "/tmp/Cut", "sourceTrackId": "t2", "provider": "gemini", "voiceA": "Kore", "dryRun": true }),
+            ),
+            (
+                "speech_voice_change",
+                json!({ "path": "/tmp/Cut", "clipId": "c1", "method": "dsp", "preset": 1, "dryRun": true }),
+            ),
+            ("flow_accounts_list", json!({})),
+            ("flow_connect", json!({ "accountId": "primary" })),
+            ("flow_status", json!({ "accountId": "primary" })),
+            (
+                "flow_generate_image",
+                json!({
+                    "prompt": "A studio portrait",
+                    "projectUrl": "https://flow.google.com/project/01234567-89ab-cdef-0123-456789abcdef",
+                    "dryRun": true
+                }),
+            ),
+            (
+                "flow_generate_video",
+                json!({
+                    "prompt": "Slow pan across mountains",
+                    "model": "veo-3.1-fast",
+                    "ratio": "16:9",
+                    "duration": 8,
+                    "projectUrl": "https://flow.google.com/project/01234567-89ab-cdef-0123-456789abcdef",
+                    "dryRun": true
+                }),
+            ),
+            ("flow_recent_outputs", json!({})),
         ]
     }
 
@@ -1156,6 +1429,13 @@ mod tests {
                         .as_object_mut()
                         .map(|fields| fields.remove("timeoutSeconds"));
                     request("export.status", sample)
+                }
+                Action::JobWait => {
+                    let mut sample = sample.clone();
+                    sample
+                        .as_object_mut()
+                        .map(|fields| fields.remove("timeoutSeconds"));
+                    request("job.status", sample)
                 }
                 Action::PreviewFrame => request("preview.frame", sample.clone()),
                 Action::Mask => mask(sample.clone()),
@@ -1238,5 +1518,31 @@ mod tests {
             captions(json!({ "path": "/p", "captions": [{ "start": 2, "end": 1, "text": "x" }] }))
                 .is_err()
         );
+    }
+
+    #[test]
+    fn job_wait_reports_linear_fraction_for_non_export_jobs() {
+        let mut backend = Statuses(
+            [
+                json!({ "kind": "link.download", "state": "running", "stage": "downloading", "frame": 0, "total": 0, "fraction": 0.4 }),
+                json!({ "kind": "link.download", "state": "done", "stage": "downloading", "frame": 0, "total": 0, "fraction": 1.0, "result": { "files": ["/tmp/a.mp4"] } }),
+            ]
+            .into(),
+        );
+        let seen = std::cell::RefCell::new(Vec::new());
+        let report =
+            |progress: f64, total: f64, _: String| seen.borrow_mut().push((progress, total));
+        let cancelled = AtomicBool::new(false);
+        let outcome = wait_job(
+            "job.status",
+            "job_wait",
+            json!({ "job": "j2" }),
+            &mut backend,
+            &cancelled,
+            Some(&report),
+        )
+        .expect("waits");
+        assert!(!outcome.is_error);
+        assert_eq!(*seen.borrow(), vec![(40.0, 100.0), (100.0, 100.0)]);
     }
 }

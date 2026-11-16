@@ -13,7 +13,8 @@
 
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 
 use concat_host::export::Exporter;
 pub use concat_host::media::{strip_window, window_span, window_start};
@@ -59,6 +60,183 @@ pub struct Host {
     pub server: Option<concat_server::Server>,
     /// Which project folders are open, here or over the socket.
     pub open_projects: concat_api::OpenProjects,
+    /// Shared Google Flow Chrome CDP account lock & capacity registry.
+    pub flow_lock: concat_host::flow::FlowAccountLock,
+    /// State for Live Mode: whether AI / JSON-RPC requests may inspect and
+    /// edit the active window project directly.
+    pub live_window: Arc<LiveWindowState>,
+}
+
+/// Shared state between [`Studio`] on the UI thread and [`WindowLiveBridge`]
+/// on API server threads so [`concat_api::Api`] knows whether Live Mode is
+/// enabled and which project folder is currently open on screen without hopping
+/// threads on every lookup.
+#[derive(Default)]
+pub struct LiveWindowState {
+    enabled: AtomicBool,
+    active_path: Mutex<Option<String>>,
+}
+
+impl LiveWindowState {
+    /// Enables or disables Live Mode.
+    pub fn set_enabled(&self, enabled: bool) {
+        self.enabled.store(enabled, Ordering::Release);
+    }
+
+    /// Whether Live Mode is currently enabled.
+    pub fn is_enabled(&self) -> bool {
+        self.enabled.load(Ordering::Acquire)
+    }
+
+    /// Updates the currently open window project folder (`None` when closed).
+    pub fn set_active_path(&self, path: Option<String>) {
+        *self
+            .active_path
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner()) = path;
+    }
+
+    /// The currently open window project folder, if any.
+    pub fn active_path(&self) -> Option<String> {
+        self.active_path
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone()
+    }
+}
+
+/// Executes [`concat_api`] requests targeting the active window project by
+/// marshalling them onto the Slint event-loop thread through [`Shell::with`].
+pub struct WindowLiveBridge(pub Arc<LiveWindowState>);
+
+impl WindowLiveBridge {
+    fn run_on_ui<T: Send + 'static>(
+        body: impl FnOnce(&mut Studio, &App, &Models) -> Result<T, concat_api::ApiError>
+        + Send
+        + 'static,
+    ) -> Result<T, concat_api::ApiError> {
+        let (tx, rx) = std::sync::mpsc::sync_channel(1);
+        if let Err(err) = slint::invoke_from_event_loop(move || {
+            let mut tx = Some(tx);
+            Shell::with(|shell, app| {
+                let result = {
+                    let Ok(mut studio) = shell.studio.try_borrow_mut() else {
+                        if let Some(tx) = tx.take() {
+                            let _ = tx.send(Err(concat_api::ApiError::new(
+                                concat_api::ErrorCode::Busy,
+                                "The window is currently busy; try again in a moment",
+                            )));
+                        }
+                        return;
+                    };
+                    body(&mut studio, &app, &shell.models)
+                };
+                if let Some(tx) = tx.take() {
+                    let _ = tx.send(result);
+                }
+            });
+            if let Some(tx) = tx.take() {
+                let _ = tx.send(Err(concat_api::ApiError::failed(
+                    "CDCAi window is no longer available",
+                )));
+            }
+        }) {
+            return Err(concat_api::ApiError::failed(format!(
+                "Could not reach the window event loop: {err}"
+            )));
+        }
+        rx.recv_timeout(std::time::Duration::from_secs(15))
+            .map_err(|err| match err {
+                std::sync::mpsc::RecvTimeoutError::Timeout => concat_api::ApiError::new(
+                    concat_api::ErrorCode::Busy,
+                    "Timed out waiting for the CDCAi window",
+                ),
+                std::sync::mpsc::RecvTimeoutError::Disconnected => {
+                    concat_api::ApiError::failed("CDCAi window closed before handling the request")
+                }
+            })?
+    }
+}
+
+impl concat_api::LiveWindowHandler for WindowLiveBridge {
+    fn is_enabled(&self) -> bool {
+        self.0.is_enabled()
+    }
+
+    fn active_project_path(&self) -> Option<String> {
+        if self.0.is_enabled() {
+            self.0.active_path()
+        } else {
+            None
+        }
+    }
+
+    fn dispatch_live(
+        &self,
+        request: concat_api::Request,
+    ) -> Result<concat_api::Reply, concat_api::ApiError> {
+        use concat_api::{Done, Reply, Request};
+
+        match request {
+            Request::ProjectOpen { path } | Request::ProjectGet { path } => {
+                Self::run_on_ui(move |studio, _, _| {
+                    studio.ensure_live_target(&path)?;
+                    studio.live_view().map(|view| Reply::View(Box::new(view)))
+                })
+            }
+            Request::ProjectDocument { path } => Self::run_on_ui(move |studio, _, _| {
+                studio.ensure_live_target(&path)?;
+                studio.live_document().map(Reply::Document)
+            }),
+            Request::ProjectSave { path, name } => Self::run_on_ui(move |studio, app, models| {
+                studio.ensure_live_target(&path)?;
+                studio.live_save(name.as_deref())?;
+                studio.publish(app, models);
+                Ok(Reply::Done(Done {}))
+            }),
+            Request::ProjectSetVideo { path, video } => {
+                Self::run_on_ui(move |studio, app, models| {
+                    studio.ensure_live_target(&path)?;
+                    let view = studio.live_set_video(video)?;
+                    studio.refresh_art();
+                    studio.publish(app, models);
+                    Ok(Reply::View(Box::new(view)))
+                })
+            }
+            Request::EditApply { path, command } => Self::run_on_ui(move |studio, app, models| {
+                studio.ensure_live_target(&path)?;
+                let view = studio.live_apply(*command)?;
+                studio.refresh_art();
+                studio.publish(app, models);
+                Ok(Reply::View(Box::new(view)))
+            }),
+            Request::EditUndo { path } => Self::run_on_ui(move |studio, app, models| {
+                studio.ensure_live_target(&path)?;
+                let view = studio.live_undo()?;
+                studio.refresh_art();
+                studio.publish(app, models);
+                Ok(Reply::View(Box::new(view)))
+            }),
+            Request::EditRedo { path } => Self::run_on_ui(move |studio, app, models| {
+                studio.ensure_live_target(&path)?;
+                let view = studio.live_redo()?;
+                studio.refresh_art();
+                studio.publish(app, models);
+                Ok(Reply::View(Box::new(view)))
+            }),
+            _ => Err(concat_api::ApiError::invalid(
+                "unsupported request for Live Mode",
+            )),
+        }
+    }
+
+    fn snapshot_project(&self, path: &str) -> Result<concat_host::Session, concat_api::ApiError> {
+        let path = path.to_owned();
+        Self::run_on_ui(move |studio, _, _| {
+            studio.ensure_live_target(&path)?;
+            studio.live_snapshot()
+        })
+    }
 }
 
 impl Host {
@@ -87,6 +265,8 @@ impl Host {
             speech: Arc::new(Speech::new()),
             server: None,
             open_projects: concat_api::OpenProjects::default(),
+            flow_lock: concat_host::flow::FlowAccountLock::shared().clone(),
+            live_window: Arc::new(LiveWindowState::default()),
         })
     }
 }

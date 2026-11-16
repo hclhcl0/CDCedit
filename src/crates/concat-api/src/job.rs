@@ -106,6 +106,28 @@ impl Book {
                 };
                 status.error = Some(error.clone());
             }
+            Event::JobProgress {
+                stage, fraction, ..
+            } => {
+                status.stage = Some(stage.clone());
+                status.fraction = fraction.clamp(0.0, 1.0);
+            }
+            Event::JobDone { output, result, .. } => {
+                status.state = JobState::Done;
+                if !output.is_empty() {
+                    status.output = output.clone();
+                }
+                status.result = result.clone();
+                status.fraction = 1.0;
+            }
+            Event::JobFailed { error, .. } => {
+                status.state = if error.code == ErrorCode::Cancelled {
+                    JobState::Cancelled
+                } else {
+                    JobState::Failed
+                };
+                status.error = Some(error.clone());
+            }
         }
         if status.state != JobState::Running {
             inner.running.remove(&job);
@@ -142,6 +164,42 @@ impl Book {
                 .find(|status| status.job == job)
                 .cloned()
         })
+    }
+
+    /// Raises the stop flag for one running `job`. Returns `false` if the job
+    /// is not currently running.
+    pub(crate) fn cancel(&self, job: &str) -> bool {
+        let inner = self.inner();
+        let Some(flag) = inner.running.get(job) else {
+            return false;
+        };
+        flag.store(true, Ordering::Relaxed);
+        true
+    }
+
+    /// Merges extra JSON fields into `job`'s structured result payload.
+    pub(crate) fn merge_result(&self, job: &str, patch: serde_json::Value) {
+        let mut inner = self.inner();
+        let target = inner.states.get_mut(job).or_else(|| {
+            inner
+                .finished
+                .iter_mut()
+                .rev()
+                .find(|status| status.job == job)
+        });
+        let Some(status) = target else {
+            return;
+        };
+        if let Some(patch_obj) = patch.as_object() {
+            let entry = status
+                .result
+                .get_or_insert_with(|| serde_json::Value::Object(Default::default()));
+            if let Some(obj) = entry.as_object_mut() {
+                for (key, value) in patch_obj {
+                    obj.insert(key.clone(), value.clone());
+                }
+            }
+        }
     }
 
     /// Raises every running job's stop flag. How many there were.
@@ -220,5 +278,49 @@ mod tests {
         }
         assert!(book.status("j0").is_none(), "the oldest is forgotten");
         assert!(book.status(&format!("j{FINISHED_KEPT}")).is_some());
+    }
+
+    #[test]
+    fn generic_job_progress_done_and_single_cancel_work() {
+        let book = Book::default();
+        let flag1 = Arc::new(AtomicBool::new(false));
+        let flag2 = Arc::new(AtomicBool::new(false));
+        book.start(
+            JobStatus::running_kind("j1", "link.download", "/p", "/p/media/downloads"),
+            Arc::clone(&flag1),
+        );
+        book.start(
+            JobStatus::running_kind("j2", "speech.tts", "/p", "/p/media/generated"),
+            Arc::clone(&flag2),
+        );
+        book.record(&Event::JobProgress {
+            job: "j1".to_owned(),
+            path: "/p".to_owned(),
+            stage: "downloading".to_owned(),
+            fraction: 0.5,
+        });
+        let mid = book.status("j1").expect("running");
+        assert_eq!(mid.kind.as_deref(), Some("link.download"));
+        assert_eq!(mid.stage.as_deref(), Some("downloading"));
+        assert!((mid.fraction - 0.5).abs() < 1e-9);
+
+        assert!(book.cancel("j2"));
+        assert!(!flag1.load(Ordering::Relaxed));
+        assert!(flag2.load(Ordering::Relaxed));
+
+        book.record(&Event::JobDone {
+            job: "j1".to_owned(),
+            path: "/p".to_owned(),
+            output: "/p/media/downloads/a.mp4".to_owned(),
+            result: Some(serde_json::json!({ "files": ["/p/media/downloads/a.mp4"] })),
+        });
+        book.merge_result("j1", serde_json::json!({ "mediaIds": ["m1"] }));
+        let done = book.status("j1").expect("done");
+        assert_eq!(done.state, JobState::Done);
+        assert_eq!(done.output, "/p/media/downloads/a.mp4");
+        assert_eq!(
+            done.result.as_ref().expect("result")["mediaIds"],
+            serde_json::json!(["m1"])
+        );
     }
 }

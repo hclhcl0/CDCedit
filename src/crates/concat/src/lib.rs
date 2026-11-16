@@ -2305,6 +2305,9 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
     app.on_settings_server_enabled_changed(on_window!(|state, on: bool| {
         state.handle(Msg::Settings(SettingsMsg::ServerEnabledChanged(on)));
     }));
+    app.on_settings_server_live_window_changed(on_window!(|state, on: bool| {
+        state.handle(Msg::Settings(SettingsMsg::ServerLiveWindowChanged(on)));
+    }));
     app.on_settings_server_host_edited(on_window!(|state, text: SharedString| {
         state.handle(Msg::Settings(SettingsMsg::ServerHostEdited(
             text.to_string(),

@@ -28,12 +28,16 @@
 //! once and the job reports through the [`EventSink`] the API was made
 //! with, from that thread, which is why the sink must be `Send + Sync`.
 
+mod flow;
 mod job;
 pub mod message;
 pub mod rpc;
+#[cfg(feature = "speech")]
+mod speech;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
@@ -44,17 +48,23 @@ use concat_export::{ExportClip, ExportRequest};
 pub use concat_host::AppDirs;
 use concat_host::cutout::{self, AnalyseRequest, Cutouts};
 use concat_host::export::{self, Exporter};
+use concat_host::flow::FlowAccountLock;
 use concat_host::preview::{FrameSpec, Monitor};
 use concat_host::session::EditorView;
 use concat_host::stabilize::{StabilizeRequest, Stabilizers};
 use concat_host::templates::{self, SlotFill};
-use concat_host::{ProjectInfo, Session, Titles, lock, media, projects};
+use concat_host::{ProjectInfo, Session, Titles, capcut, link_import, lock, media, projects};
 use concat_project::Command;
 use concat_project::model::VideoSettings;
+use serde_json::{Value, json};
 
 pub use message::{
-    API_VERSION, ApiError, Dirs, Done, ErrorCode, Event, ExportSpec, Fill, JobState, JobStatus,
-    PackageInfo, ParamInfo, Picture, Reply, Request, Response, Started, VersionInfo, Written,
+    API_VERSION, ApiError, CapCutExportInfo, CapCutTextSpec, CaptionLineSpec, DialogueTurnSpec,
+    Dirs, Done, DryRunInfo, DubCueSpec, ErrorCode, Event, ExportSpec, Fill, FlowAccountInfo,
+    FlowAccountRecentInfo, FlowAccountsInfo, FlowConnectionInfo, FlowReceiptInfo, FlowRecentInfo,
+    FlowStatusInfo, JobState, JobStatus, LinkItem, LinkProbeInfo, PackageInfo, ParamInfo, Picture,
+    Reply, Request, Response, SpeechStatusInfo, SpeechTranscriberInfo, SpeechTtsModelInfo,
+    SpeechVoiceInfo, Started, VersionInfo, Written,
 };
 
 /// The export sheet's middle quality, and what an export gets when the
@@ -219,6 +229,28 @@ impl OpenProjects {
     }
 }
 
+/// Bridge from [`Api`] to the project open in the desktop window (Live Mode).
+///
+/// When the user turns on Live Mode in Settings › Automation, the window
+/// installs an implementation of this trait via [`Api::share_live_window`].
+/// Requests targeting the window's active project then run on the window's
+/// UI session — pushing onto the interactive undo stack and refreshing the
+/// timeline and monitor — instead of failing with "open in the window".
+pub trait LiveWindowHandler: Send + Sync {
+    /// Whether Live Mode is currently enabled.
+    fn is_enabled(&self) -> bool;
+
+    /// Folder path of the active window project while Live Mode is enabled.
+    fn active_project_path(&self) -> Option<String>;
+
+    /// Executes a project read or edit request on the active window project.
+    fn dispatch_live(&self, request: Request) -> Result<Reply, ApiError>;
+
+    /// Captures an immutable snapshot of the active window project for
+    /// off-thread preview rendering and export.
+    fn snapshot_project(&self, path: &str) -> Result<Session, ApiError>;
+}
+
 /// The dispatcher: the open sessions and the services behind them.
 pub struct Api {
     dirs: AppDirs,
@@ -231,9 +263,15 @@ pub struct Api {
     /// Which project folders are open on this machine, across this API
     /// and a window it is embedded in.
     open: OpenProjects,
+    live_window: Option<Arc<dyn LiveWindowHandler>>,
     titles: Titles,
     cutouts: Arc<Cutouts>,
     stabilizers: Arc<Stabilizers>,
+    flow_lock: FlowAccountLock,
+    #[cfg(feature = "speech")]
+    transcriber: Arc<concat_speech::Transcriber>,
+    #[cfg(feature = "speech")]
+    speech: Arc<concat_speech::Speech>,
     monitor: Monitor,
     exporter: Exporter,
     events: EventSink,
@@ -241,8 +279,35 @@ pub struct Api {
     /// Every job's last known state and each running one's stop flag, fed
     /// by the events on their way to `events`.
     book: Arc<job::Book>,
+    /// Edits queued by completed background jobs (e.g. `autoImport` / `placeOnTimeline`)
+    /// waiting to be applied to headless `sessions` on the dispatcher thread.
+    pending_edits: Arc<Mutex<Vec<PendingSessionEdit>>>,
     /// [`VersionInfo::capabilities`], in the order they were added.
     capabilities: Vec<String>,
+}
+
+/// One deferred project mutation emitted by a finished background job.
+#[derive(Clone)]
+pub(crate) enum PendingStep {
+    /// Applies a single [`Command`] directly.
+    Apply(Command),
+    /// Imports `item` into the media bin (or reuses an existing entry with the
+    /// same path) and places a clip onto the timeline.
+    ImportAndPlace {
+        item: concat_project::commands::NewMedia,
+        track_id: Option<String>,
+        start: f64,
+    },
+}
+
+/// Deferred project mutation queued by a finished background job when the
+/// target project is held in [`Api::sessions`] rather than the live window.
+pub(crate) struct PendingSessionEdit {
+    job: String,
+    path: String,
+    steps: Vec<PendingStep>,
+    pre_media_ids: Vec<String>,
+    pre_clip_ids: Vec<String>,
 }
 
 /// A way to stop the jobs of one [`Api`] from any thread, without waiting
@@ -252,6 +317,10 @@ pub struct Api {
 pub struct Stopper {
     book: Arc<job::Book>,
     cutouts: Arc<Cutouts>,
+    #[cfg(feature = "speech")]
+    transcriber: Arc<concat_speech::Transcriber>,
+    #[cfg(feature = "speech")]
+    speech: Arc<concat_speech::Speech>,
 }
 
 impl Stopper {
@@ -265,6 +334,11 @@ impl Stopper {
             // A job still finding masks is in the analysis, not the
             // render; the analysis is this API's own.
             self.cutouts.cancel();
+            #[cfg(feature = "speech")]
+            {
+                self.transcriber.cancel();
+                self.speech.cancel();
+            }
         }
         running
     }
@@ -290,14 +364,21 @@ impl Api {
         };
         Api {
             book,
+            pending_edits: Arc::new(Mutex::new(Vec::new())),
             titles: Titles::new(&dirs),
             cutouts: Arc::new(Cutouts::new(&dirs.data)),
             stabilizers: Arc::new(Stabilizers::new()),
+            flow_lock: FlowAccountLock::new(),
+            #[cfg(feature = "speech")]
+            transcriber: Arc::new(concat_speech::Transcriber::new()),
+            #[cfg(feature = "speech")]
+            speech: Arc::new(concat_speech::Speech::new()),
             monitor: Monitor::new(),
             exporter: Exporter::new(),
             sessions: BTreeMap::new(),
             roots: Vec::new(),
             open: OpenProjects::default(),
+            live_window: None,
             events,
             jobs: Jobs::default(),
             dirs,
@@ -325,11 +406,100 @@ impl Api {
         Stopper {
             book: Arc::clone(&self.book),
             cutouts: Arc::clone(&self.cutouts),
+            #[cfg(feature = "speech")]
+            transcriber: Arc::clone(&self.transcriber),
+            #[cfg(feature = "speech")]
+            speech: Arc::clone(&self.speech),
         }
     }
 
-    /// [`Request::ExportStatus`].
+    /// Applies any session edits queued by completed background jobs when the
+    /// target project lives in `self.sessions` (or active live window) and
+    /// merges created ids back into the finished job's `result`.
+    fn drain_pending_edits(&mut self) {
+        let pending = {
+            let mut queue = self
+                .pending_edits
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+            if queue.is_empty() {
+                return;
+            }
+            std::mem::take(&mut *queue)
+        };
+        for item in pending {
+            let mut media_ids = item.pre_media_ids;
+            let mut clip_ids = item.pre_clip_ids;
+            let mut apply_error: Option<String> = None;
+            for step in item.steps {
+                if let Err(err) = execute_step(
+                    step,
+                    &mut |cmd| self.apply(&item.path, cmd),
+                    &mut media_ids,
+                    &mut clip_ids,
+                ) {
+                    apply_error = Some(err.message);
+                    break;
+                }
+            }
+            if let Some(err) = apply_error {
+                self.book
+                    .merge_result(&item.job, json!({ "importError": err }));
+            } else {
+                let mut patch = serde_json::Map::new();
+                if !media_ids.is_empty() {
+                    patch.insert("mediaIds".to_owned(), json!(media_ids));
+                }
+                if !clip_ids.is_empty() {
+                    patch.insert("clipIds".to_owned(), json!(clip_ids));
+                }
+                if !patch.is_empty() {
+                    self.book.merge_result(&item.job, Value::Object(patch));
+                }
+            }
+        }
+    }
+
+    /// Starts a non-export background job tracked in [`job::Book`] and
+    /// [`Jobs`], returning [`Started`] immediately.
+    pub(crate) fn spawn_job<F>(
+        &mut self,
+        kind: &str,
+        path: &str,
+        output: &str,
+        work: F,
+    ) -> Result<Started, ApiError>
+    where
+        F: FnOnce(String, Arc<AtomicBool>, EventSink) + Send + 'static,
+    {
+        self.jobs.reap(&self.book);
+        let started = Started {
+            job: self.jobs.mint(),
+            path: path.to_owned(),
+            output: output.to_owned(),
+        };
+        let cancel = Arc::new(AtomicBool::new(false));
+        self.book.start(
+            JobStatus::running_kind(&started.job, kind, &started.path, &started.output),
+            Arc::clone(&cancel),
+        );
+        let book = Arc::clone(&self.book);
+        let job_name = started.job.clone();
+        let events = Arc::clone(&self.events);
+        let thread = std::thread::Builder::new()
+            .name(format!("{kind} {}", started.job))
+            .spawn(move || work(job_name, cancel, events))
+            .map_err(|error| {
+                book.abandon(&started.job);
+                ApiError::failed(format!("could not start job {kind}: {error}"))
+            })?;
+        self.jobs.threads.push((started.job.clone(), thread));
+        Ok(started)
+    }
+
+    /// [`Request::JobStatus`] / [`Request::ExportStatus`].
     pub fn job_status(&mut self, job: &str) -> Result<JobStatus, ApiError> {
+        self.drain_pending_edits();
         self.jobs.reap(&self.book);
         self.book.status(job).ok_or_else(|| {
             ApiError::new(
@@ -357,6 +527,45 @@ impl Api {
         self.open = open;
     }
 
+    /// Shares the window's live-project bridge so requests targeting the
+    /// project currently open in the window run against its live UI session
+    /// whenever Live Mode is enabled.
+    pub fn share_live_window(&mut self, handler: Arc<dyn LiveWindowHandler>) {
+        self.live_window = Some(handler);
+    }
+
+    /// Shares the window's Google Flow account lock & worker registry so
+    /// concurrent Flow jobs from the window and MCP share capacity limits and
+    /// profile locks.
+    pub fn share_flow_lock(&mut self, lock: FlowAccountLock) {
+        self.flow_lock = lock;
+    }
+
+    /// Shares the window's loaded Whisper transcriber so model weights stay
+    /// cached across interactive and MCP captioning runs.
+    #[cfg(feature = "speech")]
+    pub fn share_transcriber(&mut self, transcriber: Arc<concat_speech::Transcriber>) {
+        self.transcriber = transcriber;
+    }
+
+    /// Shares the window's loaded local TTS engine so model state is reused
+    /// across UI and MCP speech synthesis.
+    #[cfg(feature = "speech")]
+    pub fn share_speech(&mut self, speech: Arc<concat_speech::Speech>) {
+        self.speech = speech;
+    }
+
+    /// The live-window bridge when Live Mode is active and `path` matches the
+    /// project currently open on screen.
+    pub(crate) fn live_handler_for(&self, path: &str) -> Option<Arc<dyn LiveWindowHandler>> {
+        let handler = self.live_window.as_ref()?;
+        if !handler.is_enabled() {
+            return None;
+        }
+        let active = handler.active_project_path()?;
+        (key_of(&active) == key_of(path)).then(|| Arc::clone(handler))
+    }
+
     /// Confines every write to `roots`: from here on a created project, an
     /// instantiated template, an export and a preview file must land under
     /// one of them, and any other path is `refused`. Reads - a probe, a
@@ -376,7 +585,7 @@ impl Api {
     }
 
     /// `path` as somewhere this API may write, or why not.
-    fn writable(&self, path: &str) -> Result<(), ApiError> {
+    pub(crate) fn writable(&self, path: &str) -> Result<(), ApiError> {
         if self.roots.is_empty() {
             return Ok(());
         }
@@ -425,12 +634,38 @@ impl Api {
     /// Runs one request. The response is what the request is worth; a job
     /// it begins reports through the sink from then on.
     pub fn dispatch(&mut self, request: Request) -> Response {
+        self.drain_pending_edits();
         self.jobs.reap(&self.book);
         self.run(request).into()
     }
 
     fn run(&mut self, request: Request) -> Result<Reply, ApiError> {
         let view = |view: EditorView| Ok(Reply::View(Box::new(view)));
+        match &request {
+            Request::ProjectOpen { path }
+            | Request::ProjectGet { path }
+            | Request::ProjectDocument { path }
+            | Request::ProjectSave { path, .. }
+            | Request::ProjectSetVideo { path, .. }
+            | Request::EditApply { path, .. }
+            | Request::EditUndo { path }
+            | Request::EditRedo { path } => {
+                if let Some(handler) = self.live_handler_for(path) {
+                    return handler.dispatch_live(request);
+                }
+            }
+            Request::ProjectClose { path, .. } => {
+                if self.live_handler_for(path).is_some() {
+                    return Err(ApiError::new(
+                        ErrorCode::Refused,
+                        format!(
+                            "{path} is open in the window under Live Mode; close it from the window instead"
+                        ),
+                    ));
+                }
+            }
+            _ => {}
+        }
         match request {
             Request::Version => Ok(Reply::Version(self.version())),
             Request::ProjectCreate {
@@ -492,6 +727,73 @@ impl Api {
                     None => Ok(Reply::Picture(self.picture(&path, time, size)?)),
                 }
             }
+            Request::JobStatus { job } => Ok(Reply::Job(self.job_status(&job)?)),
+            Request::JobCancel { job } => {
+                self.cancel(&job)?;
+                Ok(Reply::Done(Done {}))
+            }
+            Request::LinkProbe {
+                links,
+                use_drive,
+                cookies_path,
+            } => Ok(Reply::LinkItems(self.link_probe(
+                links,
+                use_drive,
+                cookies_path.as_deref(),
+            )?)),
+            Request::LinkDownload {
+                path,
+                items,
+                height,
+                audio_only,
+                auto_import,
+                cookies_path,
+            } => Ok(Reply::Started(self.link_download(
+                &path,
+                items,
+                height.unwrap_or(1080),
+                audio_only,
+                auto_import.unwrap_or(true),
+                cookies_path.as_deref(),
+            )?)),
+            Request::CapCutImport {
+                input_path,
+                location,
+                name,
+            } => view(self.capcut_import(&input_path, &location, name.as_deref())?),
+            Request::CapCutExport {
+                path,
+                output_dir,
+                text_options,
+            } => Ok(Reply::CapCutExport(self.capcut_export(
+                &path,
+                output_dir.as_deref(),
+                text_options.as_ref(),
+            )?)),
+            Request::ModelsSpeechStatus
+            | Request::CaptionsTranscribe { .. }
+            | Request::CaptionsTranslate { .. }
+            | Request::SpeechTts { .. }
+            | Request::SpeechDub { .. }
+            | Request::SpeechVoiceChange { .. } => {
+                #[cfg(feature = "speech")]
+                {
+                    self.run_speech_request(request)
+                }
+                #[cfg(not(feature = "speech"))]
+                {
+                    Err(ApiError::new(
+                        ErrorCode::Refused,
+                        "AI speech/captions support was disabled at build time (`speech` feature off)",
+                    ))
+                }
+            }
+            Request::FlowAccountsList
+            | Request::FlowConnect { .. }
+            | Request::FlowStatus { .. }
+            | Request::FlowGenerateImage { .. }
+            | Request::FlowGenerateVideo { .. }
+            | Request::FlowRecentOutputs { .. } => self.run_flow_request(request),
         }
     }
 
@@ -505,6 +807,19 @@ impl Api {
                 let mut capabilities = self.capabilities.clone();
                 if self.monitor.has_gpu() {
                     capabilities.push("gpu".to_owned());
+                }
+                if self
+                    .live_window
+                    .as_ref()
+                    .is_some_and(|handler| handler.is_enabled())
+                {
+                    capabilities.push("liveWindow".to_owned());
+                }
+                if cfg!(feature = "speech") {
+                    capabilities.push("speech".to_owned());
+                }
+                if !cfg!(any(target_os = "android", target_os = "ios")) {
+                    capabilities.push("flow".to_owned());
                 }
                 capabilities
             },
@@ -535,6 +850,14 @@ impl Api {
 
     /// [`Request::ProjectOpen`].
     pub fn open(&mut self, path: &str) -> Result<EditorView, ApiError> {
+        if let Some(handler) = self.live_handler_for(path) {
+            return match handler.dispatch_live(Request::ProjectOpen {
+                path: path.to_owned(),
+            })? {
+                Reply::View(view) => Ok(*view),
+                _ => Err(ApiError::failed("unexpected live reply")),
+            };
+        }
         let key = key_of(path);
         if let Some(session) = self.sessions.get(&key) {
             return Ok(session.view());
@@ -551,10 +874,13 @@ impl Api {
             // go through that window instead of around it.
             let how = match &refusal {
                 Refusal::Elsewhere(owner) if owner.role == "window" => {
-                    ". To work on it from an agent, turn on Settings > Automation in that window and run the agent with `concat --mcp window`; the project on screen stays the window's until live mode lands"
+                    ". To work on it from an agent, turn on Settings > Automation (and Live Mode to edit the active project on screen) in that window and run the agent with `concat --mcp window`"
                 }
                 Refusal::Elsewhere(_) => ". Close it there first",
-                Refusal::Here(_) => "",
+                Refusal::Here(Holder::Window) => {
+                    ". Enable Live Mode in Settings > Automation to edit the active window project"
+                }
+                Refusal::Here(Holder::Api) => "",
             };
             return Err(ApiError::new(
                 ErrorCode::Refused,
@@ -578,6 +904,14 @@ impl Api {
 
     /// [`Request::ProjectClose`].
     pub fn close(&mut self, path: &str, save: bool) -> Result<(), ApiError> {
+        if self.live_handler_for(path).is_some() {
+            return Err(ApiError::new(
+                ErrorCode::Refused,
+                format!(
+                    "{path} is open in the window under Live Mode; close it from the window instead"
+                ),
+            ));
+        }
         if save {
             self.save(path, None)?;
         }
@@ -599,11 +933,27 @@ impl Api {
 
     /// [`Request::ProjectSave`].
     pub fn save(&mut self, path: &str, name: Option<&str>) -> Result<(), ApiError> {
+        if let Some(handler) = self.live_handler_for(path) {
+            handler.dispatch_live(Request::ProjectSave {
+                path: path.to_owned(),
+                name: name.map(str::to_owned),
+            })?;
+            return Ok(());
+        }
         self.session_mut(path)?.save(name).map_err(ApiError::failed)
     }
 
     /// [`Request::EditApply`].
     pub fn apply(&mut self, path: &str, command: Command) -> Result<EditorView, ApiError> {
+        if let Some(handler) = self.live_handler_for(path) {
+            return match handler.dispatch_live(Request::EditApply {
+                path: path.to_owned(),
+                command: Box::new(command),
+            })? {
+                Reply::View(view) => Ok(*view),
+                _ => Err(ApiError::failed("unexpected live reply")),
+            };
+        }
         self.session_mut(path)?.apply(command).map_err(refused)
     }
 
@@ -646,7 +996,14 @@ impl Api {
         path: &str,
         name: &str,
     ) -> Result<concat_host::templates::TemplateInfo, ApiError> {
-        let session = self.session(path)?;
+        let live_snapshot = match self.live_handler_for(path) {
+            Some(handler) => Some(handler.snapshot_project(path)?),
+            None => None,
+        };
+        let session = match live_snapshot.as_ref() {
+            Some(snapshot) => snapshot,
+            None => self.session(path)?,
+        };
         templates::save(
             &self.dirs.config,
             &session.document(),
@@ -664,7 +1021,14 @@ impl Api {
     /// painted here and rejoining the clip list as stills.
     pub fn export(&mut self, path: &str, spec: &ExportSpec) -> Result<Started, ApiError> {
         self.writable(&spec.output)?;
-        let session = self.session(path)?;
+        let live_snapshot = match self.live_handler_for(path) {
+            Some(handler) => Some(handler.snapshot_project(path)?),
+            None => None,
+        };
+        let session = match live_snapshot.as_ref() {
+            Some(snapshot) => snapshot,
+            None => self.session(path)?,
+        };
         if session.project().active().clips.is_empty() {
             return Err(ApiError::new(
                 ErrorCode::Refused,
@@ -775,7 +1139,7 @@ impl Api {
         Ok(started)
     }
 
-    /// [`Request::ExportCancel`].
+    /// [`Request::JobCancel`] / [`Request::ExportCancel`].
     pub fn cancel(&mut self, job: &str) -> Result<(), ApiError> {
         self.jobs.reap(&self.book);
         if !self.jobs.threads.iter().any(|(name, _)| name == job) {
@@ -784,12 +1148,357 @@ impl Api {
                 format!("no job {job} is running"),
             ));
         }
-        // Whichever phase it is in: the analysis ahead of the render, or
-        // the render itself.
-        self.cutouts.cancel();
-        self.stabilizers.cancel();
-        self.exporter.cancel();
+        self.book.cancel(job);
+        let kind = self.book.status(job).and_then(|status| status.kind);
+        match kind.as_deref() {
+            None | Some("export") => {
+                // Whichever phase it is in: the analysis ahead of the render, or
+                // the render itself.
+                self.cutouts.cancel();
+                self.stabilizers.cancel();
+                self.exporter.cancel();
+            }
+            #[cfg(feature = "speech")]
+            Some("captions.transcribe") => self.transcriber.cancel(),
+            #[cfg(feature = "speech")]
+            Some(k) if k.starts_with("speech.") => self.speech.cancel(),
+            _ => {}
+        }
         Ok(())
+    }
+
+    /// Checks that `path` is open either in headless `sessions` or active in
+    /// Live Mode.
+    pub(crate) fn ensure_open(&self, path: &str) -> Result<(), ApiError> {
+        if self.live_handler_for(path).is_some() || self.sessions.contains_key(&key_of(path)) {
+            Ok(())
+        } else {
+            Err(not_open(path))
+        }
+    }
+
+    /// Applies `steps` from a background worker onto the active live window
+    /// immediately when Live Mode is active, or queues them into
+    /// `pending_edits` for [`Api::dispatch`] / [`Api::job_status`].
+    /// Returns `(media_ids, clip_ids, error_message)`.
+    pub(crate) fn finish_worker_steps(
+        job: &str,
+        path: &str,
+        steps: Vec<PendingStep>,
+        live: &Option<Arc<dyn LiveWindowHandler>>,
+        pending_edits: &Arc<Mutex<Vec<PendingSessionEdit>>>,
+    ) -> (Vec<String>, Vec<String>, Option<String>) {
+        if steps.is_empty() {
+            return (Vec::new(), Vec::new(), None);
+        }
+        if let Some(handler) = live
+            && handler.is_enabled()
+            && handler
+                .active_project_path()
+                .is_some_and(|active| key_of(&active) == key_of(path))
+        {
+            let mut media_ids = Vec::new();
+            let mut clip_ids = Vec::new();
+            let mut retry_from = None;
+            for (idx, step) in steps.iter().enumerate() {
+                let res = execute_step(
+                    step.clone(),
+                    &mut |cmd| match handler.dispatch_live(Request::EditApply {
+                        path: path.to_owned(),
+                        command: Box::new(cmd),
+                    })? {
+                        Reply::View(view) => Ok(*view),
+                        _ => Err(ApiError::failed("unexpected live reply")),
+                    },
+                    &mut media_ids,
+                    &mut clip_ids,
+                );
+                match res {
+                    Ok(()) => {}
+                    Err(err) if err.code == ErrorCode::Busy => {
+                        retry_from = Some(idx);
+                        break;
+                    }
+                    Err(err) => return (media_ids, clip_ids, Some(err.message)),
+                }
+            }
+            if let Some(start_idx) = retry_from {
+                pending_edits
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner())
+                    .push(PendingSessionEdit {
+                        job: job.to_owned(),
+                        path: path.to_owned(),
+                        steps: steps.into_iter().skip(start_idx).collect(),
+                        pre_media_ids: media_ids.clone(),
+                        pre_clip_ids: clip_ids.clone(),
+                    });
+            }
+            return (media_ids, clip_ids, None);
+        }
+
+        pending_edits
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .push(PendingSessionEdit {
+                job: job.to_owned(),
+                path: path.to_owned(),
+                steps,
+                pre_media_ids: Vec::new(),
+                pre_clip_ids: Vec::new(),
+            });
+        (Vec::new(), Vec::new(), None)
+    }
+
+    /// [`Request::LinkProbe`].
+    pub fn link_probe(
+        &self,
+        links: Vec<String>,
+        use_drive: bool,
+        cookies_path: Option<&str>,
+    ) -> Result<LinkProbeInfo, ApiError> {
+        let joined = links
+            .into_iter()
+            .map(|l| l.trim().to_owned())
+            .filter(|l| !l.is_empty())
+            .collect::<Vec<_>>()
+            .join("\n");
+        if joined.is_empty() {
+            return Err(ApiError::invalid("provide at least one URL"));
+        }
+        let cookies = validate_cookies_file(cookies_path)?;
+        let tools = link_import::Tools::new(&self.dirs);
+        let cancel = AtomicBool::new(false);
+        let items = link_import::inspect(&tools, &joined, use_drive, cookies.as_deref(), &cancel)
+            .map_err(ApiError::failed)?;
+        Ok(LinkProbeInfo {
+            items: items.into_iter().map(link_item_to_api).collect(),
+            tools_ready: tools.ready(),
+            drive_connected: tools.connected(),
+        })
+    }
+
+    /// [`Request::LinkDownload`].
+    pub fn link_download(
+        &mut self,
+        path: &str,
+        items: Vec<LinkItem>,
+        height: u32,
+        audio_only: bool,
+        auto_import: bool,
+        cookies_path: Option<&str>,
+    ) -> Result<Started, ApiError> {
+        if items.is_empty() {
+            return Err(ApiError::invalid("provide at least one item to download"));
+        }
+        self.ensure_open(path)?;
+        self.writable(path)?;
+        let cookies = validate_cookies_file(cookies_path)?;
+        let project_path = key_of(path);
+        let tools = link_import::Tools::new(&self.dirs);
+        let host_items: Vec<link_import::Item> =
+            items.into_iter().map(link_item_from_api).collect();
+        let output_dir = PathBuf::from(&project_path)
+            .join("media")
+            .join("downloads")
+            .to_string_lossy()
+            .into_owned();
+        let live = self.live_window.clone();
+        let pending_edits = Arc::clone(&self.pending_edits);
+        let job_path = project_path.clone();
+
+        self.spawn_job(
+            "link.download",
+            path,
+            &output_dir,
+            move |job_id, cancel, events| {
+                let project_dir = PathBuf::from(&job_path);
+                let res = link_import::download(
+                    &tools,
+                    &host_items,
+                    &project_dir,
+                    height,
+                    audio_only,
+                    cookies.as_deref(),
+                    &cancel,
+                    &mut |fraction, stage| {
+                        (events)(Event::JobProgress {
+                            job: job_id.clone(),
+                            path: job_path.clone(),
+                            stage: if stage.is_empty() {
+                                "downloading".to_owned()
+                            } else {
+                                stage
+                            },
+                            fraction: f64::from(fraction),
+                        });
+                    },
+                );
+
+                match res {
+                    Ok((files, errors, _failed)) => {
+                        if cancel.load(Ordering::Relaxed) {
+                            (events)(Event::JobFailed {
+                                job: job_id,
+                                path: job_path,
+                                error: ApiError::new(
+                                    ErrorCode::Cancelled,
+                                    "The link download was cancelled",
+                                ),
+                            });
+                            return;
+                        }
+                        if files.is_empty() && !errors.is_empty() {
+                            (events)(Event::JobFailed {
+                                job: job_id,
+                                path: job_path,
+                                error: ApiError::failed(errors.join("; ")),
+                            });
+                            return;
+                        }
+                        let file_strs: Vec<String> = files
+                            .iter()
+                            .map(|p| p.to_string_lossy().into_owned())
+                            .collect();
+                        let mut media_ids = Vec::new();
+                        let mut probe_errors = errors;
+                        if auto_import && !file_strs.is_empty() {
+                            let mut steps = Vec::new();
+                            for f in &file_strs {
+                                match media::probe(f) {
+                                    Ok(summary) => {
+                                        steps.push(PendingStep::Apply(Command::AddMedia {
+                                            item: summary.to_new_media(),
+                                        }));
+                                    }
+                                    Err(e) => probe_errors.push(format!("{f}: {e}")),
+                                }
+                            }
+                            let (ids, _, import_err) = Self::finish_worker_steps(
+                                &job_id,
+                                &job_path,
+                                steps,
+                                &live,
+                                &pending_edits,
+                            );
+                            media_ids = ids;
+                            if let Some(e) = import_err {
+                                probe_errors.push(e);
+                            }
+                        }
+                        let main_output = file_strs.first().cloned().unwrap_or_default();
+                        (events)(Event::JobDone {
+                            job: job_id,
+                            path: job_path,
+                            output: main_output,
+                            result: Some(json!({
+                                "files": file_strs,
+                                "mediaIds": media_ids,
+                                "errors": probe_errors,
+                            })),
+                        });
+                    }
+                    Err(error) => {
+                        (events)(Event::JobFailed {
+                            job: job_id,
+                            path: job_path,
+                            error: if cancel.load(Ordering::Relaxed) {
+                                ApiError::new(
+                                    ErrorCode::Cancelled,
+                                    "The link download was cancelled",
+                                )
+                            } else {
+                                ApiError::failed(error)
+                            },
+                        });
+                    }
+                }
+            },
+        )
+    }
+
+    /// [`Request::CapCutImport`].
+    pub fn capcut_import(
+        &mut self,
+        input_path: &str,
+        location: &str,
+        name: Option<&str>,
+    ) -> Result<EditorView, ApiError> {
+        self.writable(location)?;
+        let input = Path::new(input_path);
+        if !input.exists() {
+            return Err(ApiError::new(
+                ErrorCode::NotFound,
+                format!("CapCut draft path not found: {input_path}"),
+            ));
+        }
+        let imported =
+            capcut::import_capcut_draft(input, Path::new(location), name, false, &self.dirs)
+                .map_err(ApiError::failed)?;
+        self.adopt(imported.project)
+    }
+
+    /// [`Request::CapCutExport`].
+    pub fn capcut_export(
+        &mut self,
+        path: &str,
+        output_dir: Option<&str>,
+        text_options: Option<&CapCutTextSpec>,
+    ) -> Result<CapCutExportInfo, ApiError> {
+        let target_base = match output_dir {
+            Some(dir) => PathBuf::from(dir),
+            None => capcut::default_capcut_drafts_dir()
+                .unwrap_or_else(|| self.dirs.data.join("CapCut_Drafts")),
+        };
+        self.writable(&target_base.to_string_lossy())?;
+
+        let live_snapshot = match self.live_handler_for(path) {
+            Some(handler) => Some(handler.snapshot_project(path)?),
+            None => None,
+        };
+        let session = match live_snapshot.as_ref() {
+            Some(snapshot) => snapshot,
+            None => self.session(path)?,
+        };
+
+        let mut opts = capcut::CapCutTextOptions::default();
+        if let Some(spec) = text_options {
+            if let Some(v) = spec.font_size {
+                opts.font_size = v;
+            }
+            if let Some(v) = spec.scale_percent {
+                opts.scale_percent = v;
+            }
+            if let Some(v) = spec.position_y {
+                opts.position_y = v;
+            }
+            if let Some(v) = spec.stroke_enabled {
+                opts.stroke_enabled = v;
+            }
+            if let Some(ref c) = spec.stroke_color {
+                opts.stroke_color = c.clone();
+            }
+            if let Some(v) = spec.stroke_width {
+                opts.stroke_width = v;
+            }
+        }
+
+        let explicit_dir = output_dir.map(PathBuf::from);
+        let result = capcut::export_project_to_capcut(
+            session.project(),
+            Path::new(session.path()),
+            &session.settings().name,
+            &opts,
+            explicit_dir.as_deref(),
+            &self.dirs,
+        )
+        .map_err(ApiError::failed)?;
+
+        Ok(CapCutExportInfo {
+            draft_dir: result.draft_dir.to_string_lossy().into_owned(),
+            in_capcut_app: result.in_capcut_app,
+            has_unbaked_effects: result.has_unbaked_effects,
+        })
     }
 
     /// The timeline's titles painted for a `width` × `height` frame, as
@@ -846,7 +1555,14 @@ impl Api {
         time: f64,
         size: Option<(u32, u32)>,
     ) -> Result<(u32, u32, Vec<u8>), ApiError> {
-        let session = self.session(path)?;
+        let live_snapshot = match self.live_handler_for(path) {
+            Some(handler) => Some(handler.snapshot_project(path)?),
+            None => None,
+        };
+        let session = match live_snapshot.as_ref() {
+            Some(snapshot) => snapshot,
+            None => self.session(path)?,
+        };
         let settings = session.settings();
         let (width, height) = size.unwrap_or((settings.width, settings.height));
         let (width, height) = checked_size(width, height)?;
@@ -872,7 +1588,7 @@ impl Api {
         Ok((width, height, pixels))
     }
 
-    fn session(&self, path: &str) -> Result<&Session, ApiError> {
+    pub(crate) fn session(&self, path: &str) -> Result<&Session, ApiError> {
         self.sessions
             .get(&key_of(path))
             .ok_or_else(|| not_open(path))
@@ -1131,7 +1847,98 @@ fn resolved(path: &Path) -> PathBuf {
     }
 }
 
-fn key_of(path: &str) -> String {
+fn same_media_path(a: &str, b: &str) -> bool {
+    if a == b {
+        return true;
+    }
+    let fold = |byte: u8| match byte {
+        b'\\' => b'/',
+        other => other.to_ascii_lowercase(),
+    };
+    cfg!(windows) && a.len() == b.len() && a.bytes().zip(b.bytes()).all(|(x, y)| fold(x) == fold(y))
+}
+
+fn execute_step<F>(
+    step: PendingStep,
+    apply_cmd: &mut F,
+    media_ids: &mut Vec<String>,
+    clip_ids: &mut Vec<String>,
+) -> Result<(), ApiError>
+where
+    F: FnMut(Command) -> Result<EditorView, ApiError>,
+{
+    match step {
+        PendingStep::Apply(cmd) => {
+            let is_media = matches!(&cmd, Command::AddMedia { .. });
+            let fallback_path = match &cmd {
+                Command::AddMedia { item } => Some(item.path.clone()),
+                _ => None,
+            };
+            let is_clip = matches!(
+                &cmd,
+                Command::AddClip { .. }
+                    | Command::AddClipAtFirstFree { .. }
+                    | Command::AddTextClip { .. }
+            );
+            let view = apply_cmd(cmd)?;
+            if is_media {
+                let id = view.created_id.or_else(|| {
+                    fallback_path.and_then(|p| {
+                        view.project
+                            .media
+                            .iter()
+                            .find(|m| same_media_path(&m.path, &p))
+                            .map(|m| m.id.clone())
+                    })
+                });
+                if let Some(id) = id {
+                    media_ids.push(id);
+                }
+            } else if is_clip && let Some(id) = view.created_id {
+                clip_ids.push(id);
+            }
+            Ok(())
+        }
+        PendingStep::ImportAndPlace {
+            item,
+            track_id,
+            start,
+        } => {
+            let item_path = item.path.clone();
+            let view = apply_cmd(Command::AddMedia { item })?;
+            let media_id = view
+                .created_id
+                .or_else(|| {
+                    view.project
+                        .media
+                        .iter()
+                        .find(|m| same_media_path(&m.path, &item_path))
+                        .map(|m| m.id.clone())
+                })
+                .ok_or_else(|| ApiError::failed("added media missing from project bin"))?;
+            let place_cmd = match track_id {
+                Some(track_id) => Command::AddClip {
+                    media_id: media_id.clone(),
+                    track_id,
+                    start,
+                    ripple: false,
+                },
+                None => Command::AddClipAtFirstFree {
+                    media_id: media_id.clone(),
+                    start,
+                },
+            };
+            let placed = apply_cmd(place_cmd)?;
+            media_ids.push(media_id);
+            if let Some(cid) = placed.created_id {
+                clip_ids.push(cid);
+            }
+            Ok(())
+        }
+    }
+}
+
+pub(crate) fn key_of(path: &str) -> String {
     std::fs::canonicalize(path)
         .map(|canonical| canonical.to_string_lossy().into_owned())
         .unwrap_or_else(|_| path.to_owned())
@@ -1179,6 +1986,46 @@ fn encode_png(
     let mut writer = encoder.write_header()?;
     writer.write_image_data(pixels)?;
     writer.finish()
+}
+
+fn validate_cookies_file(cookies_path: Option<&str>) -> Result<Option<PathBuf>, ApiError> {
+    let Some(raw) = cookies_path.map(str::trim).filter(|s| !s.is_empty()) else {
+        return Ok(None);
+    };
+    let path = PathBuf::from(raw);
+    if !path.is_file() {
+        return Err(ApiError::new(
+            ErrorCode::NotFound,
+            format!("cookies file does not exist: {raw}"),
+        ));
+    }
+    Ok(Some(path))
+}
+
+fn link_item_to_api(item: link_import::Item) -> LinkItem {
+    LinkItem {
+        title: item.title,
+        url: item.url,
+        drive_id: item.drive_id,
+        public_drive: item.public_drive,
+        duration: item.duration,
+        size: item.size,
+        thumbnail: item.thumbnail,
+        heights: item.heights,
+    }
+}
+
+fn link_item_from_api(item: LinkItem) -> link_import::Item {
+    link_import::Item {
+        title: item.title,
+        url: item.url,
+        drive_id: item.drive_id,
+        public_drive: item.public_drive,
+        duration: item.duration,
+        size: item.size,
+        thumbnail: item.thumbnail,
+        heights: item.heights,
+    }
 }
 
 #[cfg(test)]
@@ -1784,5 +2631,270 @@ mod tests {
             "{}",
             refused.message
         );
+    }
+
+    struct MockLiveWindow {
+        enabled: Arc<std::sync::atomic::AtomicBool>,
+        busy: Arc<std::sync::atomic::AtomicBool>,
+        session: Mutex<Session>,
+    }
+
+    impl LiveWindowHandler for MockLiveWindow {
+        fn is_enabled(&self) -> bool {
+            self.enabled.load(std::sync::atomic::Ordering::Acquire)
+        }
+
+        fn active_project_path(&self) -> Option<String> {
+            self.is_enabled()
+                .then(|| self.session.lock().expect("live").path().to_owned())
+        }
+
+        fn dispatch_live(&self, request: Request) -> Result<Reply, ApiError> {
+            let busy = self.busy.load(std::sync::atomic::Ordering::Acquire);
+            let mut session = self.session.lock().expect("live");
+            match request {
+                Request::ProjectOpen { .. } | Request::ProjectGet { .. } => {
+                    Ok(Reply::View(Box::new(session.view())))
+                }
+                Request::ProjectDocument { .. } => Ok(Reply::Document(session.document())),
+                Request::ProjectSave { name, .. } => {
+                    if busy {
+                        return Err(ApiError::new(ErrorCode::Busy, "busy"));
+                    }
+                    session.save(name.as_deref()).map_err(ApiError::failed)?;
+                    Ok(Reply::Done(Done {}))
+                }
+                Request::EditApply { command, .. } => {
+                    if busy {
+                        return Err(ApiError::new(ErrorCode::Busy, "busy"));
+                    }
+                    let view = session.apply(*command).map_err(refused)?;
+                    Ok(Reply::View(Box::new(view)))
+                }
+                Request::EditUndo { .. } => {
+                    if busy {
+                        return Err(ApiError::new(ErrorCode::Busy, "busy"));
+                    }
+                    Ok(Reply::View(Box::new(session.undo())))
+                }
+                Request::EditRedo { .. } => {
+                    if busy {
+                        return Err(ApiError::new(ErrorCode::Busy, "busy"));
+                    }
+                    Ok(Reply::View(Box::new(session.redo())))
+                }
+                _ => Err(ApiError::invalid("unexpected live request")),
+            }
+        }
+
+        fn snapshot_project(&self, _path: &str) -> Result<Session, ApiError> {
+            Ok(self.session.lock().expect("live").snapshot())
+        }
+    }
+
+    #[test]
+    fn live_mode_routes_edits_undo_preview_and_refuses_close_when_enabled() {
+        let (mut api, scratch, _events) = api();
+        let live_path = project(&mut api, &scratch, "Live");
+        ok(api.dispatch(Request::ProjectClose {
+            path: live_path.clone(),
+            save: false,
+        }));
+
+        let open = OpenProjects::default();
+        api.share_open_projects(open.clone());
+        open.claim(&live_path, Holder::Window)
+            .expect("window claims live project");
+        let info = projects::open(&live_path).expect("open info");
+        let live_session = Session::open_info(&info).expect("live session");
+
+        let enabled = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let busy = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        api.share_live_window(Arc::new(MockLiveWindow {
+            enabled: Arc::clone(&enabled),
+            busy: Arc::clone(&busy),
+            session: Mutex::new(live_session),
+        }));
+
+        // Disabled by default: no capability and opening refuses.
+        assert!(
+            !api.version()
+                .capabilities
+                .iter()
+                .any(|cap| cap == "liveWindow")
+        );
+        let refused = err(api.dispatch(Request::ProjectOpen {
+            path: live_path.clone(),
+        }));
+        assert_eq!(refused.code, ErrorCode::Refused);
+        assert!(refused.message.contains("Live Mode"));
+
+        // Enable Live Mode: capability appears, edits hit the live session,
+        // another project remains isolated in Api::sessions, and close refuses.
+        enabled.store(true, std::sync::atomic::Ordering::Release);
+        assert!(
+            api.version()
+                .capabilities
+                .iter()
+                .any(|cap| cap == "liveWindow")
+        );
+        let other_path = project(&mut api, &scratch, "Other");
+        let initial = view(ok(api.dispatch(Request::ProjectOpen {
+            path: live_path.clone(),
+        })));
+        assert!(!initial.can_undo);
+
+        let edited = view(ok(api.dispatch(Request::EditApply {
+            path: live_path.clone(),
+            command: Box::new(Command::AddTextClip {
+                above: false,
+                track_id: None,
+                start: 1.0,
+                style: None,
+                duration: None,
+                offset_y: None,
+            }),
+        })));
+        assert!(edited.can_undo);
+        assert!(edited.created_id.is_some());
+
+        let undone = view(ok(api.dispatch(Request::EditUndo {
+            path: live_path.clone(),
+        })));
+        assert!(!undone.can_undo);
+        assert!(undone.can_redo);
+
+        let redone = view(ok(api.dispatch(Request::EditRedo {
+            path: live_path.clone(),
+        })));
+        assert!(redone.can_undo);
+
+        ok(api.dispatch(Request::ProjectSave {
+            path: live_path.clone(),
+            name: None,
+        }));
+        match ok(api.dispatch(Request::PreviewFrame {
+            path: live_path.clone(),
+            time: 1.5,
+            output: None,
+            width: Some(16),
+            height: Some(9),
+        })) {
+            Reply::Picture(pic) => assert!(!pic.png.is_empty()),
+            _ => panic!("expected inline picture"),
+        }
+
+        // Cannot close the window's active project over Live Mode, while Other closes normally.
+        let close_live = err(api.dispatch(Request::ProjectClose {
+            path: live_path.clone(),
+            save: false,
+        }));
+        assert_eq!(close_live.code, ErrorCode::Refused);
+        ok(api.dispatch(Request::ProjectClose {
+            path: other_path,
+            save: false,
+        }));
+
+        // Busy guard returns ErrorCode::Busy.
+        busy.store(true, std::sync::atomic::Ordering::Release);
+        let busy_err = err(api.dispatch(Request::EditUndo { path: live_path }));
+        assert_eq!(busy_err.code, ErrorCode::Busy);
+    }
+
+    #[test]
+    fn capcut_export_and_import_respect_roots_and_round_trip() {
+        let (mut api, scratch, _events) = api();
+        let inside = scratch.path().join("allowed");
+        let outside = scratch.path().join("outside");
+        std::fs::create_dir_all(&inside).expect("inside");
+        std::fs::create_dir_all(&outside).expect("outside");
+        api.restrict_writes_to(vec![inside.clone()]);
+
+        let inside_str = inside.to_string_lossy().into_owned();
+        let proj = api
+            .create(&inside_str, "SourceCap", VideoSettings::default())
+            .expect("create");
+        let _ = proj;
+        let proj_path = inside.join("SourceCap").to_string_lossy().into_owned();
+        ok(api.dispatch(Request::EditApply {
+            path: proj_path.clone(),
+            command: Box::new(Command::AddTextClip {
+                above: false,
+                track_id: None,
+                start: 0.5,
+                style: None,
+                duration: Some(1.5),
+                offset_y: None,
+            }),
+        }));
+
+        // Writing outside confined roots is refused.
+        let outside_err = err(api.dispatch(Request::CapCutExport {
+            path: proj_path.clone(),
+            output_dir: Some(outside.to_string_lossy().into_owned()),
+            text_options: None,
+        }));
+        assert_eq!(outside_err.code, ErrorCode::Refused);
+
+        // Exporting inside roots succeeds.
+        let drafts_dir = inside.join("CapCutOut");
+        let Reply::CapCutExport(exported) = ok(api.dispatch(Request::CapCutExport {
+            path: proj_path,
+            output_dir: Some(drafts_dir.to_string_lossy().into_owned()),
+            text_options: None,
+        })) else {
+            panic!("expected CapCutExport reply");
+        };
+        assert!(
+            Path::new(&exported.draft_dir)
+                .join("draft_content.json")
+                .is_file()
+        );
+
+        // Importing outside confined roots is refused, inside succeeds and opens.
+        let import_outside = err(api.dispatch(Request::CapCutImport {
+            input_path: exported.draft_dir.clone(),
+            location: outside.to_string_lossy().into_owned(),
+            name: Some("Reimported".to_owned()),
+        }));
+        assert_eq!(import_outside.code, ErrorCode::Refused);
+
+        let reimported = view(ok(api.dispatch(Request::CapCutImport {
+            input_path: exported.draft_dir,
+            location: inside_str,
+            name: Some("Reimported".to_owned()),
+        })));
+        assert_eq!(reimported.settings.name, "Reimported");
+        assert_eq!(reimported.project.active().clips.len(), 1);
+    }
+
+    #[test]
+    fn link_probe_and_download_validate_open_project_and_inputs() {
+        let (mut api, scratch, _events) = api();
+        let bad_probe = err(api.dispatch(Request::LinkProbe {
+            links: vec!["ftp://invalid.local/file".to_owned()],
+            use_drive: false,
+            cookies_path: None,
+        }));
+        assert_eq!(bad_probe.code, ErrorCode::Failed);
+
+        let not_open_dl = err(api.dispatch(Request::LinkDownload {
+            path: scratch.path().join("Nope").to_string_lossy().into_owned(),
+            items: vec![LinkItem {
+                title: "Clip".to_owned(),
+                url: "https://example.com/v".to_owned(),
+                drive_id: String::new(),
+                public_drive: false,
+                duration: 0.0,
+                size: 0,
+                thumbnail: String::new(),
+                heights: Vec::new(),
+            }],
+            height: Some(720),
+            audio_only: false,
+            auto_import: Some(true),
+            cookies_path: None,
+        }));
+        assert_eq!(not_open_dl.code, ErrorCode::NotOpen);
     }
 }

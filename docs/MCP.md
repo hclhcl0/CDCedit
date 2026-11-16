@@ -46,7 +46,7 @@ Choose explicitly with `--mcp window` (fail rather than run on its own) or `--mc
 
 Either way the agent writes files - projects, exports, frames - only under your home folder. Set `CONCAT_MCP_ROOTS` (a path list, `:`-separated, `;` on Windows) to allow other folders in headless mode.
 
-The agent edits projects of its own; it does not edit the project open in the window while you watch. That ("live mode") is planned in [#337](https://github.com/jub0t/Concat/issues/337).
+The agent normally edits projects of its own so it cannot overwrite the one on screen. To let an agent edit the project currently open in the window while you watch (with full `Ctrl+Z` undo history), turn on **Live Mode** in **Settings > Automation** (`liveWindow` capability in `concat_version`).
 
 ## What the agent can do
 
@@ -57,13 +57,17 @@ Tools are named for what they do, and their argument schemas are generated from 
 | Projects | `project_list`, `project_create`, `project_open`, `project_save`, `project_close`, `project_set_video` |
 | Reading | `timeline_read` (compact: lanes, clips in time order, media, ids), `project_get` (everything), `concat_version` |
 | Media | `media_probe`, `media_import` |
+| Link Import | `link_probe`, `link_download` (video sites & Google Drive into `media/downloads/`) |
 | Editing | `clip_add`, `clips_add_sequence`, `clip_trim`, `clips_split`, `clips_move`, `clips_remove`, `clip_update`, `clip_transform`, `clip_speed`, `clip_frame`, `track_add` |
 | Picture | `clip_mask`, `clip_stabilize`, `timeline_background` |
 | Titles and captions | `title_add`, `title_style_words` (some words in another colour, weight, size...), `title_clear_word_styles`, `captions_add` |
+| AI Speech & Captions | `models_speech_status`, `captions_transcribe` (Whisper / Gemini), `captions_translate` (Gemini), `speech_tts` (local / Gemini / ElevenLabs), `speech_dub`, `speech_voice_change` (DSP presets / cloud S2S) |
+| Google Flow Studio | `flow_accounts_list`, `flow_connect`, `flow_status`, `flow_generate_image`, `flow_generate_video` (requires `allowCredit: true` when submitting), `flow_recent_outputs` |
+| CapCut PC Drafts | `capcut_import`, `capcut_export` |
 | Keyframes and effects | `keyframe_set`, `keyframe_clear`, `effects_list`, `effect_layer_add`, `effect_key_set` |
 | Anything else | `edit_apply` (any edit command, or a batch of them as one undo step), `edit_undo`, `edit_redo` |
 | Templates | `template_list`, `template_instantiate` |
-| Export | `export_start`, `export_status`, `export_wait` (with progress), `export_cancel` |
+| Jobs & Export | `job_status`, `job_wait` (with progress), `job_cancel`, `export_start`, `export_status`, `export_wait` (with progress), `export_cancel` |
 | Looking | `preview_frame` (the composited frame as an image) |
 
 Edits stay in memory until `project_save`, as in the window. Times are seconds; a keyframe's position is a fraction of its clip (0 to 1); sizes and offsets are fractions of the frame.

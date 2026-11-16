@@ -105,6 +105,8 @@ export struct SettingsData {
     download-base: string,
     /// the CDCAi API served on a socket while the window is open
     server-enabled: bool,
+    /// allow connected agents and scripts to edit the project on screen
+    server-live-window: bool,
     /// the two halves of "127.0.0.1:7420"
     server-host: string,
     server-port: int,
@@ -691,6 +693,7 @@ export component SettingsDialog inherits Modal {
     callback download-source-changed(index: int);
     callback download-base-edited(text: string);
     callback server-enabled-changed(on: bool);
+    callback server-live-window-changed(on: bool);
     callback server-host-edited(text: string);
     callback server-port-edited(port: int);
     callback server-token-edited(text: string);
@@ -1494,6 +1497,34 @@ export component SettingsDialog inherits Modal {
                         color: Theme.fg-muted;
                         font-size: Theme.fs-sm;
                         wrap: word-wrap;
+                    }
+                }
+
+                DialogSection {
+                    ruled: false;
+                    title: I18n.t("settings.liveWindow");
+                    hint: I18n.t("settings.liveWindowHint");
+
+                    HorizontalLayout {
+                        spacing: 12px;
+
+                        Text {
+                            horizontal-stretch: 1;
+                            text: I18n.t("settings.liveWindowHint");
+                            color: Theme.fg-muted;
+                            font-size: Theme.fs-sm;
+                            wrap: word-wrap;
+                            vertical-alignment: center;
+                        }
+
+                        VerticalLayout {
+                            alignment: center;
+                            Switch {
+                                checked: root.data.server-live-window;
+                                enabled: root.data.server-enabled;
+                                toggled(on) => { root.server-live-window-changed(on); }
+                            }
+                        }
                     }
                 }
 

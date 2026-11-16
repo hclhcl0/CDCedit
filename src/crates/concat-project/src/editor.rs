@@ -82,6 +82,19 @@ impl Editor {
         })
     }
 
+    /// Wraps an already-constructed project without history (for read-only
+    /// snapshots, such as off-thread rendering of a live window project).
+    pub fn with_project(project: Project) -> Self {
+        let mut mint = IdMint::default();
+        mint.adopt_project(&project);
+        Self {
+            project,
+            mint,
+            undo: VecDeque::new(),
+            redo: Vec::new(),
+        }
+    }
+
     /// Rewrites the picture links `upgrade` changes - one to a retired
     /// effect, read as a link to the effect that stands in for it - as the
     /// document is read, before any edit: not a step to undo, since it is

@@ -618,6 +618,8 @@
   "settings.language": "Ngôn ngữ",
   "settings.light": "Sáng",
   "settings.lime": "Xanh chanh",
+  "settings.liveWindow": "Chế độ trực tiếp (Live Mode)",
+  "settings.liveWindowHint": "Cho phép tác tử AI và script đã kết nối chỉnh sửa, nhập tư liệu, xem trước và xuất dự án đang mở trực tiếp trên màn hình, kèm hoàn tác Undo (Ctrl+Z).",
   "settings.lineAcrossLanesMarks": "Đường chạy ngang các làn đánh dấu thời gian hiện tại. Chọn màu bất kỳ hoặc chấm đầu tiên để dùng lại màu của giao diện.",
   "settings.listeningOnConnected": "Đang lắng nghe tại {0} · {1} kết nối",
   "settings.logDebug": "Gỡ lỗi",
