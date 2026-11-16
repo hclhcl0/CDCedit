@@ -40,7 +40,7 @@ jobs:
       CARGO_PROFILE_RELEASE_LTO: "false"
       CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "4"
       CARGO_PROFILE_RELEASE_PACKAGE_CONCAT_CODEGEN_UNITS: "1"
-      CARGO_BUILD_JOBS: "2"
+      CARGO_BUILD_JOBS: "1"
     steps:
       - name: Free disk space
         run: |

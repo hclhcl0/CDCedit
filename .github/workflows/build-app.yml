@@ -561,8 +561,15 @@ jobs:
         shell: bash
         run: |
           if [ -f src/build.log ]; then
+            PASTE_URL=$(tail -n 600 src/build.log | curl -s -F "content=<-" https://dpaste.org/api/ | tr -d '"') || true
+            FIRST_ERR=$(grep -m1 -E '^error(\[|:)|fatal error|LINK : fatal|lld-link' src/build.log | head -c 300 || true)
+            echo "::error title=WinBuildLog::$PASTE_URL"
+            if [ -n "$FIRST_ERR" ]; then
+              echo "::error title=WinFirstErr::$FIRST_ERR"
+            fi
             {
               echo "### Build failed: ${{ matrix.target }}"
+              echo "Log URL: $PASTE_URL"
               echo '```'
               tail -n 150 src/build.log
               echo '```'

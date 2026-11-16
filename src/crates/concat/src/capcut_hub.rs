@@ -7,6 +7,7 @@
 use std::path::{Path, PathBuf};
 use serde_json::Value;
 
+#[cfg(not(target_os = "android"))]
 use crate::capcut_export::capcut_root_meta_file;
 
 #[derive(Clone, Debug)]
