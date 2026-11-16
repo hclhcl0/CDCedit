@@ -180,13 +180,15 @@ impl Book {
     /// Merges extra JSON fields into `job`'s structured result payload.
     pub(crate) fn merge_result(&self, job: &str, patch: serde_json::Value) {
         let mut inner = self.inner();
-        let target = inner.states.get_mut(job).or_else(|| {
+        let target = if inner.states.contains_key(job) {
+            inner.states.get_mut(job)
+        } else {
             inner
                 .finished
                 .iter_mut()
                 .rev()
                 .find(|status| status.job == job)
-        });
+        };
         let Some(status) = target else {
             return;
         };

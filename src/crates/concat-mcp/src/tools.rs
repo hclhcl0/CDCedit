@@ -598,7 +598,7 @@ pub fn catalogue() -> Vec<Tool> {
         method(
             "speech_voice_change",
             "Transform voice with DSP preset or cloud S2S",
-            "Converts a timeline clip (`clipId`) or file (`sourcePath`) via 10 offline FFmpeg DSP presets (`method: \"dsp\"`, `preset: 0..=9`) or cloud speech-to-speech (`\"elevenlabs\"` / `\"gemini\"`), importing and placing the new audio clip.",
+            "Converts a timeline clip (`clipId`) or file (`sourcePath`) via 10 offline FFmpeg DSP presets (`mode: \"dsp\"`, `preset: 0..=9`) or cloud speech-to-speech (`\"elevenlabs\"` / `\"gemini\"`), importing and placing the new audio clip.",
             "speech.voiceChange",
             Raw,
         ),
@@ -1352,7 +1352,7 @@ mod tests {
             ),
             (
                 "speech_voice_change",
-                json!({ "path": "/tmp/Cut", "clipId": "c1", "method": "dsp", "preset": 1, "dryRun": true }),
+                json!({ "path": "/tmp/Cut", "clipId": "c1", "mode": "dsp", "preset": 1, "dryRun": true }),
             ),
             ("flow_accounts_list", json!({})),
             ("flow_connect", json!({ "accountId": "primary" })),

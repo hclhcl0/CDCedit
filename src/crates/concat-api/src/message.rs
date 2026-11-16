@@ -496,9 +496,9 @@ pub enum Request {
         /// Standalone audio/video path to transform when `clipId` is omitted.
         #[serde(default)]
         source_path: Option<String>,
-        /// Conversion method: `"dsp"` (offline FFmpeg, default), `"elevenlabs"`, or `"gemini"`.
+        /// Conversion mode: `"dsp"` (offline FFmpeg, default), `"elevenlabs"`, or `"gemini"`.
         #[serde(default)]
-        method: Option<String>,
+        mode: Option<String>,
         /// Offline DSP preset `0..=9` (0 studio clean, 1 deep male, 2 bright female, 3 anonymous, 4 chipmunk, 5 giant, 6 robot, 7 radio, 8 hall echo, 9 custom).
         #[serde(default)]
         preset: Option<i32>,

@@ -20,7 +20,7 @@ use serde_json::json;
 
 use crate::message::{
     ApiError, CaptionLineSpec, DialogueTurnSpec, DryRunInfo, DubCueSpec, ErrorCode, Event, Reply,
-    Request, SpeechStatusInfo, SpeechTranscriberInfo, SpeechTtsModelInfo, SpeechVoiceInfo, Started,
+    Request, SpeechStatusInfo, SpeechTranscriberInfo, SpeechTtsModelInfo, SpeechVoiceInfo,
 };
 use crate::{Api, PendingStep};
 
@@ -347,42 +347,38 @@ impl Api {
                     });
                 };
 
-                let result: Result<Vec<(f64, f64, String, usize)>, String> = if engine_kind
-                    == "gemini"
-                {
-                    let raw = gemini::transcribe_with_options(
-                        &req,
-                        &gemini_keys,
-                        vietnamese,
-                        two_speakers,
-                        &glossary,
-                        &cancel,
-                        &mut report,
-                    );
-                    let final_segs = if smart_split {
-                        match raw {
-                            Ok(segs) if !segs.is_empty() => {
+                let result: Result<Vec<(f64, f64, String, usize)>, String> =
+                    if engine_kind == "gemini" {
+                        gemini::transcribe_with_options(
+                            &req,
+                            &gemini_keys,
+                            vietnamese,
+                            two_speakers,
+                            &glossary,
+                            &cancel,
+                            &mut report,
+                        )
+                        .map(|segs| {
+                            let final_segs = if smart_split && !segs.is_empty() {
                                 gemini::resegment_diarized_for_dubbing(&segs, &gemini_keys, &cancel)
                                     .unwrap_or(segs)
-                            }
-                            other => other?,
-                        }
+                            } else {
+                                segs
+                            };
+                            final_segs
+                                .into_iter()
+                                .map(|s| (s.start, s.end, s.text, s.speaker))
+                                .collect()
+                        })
                     } else {
-                        raw?
+                        let segs =
+                            transcriber.transcribe_with_language(&dirs, &req, Some(&lang), report);
+                        segs.map(|list| {
+                            list.into_iter()
+                                .map(|s| (s.start, s.end, s.text, 0usize))
+                                .collect()
+                        })
                     };
-                    Ok(final_segs
-                        .into_iter()
-                        .map(|s| (s.start, s.end, s.text, s.speaker))
-                        .collect())
-                } else {
-                    let segs =
-                        transcriber.transcribe_with_language(&dirs, &req, Some(&lang), report);
-                    segs.map(|list| {
-                        list.into_iter()
-                            .map(|s| (s.start, s.end, s.text, 0usize))
-                            .collect()
-                    })
-                };
 
                 match result {
                     Ok(raw_segments) => {
@@ -1644,7 +1640,7 @@ impl Api {
                 path,
                 clip_id,
                 source_path,
-                method,
+                mode,
                 preset,
                 pitch_semitones,
                 speed,
@@ -1659,7 +1655,7 @@ impl Api {
                 &path,
                 clip_id.as_deref(),
                 source_path.as_deref(),
-                method.as_deref(),
+                mode.as_deref(),
                 preset,
                 pitch_semitones,
                 speed,

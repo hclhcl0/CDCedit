@@ -7,7 +7,7 @@ use std::sync::Arc;
 use concat_host::flow::{self, Account, Accounts, FlowReceipt};
 use concat_host::media;
 use concat_project::Command;
-use serde_json::{Value, json};
+use serde_json::json;
 
 use crate::message::{
     ApiError, DryRunInfo, ErrorCode, Event, FlowAccountInfo, FlowAccountRecentInfo,
