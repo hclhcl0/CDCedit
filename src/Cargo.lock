@@ -1285,6 +1285,7 @@ dependencies = [
  "concat-export",
  "concat-host",
  "concat-project",
+ "concat-speech",
  "png 0.17.16",
  "schemars",
  "serde",
