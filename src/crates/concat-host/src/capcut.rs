@@ -401,6 +401,7 @@ pub fn import_capcut_draft(
             height: info.height,
             rate_num: info.rate_num,
             rate_den: info.rate_den,
+            canvas: info.canvas,
         },
     );
     projects::save(&info.path, &doc)?;
