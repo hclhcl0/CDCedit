@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-CDCedit is pre-1.0. Fixes go into the current minor release only; older
+CDCAi is pre-1.0. Fixes go into the current minor release only; older
 releases are not patched.
 
 | Version | Supported          |
@@ -31,7 +31,7 @@ What to expect:
 
 ## What counts
 
-CDCedit runs entirely on your machine. Reports we care about most:
+CDCAi runs entirely on your machine. Reports we care about most:
 
 - A project file, media file, template or effect package that causes
   code execution, writes outside the project folder, or reads files it

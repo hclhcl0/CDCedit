@@ -5,14 +5,14 @@ plugins {
 }
 
 android {
-    namespace = "app.cdcedit.editor.spike"
+    namespace = "app.cdcai.editor.spike"
     compileSdk = 35
     // The NDK the engine is built with; AGP strips the .so's symbols with it.
     ndkVersion = "28.2.13676358"
 
     defaultConfig {
-        // Never app.cdcedit.editor: this installs beside the shipping app.
-        applicationId = "app.cdcedit.editor.spike"
+        // Never app.cdcai.editor: this installs beside the shipping app.
+        applicationId = "app.cdcai.editor.spike"
         minSdk = 26
         targetSdk = 35
         versionCode = 1

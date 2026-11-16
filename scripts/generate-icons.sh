@@ -5,15 +5,15 @@
 #   scripts/generate-icons.sh [source.png] [output-dir]
 #
 # Defaults:
-#   source     assets/cdcedit_logo_512.png
-#              (a 512px render of assets/cdcedit-icon.svg)
+#   source     assets/cdcai_logo_512.png
+#              (a 512px render of assets/cdcai-icon.svg)
 #   output-dir assets/icons
 #
 # Uses sips on macOS, ImageMagick (magick/convert) elsewhere.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SRC="${1:-$REPO_ROOT/assets/cdcedit_logo_512.png}"
+SRC="${1:-$REPO_ROOT/assets/cdcai_logo_512.png}"
 OUT="${2:-$REPO_ROOT/assets/icons}"
 SIZES=(512 256 128 64 32 16)
 

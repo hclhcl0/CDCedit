@@ -1,9 +1,9 @@
-<p align="center"><img src="../assets/icons/cdcedit_logo_256.png" alt="CDCedit" width="100" /></p>
-<h1 align="center">CDCedit</h1>
+<p align="center"><img src="../assets/icons/cdcai_logo_256.png" alt="CDCAi" width="100" /></p>
+<h1 align="center">CDCAi</h1>
 
-CDCedit is a customized video editor derived from [Concat](https://github.com/jub0t/Concat). Original author and license notices are retained. Build this fork to use CDCedit features; upstream release links below refer to the original project.
+CDCAi is a customized video editor derived from [Concat](https://github.com/jub0t/Concat). Original author and license notices are retained. Build this fork to use CDCAi features; upstream release links below refer to the original project.
 
-CDCedit הוא עורך וידאו חינמי בקוד פתוח וחלופה ל-CapCut עבור macOS, Windows, Linux ו-Android. הוא מכסה את מה שאנשים באמת פותחים בשבילו את CapCut: כתוביות אוטומטיות, טקסט לדיבור, הסרת רקע, אנימציית פריימי מפתח, אפקטים וכותרות, עריכה מרובת רצועות, ייצוא ב-4K. ובלי שום מלכודות: בלי סימן מים, בלי חשבון, בלי מנוי, בלי העלאה.
+CDCAi הוא עורך וידאו חינמי בקוד פתוח וחלופה ל-CapCut עבור macOS, Windows, Linux ו-Android. הוא מכסה את מה שאנשים באמת פותחים בשבילו את CapCut: כתוביות אוטומטיות, טקסט לדיבור, הסרת רקע, אנימציית פריימי מפתח, אפקטים וכותרות, עריכה מרובת רצועות, ייצוא ב-4K. ובלי שום מלכודות: בלי סימן מים, בלי חשבון, בלי מנוי, בלי העלאה.
 
 הכול רץ מקומית על מנוע Rust נייטיב עם קומפוזיטור GPU. מתקינים, גוררים חומר, חותכים. מודלי ה-AI לכתוביות, לקולות ולחיתוך רקע יורדים פעם אחת מההגדרות ואחר כך עובדים במצב לא מקוון. החומר שלכם לעולם לא עוזב את הדיסק.
 
@@ -36,12 +36,12 @@ CDCedit הוא עורך וידאו חינמי בקוד פתוח וחלופה ל-
 1. **[האתר](https://concatenate.pages.dev/#download)** נותן לכם את הגרסה הנכונה למחשב שלכם. התחילו כאן.
 2. **[GitHub Releases](https://github.com/jub0t/Concat/releases)** מכיל כל גרסה לכל פלטפורמה, עם מתקינים, חבילות וסכומי ביקורת. למקרה שתרצו לבחור בעצמכם.
 
-CDCedit נמצא ב**בטא**: הוא עובד, ועדיין יש לו קצוות. [ספרו](https://github.com/jub0t/Concat/issues) כשתמצאו אחד.
+CDCAi נמצא ב**בטא**: הוא עובד, ועדיין יש לו קצוות. [ספרו](https://github.com/jub0t/Concat/issues) כשתמצאו אחד.
 
 **פלטפורמות**
 
 - ✅ **Windows** · x86_64 (בניות ה-ARM מושהות, ראו [#326](https://github.com/jub0t/Concat/issues/326)). תוכנית התקנה ו-`.msi`. אם SmartScreen עוצר גרסה לא חתומה: **מידע נוסף** › **הפעל בכל זאת**
-- ✅ **macOS** · Intel ו-Apple Silicon. אם macOS מסרב לפתוח גרסה לא חתומה: `xattr -dr com.apple.quarantine /Applications/CDCedit.app`
+- ✅ **macOS** · Intel ו-Apple Silicon. אם macOS מסרב לפתוח גרסה לא חתומה: `xattr -dr com.apple.quarantine /Applications/CDCAi.app`
 - ✅ **Linux** · x86_64 ו-ARM. ‏`.deb`, ‏`.rpm`, ‏`.AppImage` וחבילת Arch. וגם Flatpak ב-**[Flatpark](https://flatpark.org/apps/app.concat.editor/)**, מאגר Flatpak קהילתי שעוטף את ה-`.deb` ל-x86_64 של כל גרסה ומתעדכן איתה
 - ✅ **Android** · טלפונים וטאבלטים
 - ✅ **iOS / iPadOS** · iPhone ו-iPad, בהתקנה צדדית
@@ -57,7 +57,7 @@ CDCedit נמצא ב**בטא**: הוא עובד, ועדיין יש לו קצוו�
 > [!IMPORTANT]
 > הדרך הטובה ביותר לתרום היא לקחת גרסה מעמוד ה-[Releases](https://github.com/jub0t/Concat/releases) ולהשתמש בה: למצוא איפה היא נשברת, ולומר איפה היא יכולה להיות טובה יותר.
 >
-> מוכנים לכתוב קוד? [CONTRIBUTING.md](../CONTRIBUTING.md) מכסה את ההתקנה, מבנה העץ, הבדיקות שצריך להריץ ואת רישוי התרומות. מפעילים את CDCedit מסקריפט, משירות או מסוכן? [תיעוד המפתחים](https://concatenate.pages.dev/docs) מכסה את ה-API של CDCedit ואת ערוצי התעבורה שלו: JSON-RPC ו-gRPC. [בדיון הזה](https://github.com/jub0t/Concat/discussions/3) הוכרז הפרויקט.
+> מוכנים לכתוב קוד? [CONTRIBUTING.md](../CONTRIBUTING.md) מכסה את ההתקנה, מבנה העץ, הבדיקות שצריך להריץ ואת רישוי התרומות. מפעילים את CDCAi מסקריפט, משירות או מסוכן? [תיעוד המפתחים](https://concatenate.pages.dev/docs) מכסה את ה-API של CDCAi ואת ערוצי התעבורה שלו: JSON-RPC ו-gRPC. [בדיון הזה](https://github.com/jub0t/Concat/discussions/3) הוכרז הפרויקט.
 > 
 > תורמים יכולים לקבל תפקיד `@Contributor` בשרת ה-Discord: רק צריך לבקש.
 

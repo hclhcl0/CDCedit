@@ -33,7 +33,7 @@ use std::sync::atomic::AtomicBool;
 use crate::dirs::AppDirs;
 use crate::models;
 
-/// Enable only after CDCedit has its own configured release source.
+/// Enable only after CDCAi has its own configured release source.
 pub const UPDATES_ENABLED: bool = false;
 
 /// Upstream reference; in-app updates are disabled for this fork.
@@ -208,9 +208,9 @@ pub fn standing(current: Version, releases: &[Release]) -> Standing {
 pub enum PackageKind {
     /// A macOS disk image with the app in it.
     Dmg,
-    /// The Windows installer, `CDCedit-<version>-windows-<arch>-setup.exe`.
+    /// The Windows installer, `CDCAi-<version>-windows-<arch>-setup.exe`.
     Setup,
-    /// The Windows Installer package, `CDCedit-<version>-windows-<arch>.msi`:
+    /// The Windows Installer package, `CDCAi-<version>-windows-<arch>.msi`:
     /// the per-machine install an administrator deploys.
     Msi,
     /// A Linux AppImage: one file, started where it lies.
@@ -270,9 +270,10 @@ pub fn installed_as() -> Result<PackageKind, Fixed> {
             linux_kind(
                 std::env::var_os("APPIMAGE").is_some(),
                 std::env::var_os("FLATPAK_ID").is_some(),
-                Path::new("/var/lib/dpkg/info/concat.list").exists(),
-                pacman_has_concat(),
-                rpm_has_concat(),
+                Path::new("/var/lib/dpkg/info/cdcai.list").exists()
+                    || Path::new("/var/lib/dpkg/info/concat.list").exists(),
+                pacman_has_package(),
+                rpm_has_package(),
             )
         } else {
             Err(Fixed::Store)
@@ -328,34 +329,38 @@ fn linux_kind(
     }
 }
 
-/// Whether pacman's database lists the `concat` package: a folder named
-/// `concat-<version>-<release>` under its local store.
-fn pacman_has_concat() -> bool {
+/// Whether pacman's database lists the `cdcai` (or legacy `concat`) package:
+/// a folder named `cdcai-<version>-<release>` under its local store.
+fn pacman_has_package() -> bool {
     std::fs::read_dir("/var/lib/pacman/local").is_ok_and(|entries| {
         entries.flatten().any(|entry| {
             let name = entry.file_name();
             let name = name.to_string_lossy();
-            name.strip_prefix("concat-")
-                .is_some_and(|rest| rest.starts_with(|c: char| c.is_ascii_digit()))
+            ["cdcai-", "cdcedit-", "concat-"].iter().any(|prefix| {
+                name.strip_prefix(prefix)
+                    .is_some_and(|rest| rest.starts_with(|c: char| c.is_ascii_digit()))
+            })
         })
     })
 }
 
-/// Whether the RPM database lists `concat`. Asked of `rpm` itself, and only
-/// where there is a database to ask about.
-fn rpm_has_concat() -> bool {
+/// Whether the RPM database lists `cdcai` (or legacy `concat`). Asked of
+/// `rpm` itself, and only where there is a database to ask about.
+fn rpm_has_package() -> bool {
     Path::new("/var/lib/rpm").exists()
-        && Command::new("rpm")
-            .args(["-q", "concat"])
-            .output()
-            .is_ok_and(|output| output.status.success())
+        && ["cdcai", "cdcedit", "concat"].iter().any(|pkg| {
+            Command::new("rpm")
+                .args(["-q", pkg])
+                .output()
+                .is_ok_and(|output| output.status.success())
+        })
 }
 
 /// One platform's package in a release: what to fetch and what it must
 /// hash to.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Package {
-    /// Its file name, `CDCedit-0.2.5-macos-arm64.dmg`.
+    /// Its file name, `CDCAi-0.2.5-macos-arm64.dmg`.
     pub file: String,
     /// Where to fetch it.
     pub url: String,
@@ -672,7 +677,7 @@ fn detach(command: &mut Command) -> Result<(), String> {
 /// One GET, read whole as text. GitHub wants a user agent and says so with
 /// a 403 otherwise.
 fn get_text(url: &str) -> Result<String, String> {
-    let agent = format!("CDCedit/{}", Version::current());
+    let agent = format!("CDCAi/{}", Version::current());
     let response = crate::net::get(
         url,
         std::time::Duration::from_secs(20),
@@ -782,10 +787,10 @@ mod tests {
     const MANIFEST: &str = r#"{
         "schema": 2, "version": "0.2.6", "tag": "v0.2.6",
         "binaries": {
-            "macos": {"arm64": {"dmg": {"file": "CDCedit-0.2.6-macos-arm64.dmg", "url": "https://example.test/arm64.dmg", "bytes": 59456586, "sha256": "26cc"}}},
-            "linux": {"x86_64": {"appimage": {"file": "CDCedit-0.2.6-linux-x86_64.AppImage", "url": "https://example.test/x.AppImage", "bytes": 1, "sha256": "5c75"},
+            "macos": {"arm64": {"dmg": {"file": "CDCAi-0.2.6-macos-arm64.dmg", "url": "https://example.test/arm64.dmg", "bytes": 59456586, "sha256": "26cc"}}},
+            "linux": {"x86_64": {"appimage": {"file": "CDCAi-0.2.6-linux-x86_64.AppImage", "url": "https://example.test/x.AppImage", "bytes": 1, "sha256": "5c75"},
                                  "deb": {"file": "../evil.deb", "url": "https://example.test/evil", "bytes": 1, "sha256": "00"}}},
-            "windows": {"aarch64": {"setup": {"file": "CDCedit-0.2.6-windows-aarch64-setup.exe", "url": "https://example.test/setup.exe", "sha256": "7042"}}}
+            "windows": {"aarch64": {"setup": {"file": "CDCAi-0.2.6-windows-aarch64-setup.exe", "url": "https://example.test/setup.exe", "sha256": "7042"}}}
         }
     }"#;
 
@@ -793,7 +798,7 @@ mod tests {
     fn the_package_is_found_by_platform_architecture_and_kind() {
         let mac =
             package_from_manifest(MANIFEST, "macos", "aarch64", PackageKind::Dmg).expect("a Mac's");
-        assert_eq!(mac.file, "CDCedit-0.2.6-macos-arm64.dmg");
+        assert_eq!(mac.file, "CDCAi-0.2.6-macos-arm64.dmg");
         assert_eq!(mac.bytes, 59456586);
         assert_eq!(mac.sha256, "26cc");
         let appimage = package_from_manifest(MANIFEST, "linux", "x86_64", PackageKind::AppImage)

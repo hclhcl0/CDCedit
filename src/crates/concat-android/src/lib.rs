@@ -112,9 +112,9 @@ mod java {
     use jni::{Env, JavaVM, jni_sig, jni_str};
     use slint::android::AndroidApp;
 
-    /// The classes build.rs compiled: app.cdcedit.editor.ConcatFiles.
+    /// The classes build.rs compiled: app.cdcai.editor.ConcatFiles.
     const DEX: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/classes.dex"));
-    const CLASS_NAME: &str = "app.cdcedit.editor.ConcatFiles";
+    const CLASS_NAME: &str = "app.cdcai.editor.ConcatFiles";
 
     /// The fragment class, loaded once and kept.
     static CLASS: OnceLock<Global<JClass<'static>>> = OnceLock::new();
@@ -314,7 +314,7 @@ mod picker {
 /// The export writes into the app's own folder, which on a phone nothing
 /// but the app can open: not the gallery, not a file manager (#280,
 /// #147). So once a file is written the Java moves it into the phone's
-/// Movies, under CDCedit, through the media store, and the sheet names
+/// Movies, under CDCAi, through the media store, and the sheet names
 /// that folder from the start. A phone older than Android 10 has no
 /// media store an app can write through without a permission; there the
 /// file stays where it was written, and the sheet says so.
@@ -352,7 +352,7 @@ mod publisher {
         });
     }
 
-    /// `ConcatFiles.publishedFolder`: "Movies/CDCedit", or nothing.
+    /// `ConcatFiles.publishedFolder`: "Movies/CDCAi", or nothing.
     fn published_folder(app: &AndroidApp) -> jni::errors::Result<Option<String>> {
         super::java::with_class(app, |env, _activity, class| {
             let answer = env
@@ -389,7 +389,7 @@ mod publisher {
     }
 
     /// `ConcatFiles.publishDocument`: the file's path under the phone's
-    /// storage once it is in Download/CDCedit, or why it could not be moved.
+    /// storage once it is in Download/CDCAi, or why it could not be moved.
     fn publish_document(app: &AndroidApp, path: &Path, mime: &str) -> Result<String, String> {
         answer(super::java::with_class(app, |env, activity, class| {
             let path = env.new_string(path.to_string_lossy())?;
@@ -498,7 +498,7 @@ mod native_libs {
                 log::info!("CONCAT_NATIVE_LIBS={path}");
             }
             if let Ok(data) = std::env::var("XDG_DATA_HOME") {
-                let p1 = std::path::PathBuf::from(&data).join("app.cdcedit.editor").join("link-tools");
+                let p1 = std::path::PathBuf::from(&data).join("app.cdcai.editor").join("link-tools");
                 let p2 = std::path::PathBuf::from(&data).join("concat").join("link-tools");
                 for p in [p1, p2] {
                     let tools_str = p.to_string_lossy();
@@ -612,7 +612,7 @@ fn android_main(app: slint::android::AndroidApp) {
     // Directories first: the log file is written into one of them.
     activity::name_directories(&app);
     activity::open_log();
-    log::info!("CDCedit {} starting", env!("CARGO_PKG_VERSION"));
+    log::info!("CDCAi {} starting", env!("CARGO_PKG_VERSION"));
     if let Err(error) = slint::android::init(app.clone()) {
         log::error!("could not start the Android backend: {error}");
         return;

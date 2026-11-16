@@ -239,7 +239,7 @@ fn default_location() -> String {
     location
 }
 
-/// Where a new project goes on `os`: a CDCedit folder on the desktop. The
+/// Where a new project goes on `os`: a CDCAi folder on the desktop. The
 /// desktop the system names, not `~/Desktop`: on Windows OneDrive often
 /// moves it, and on Linux it is called what the desktop's language calls
 /// it. A phone has no desk. An Android phone's projects live at the top of
@@ -249,11 +249,11 @@ fn default_location() -> String {
 /// new project failed with EPERM. https://github.com/jub0t/Concat/issues/299
 fn location_on(os: &str, desktop: Option<PathBuf>, home: impl Fn(&str) -> String) -> String {
     match os {
-        "android" => home("CDCedit"),
-        "ios" => home("Documents/CDCedit"),
+        "android" => home("CDCAi"),
+        "ios" => home("Documents/CDCAi"),
         _ => desktop
-            .map(|desktop| desktop.join("CDCedit").to_string_lossy().into_owned())
-            .unwrap_or_else(|| home("Desktop/CDCedit")),
+            .map(|desktop| desktop.join("CDCAi").to_string_lossy().into_owned())
+            .unwrap_or_else(|| home("Desktop/CDCAi")),
     }
 }
 
@@ -1062,15 +1062,15 @@ mod tests {
         let desktop = || Some(PathBuf::from("/desk"));
         assert_eq!(
             location_on("ios", desktop(), home),
-            "/home/Documents/CDCedit"
+            "/home/Documents/CDCAi"
         );
-        assert_eq!(location_on("ios", None, home), "/home/Documents/CDCedit");
-        assert_eq!(location_on("android", None, home), "/home/CDCedit");
+        assert_eq!(location_on("ios", None, home), "/home/Documents/CDCAi");
+        assert_eq!(location_on("android", None, home), "/home/CDCAi");
         assert_eq!(
             PathBuf::from(location_on("macos", desktop(), home)),
-            Path::new("/desk").join("CDCedit")
+            Path::new("/desk").join("CDCAi")
         );
-        assert_eq!(location_on("linux", None, home), "/home/Desktop/CDCedit");
+        assert_eq!(location_on("linux", None, home), "/home/Desktop/CDCAi");
     }
 
     /// The next untitled name skips every folder already there, and starts

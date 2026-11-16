@@ -13,7 +13,7 @@
 /// built it from - "local" for a build from a working tree.
 pub fn build() -> String {
     format!(
-        "CDCedit {} · {}-{} · commit {}",
+        "CDCAi {} · {}-{} · commit {}",
         env!("CARGO_PKG_VERSION"),
         std::env::consts::OS,
         std::env::consts::ARCH,
@@ -28,7 +28,7 @@ pub fn system() -> String {
 }
 
 /// One line about the CPU: its name where the system says it, how many
-/// threads it runs, and which of the instruction sets the libraries CDCedit
+/// threads it runs, and which of the instruction sets the libraries CDCAi
 /// links care about it has - the ones a build for a newer CPU than the
 /// one it is on dies over.
 pub fn cpu() -> String {
@@ -327,7 +327,7 @@ mod tests {
 
     #[test]
     fn the_lines_say_something() {
-        assert!(build().starts_with(&format!("CDCedit {}", env!("CARGO_PKG_VERSION"))));
+        assert!(build().starts_with(&format!("CDCAi {}", env!("CARGO_PKG_VERSION"))));
         assert!(!system().is_empty());
         assert!(cpu().contains("threads"));
     }

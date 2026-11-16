@@ -6,7 +6,7 @@
 use std::ffi::OsString;
 use std::path::PathBuf;
 
-const USAGE: &str = "usage: cdcedit [--project <PROJECT_DIRECTORY> | --software | --mcp [auto|window|headless] | --version | --smoke | --whisper-cpu]";
+const USAGE: &str = "usage: cdcai [--project <PROJECT_DIRECTORY> | --software | --mcp [auto|window|headless] | --version | --smoke | --whisper-cpu]";
 
 /// What one run of the binary was asked to do.
 #[derive(Debug, PartialEq, Eq)]
@@ -14,11 +14,11 @@ pub enum Launch {
     /// The window, on the launch screen or on the project it names.
     Normal(Option<PathBuf>),
     /// The window on the launch screen, drawn in software from now on: what
-    /// the Start menu's "CDCedit (safe graphics)" runs, for a driver that
+    /// the Start menu's "CDCAi (safe graphics)" runs, for a driver that
     /// draws the window as coloured squares, where Settings' GPU switch
     /// cannot be seen to be turned off (#389, #242, #449).
     Software,
-    /// Serve the CDCedit API to an AI agent as an MCP server on standard
+    /// Serve the CDCAi API to an AI agent as an MCP server on standard
     /// input and output, with no window: what an agent's configuration
     /// names (docs/MCP.md). The mode, when given: through the window's
     /// server, on its own, or whichever is there; `CONCAT_MCP_MODE`

@@ -16,7 +16,7 @@ use crate::Error;
 /// The package format this build reads: the shape of the manifest, the
 /// template and expression syntax, and the shader's contract with the
 /// compositor. Bumped when any of those changes in a way an older build
-/// could not read, so a package written for a newer CDCedit says so rather
+/// could not read, so a package written for a newer CDCAi says so rather
 /// than failing in the shader compiler.
 ///
 /// Format 2 is the scene-linear contract: the shader samples the working
@@ -513,8 +513,8 @@ impl Manifest {
         }
         if self.format > FORMAT {
             return Err(self.invalid(format!(
-                "written for package format {}, and this CDCedit reads up to {FORMAT}: \
-                 a newer CDCedit is needed",
+                "written for package format {}, and this CDCAi reads up to {FORMAT}: \
+                 a newer CDCAi is needed",
                 self.format
             )));
         }
@@ -844,7 +844,7 @@ mod tests {
     #[test]
     fn bad_manifests_are_rejected_with_a_reason() {
         rejects(&GOOD.replace("concat.blur", "blur"), "author.name");
-        rejects(&GOOD.replace("concat.blur", "CDCedit.Blur"), "author.name");
+        rejects(&GOOD.replace("concat.blur", "CDCAi.Blur"), "author.name");
         rejects(
             &GOOD.replace("intensity = \"radius\"", "intensity = \"sigma\""),
             "intensity",
@@ -900,7 +900,7 @@ mod tests {
         let current = Manifest::parse(&format!("format = {FORMAT}\n{shader}")).expect("parses");
         assert_eq!(current.format, FORMAT);
         assert!(current.scene_linear());
-        rejects(&format!("format = {}\n{GOOD}", FORMAT + 1), "newer CDCedit");
+        rejects(&format!("format = {}\n{GOOD}", FORMAT + 1), "newer CDCAi");
         rejects(&format!("format = 0\n{GOOD}"), "format is 0");
         rejects(&format!("format = \"1\"\n{GOOD}"), "format");
     }

@@ -3647,7 +3647,7 @@ mod tests {
         footage.path = source.to_string_lossy().into_owned();
         footage.media_width = Some(64);
         footage.media_height = Some(64);
-        let nested = root.join("Movies").join("CDCedit");
+        let nested = root.join("Movies").join("CDCAi");
         let request = ExportRequest {
             canvas: [0, 0, 0, 255],
             output: nested.join("out.mp4").to_string_lossy().into_owned(),

@@ -16,5 +16,5 @@ dependencyResolutionManagement {
         maven { url = uri("https://jitpack.io") }
     }
 }
-rootProject.name = "cdcedit-spike"
+rootProject.name = "cdcai-spike"
 include(":app")

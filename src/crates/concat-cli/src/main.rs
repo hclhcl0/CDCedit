@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Jareer Abdullah and Concat contributors
 
-//! Command line driver for the CDCedit engine.
+//! Command line driver for the CDCAi engine.
 //!
 //! This exists so the engine can be exercised end to end without a UI. The
 //! `render` command is the vertical slice: probe, build a timeline, plan every
-//! frame, decode, composite, encode. The `api` command is the CDCedit API's
+//! frame, decode, composite, encode. The `api` command is the CDCAi API's
 //! first transport: JSON-RPC requests in, responses and events out, one per
 //! line, so a script in any language edits and exports a project; `serve`
 //! is the same API on a socket, for callers that are other processes.
@@ -28,7 +28,7 @@ use concat_media::{EncodeOptions, Encoder, FrameSink, ReaderPool};
 use concat_render::{Compositor, WgpuCompositor, plan_frame};
 
 #[derive(Parser)]
-#[command(name = "concat-cli", version, about = "CDCedit engine command line")]
+#[command(name = "concat-cli", version, about = "CDCAi engine command line")]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -56,7 +56,7 @@ enum Command {
         fade: u64,
     },
 
-    /// Speak the CDCedit API: a JSON-RPC request per line on stdin, a
+    /// Speak the CDCAi API: a JSON-RPC request per line on stdin, a
     /// response per line on stdout, with events from running jobs as they
     /// happen. A bare `{"method": ..., ...}` without the envelope works too.
     Api {
@@ -64,7 +64,7 @@ enum Command {
         request: Option<String>,
     },
 
-    /// Serve the CDCedit API on a socket until the process is stopped:
+    /// Serve the CDCAi API on a socket until the process is stopped:
     /// JSON-RPC lines over TCP or a Unix socket, and gRPC in a build that
     /// has it. With no address given, JSON-RPC on 127.0.0.1:7420. Every
     /// connection presents a token first; with none given, one is minted
@@ -217,28 +217,28 @@ fn serve(
     let server = concat_server::Server::start(config, concat_api::Api::new)?;
     if let Some(address) = server.json_addr() {
         println!(
-            "CDCedit API {}: JSON-RPC on {address}",
+            "CDCAi API {}: JSON-RPC on {address}",
             concat_api::API_VERSION
         );
     }
     if let Some(path) = server.socket_path() {
         println!(
-            "CDCedit API {}: JSON-RPC on {}",
+            "CDCAi API {}: JSON-RPC on {}",
             concat_api::API_VERSION,
             path.display()
         );
     }
     if let Some(address) = server.grpc_addr() {
-        println!("CDCedit API {}: gRPC on {address}", concat_api::API_VERSION);
+        println!("CDCAi API {}: gRPC on {address}", concat_api::API_VERSION);
     }
     println!(
-        "CDCedit API {}: token {}",
+        "CDCAi API {}: token {}",
         concat_api::API_VERSION,
         server.token()
     );
     let roots = server.roots();
     println!(
-        "CDCedit API {}: writes under {}",
+        "CDCAi API {}: writes under {}",
         concat_api::API_VERSION,
         if roots.is_empty() {
             "anywhere".to_owned()

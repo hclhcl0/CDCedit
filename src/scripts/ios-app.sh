@@ -6,7 +6,7 @@
 #
 # Build first (`cargo build -p concat --target aarch64-apple-ios --release`
 # under `eval "$(scripts/mobile-env.sh aarch64-apple-ios)"`), then this
-# lays out target/<target>/<profile>/CDCedit.app: the binary, an Info.plist,
+# lays out target/<target>/<profile>/CDCAi.app: the binary, an Info.plist,
 # the icon, and the sherpa-onnx framework the binary loads, with the load
 # path rewritten to the bundle. The bundle is ad-hoc signed, which is what
 # a simulator accepts; a phone needs a developer identity and provisioning
@@ -20,28 +20,28 @@ root=$(cd "$workspace/.." && pwd)
 version=$(sed -n 's/^version = "\(.*\)"/\1/p' "$workspace/Cargo.toml" | head -1)
 ios_min=${IPHONEOS_DEPLOYMENT_TARGET:-15.0}
 
-binary=$workspace/target/$target/$profile/cdcedit
+binary=$workspace/target/$target/$profile/cdcai
 [ -f "$binary" ] || { echo "no binary at $binary: build first" >&2; exit 1; }
 framework=$(find "$workspace/vendor/sherpa-onnx/ios" -maxdepth 2 -name '*.xcframework' | head -1)
 [ -n "$framework" ] || { echo "no sherpa-onnx xcframework: run scripts/sherpa-mobile.sh $target" >&2; exit 1; }
 slice=ios-arm64
 [ "$target" = aarch64-apple-ios-sim ] && slice=ios-arm64_x86_64-simulator
 
-app=$workspace/target/$target/$profile/CDCedit.app
+app=$workspace/target/$target/$profile/CDCAi.app
 rm -rf "$app"
 mkdir -p "$app/Frameworks"
-cp "$binary" "$app/CDCedit"
+cp "$binary" "$app/CDCAi"
 cp -R "$framework/$slice/SherpaOnnxC.framework" "$app/Frameworks/"
-cp "$root/assets/icons/cdcedit_logo_512.png" "$app/AppIcon.png" 2>/dev/null || true
+cp "$root/assets/icons/cdcai_logo_512.png" "$app/AppIcon.png" 2>/dev/null || true
 
 # The binary was linked against the dylib by the name the linker saw in
 # vendor/; in the bundle it lives in Frameworks/ under the framework's
 # own name.
-old=$(otool -L "$app/CDCedit" | awk '/sherpa-onnx-c-api|SherpaOnnxC/ {print $1; exit}')
+old=$(otool -L "$app/CDCAi" | awk '/sherpa-onnx-c-api|SherpaOnnxC/ {print $1; exit}')
 if [ -n "$old" ]; then
-  install_name_tool -change "$old" "@rpath/SherpaOnnxC.framework/SherpaOnnxC" "$app/CDCedit"
+  install_name_tool -change "$old" "@rpath/SherpaOnnxC.framework/SherpaOnnxC" "$app/CDCAi"
 fi
-install_name_tool -add_rpath "@executable_path/Frameworks" "$app/CDCedit" 2>/dev/null || true
+install_name_tool -add_rpath "@executable_path/Frameworks" "$app/CDCAi" 2>/dev/null || true
 
 platform=iPhoneOS
 [ "$target" = aarch64-apple-ios-sim ] && platform=iPhoneSimulator
@@ -62,12 +62,12 @@ cat > "$app/Info.plist" <<PLIST
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleName</key><string>CDCedit</string>
-  <key>CFBundleDisplayName</key><string>CDCedit</string>
-  <key>CFBundleIdentifier</key><string>app.cdcedit.editor</string>
+  <key>CFBundleName</key><string>CDCAi</string>
+  <key>CFBundleDisplayName</key><string>CDCAi</string>
+  <key>CFBundleIdentifier</key><string>app.cdcai.editor</string>
   <key>CFBundleVersion</key><string>${version}</string>
   <key>CFBundleShortVersionString</key><string>${version}</string>
-  <key>CFBundleExecutable</key><string>CDCedit</string>
+  <key>CFBundleExecutable</key><string>CDCAi</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleSupportedPlatforms</key><array><string>${platform}</string></array>
   <key>MinimumOSVersion</key><string>${ios_min}</string>
@@ -98,9 +98,9 @@ cat > "$app/Info.plist" <<PLIST
   <key>LSApplicationCategoryType</key><string>public.app-category.video</string>
   <key>UIFileSharingEnabled</key><true/>
   <key>LSSupportsOpeningDocumentsInPlace</key><true/>
-  <key>NSPhotoLibraryUsageDescription</key><string>CDCedit imports the clips you pick.</string>
-  <key>NSPhotoLibraryAddUsageDescription</key><string>CDCedit saves your finished videos to Photos.</string>
-  <key>NSMicrophoneUsageDescription</key><string>CDCedit records voice-over.</string>
+  <key>NSPhotoLibraryUsageDescription</key><string>CDCAi imports the clips you pick.</string>
+  <key>NSPhotoLibraryAddUsageDescription</key><string>CDCAi saves your finished videos to Photos.</string>
+  <key>NSMicrophoneUsageDescription</key><string>CDCAi records voice-over.</string>
   <key>NSHumanReadableCopyright</key><string>AGPL-3.0-or-later. See THIRD_PARTY_NOTICES.md.</string>
 </dict>
 </plist>

@@ -55,7 +55,7 @@ jobs:
       # keyed off it. See TRANSLATING.md.
       - run: python3 scripts/locales.py --check
         if: ${{ !cancelled() }}
-      # The models CDCedit downloads are mirrored onto a release of this
+      # The models CDCAi downloads are mirrored onto a release of this
       # repository; models/manifest.toml is what fills that mirror and the
       # engine's tables are what a download is checked against. This keeps
       # the two saying the same thing. See models/manifest.toml.

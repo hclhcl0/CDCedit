@@ -61,5 +61,5 @@ jobs:
       # is there, links, and resolves every library it needs.
       - name: Check the binary links
         run: |
-          file result/bin/.concat-wrapped || file result/bin/cdcedit
+          file result/bin/.concat-wrapped || file result/bin/cdcai
           ldd result/bin/.concat-wrapped 2>/dev/null | grep -i 'not found' && exit 1 || true

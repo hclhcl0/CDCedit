@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Concat contributors
 
 //! CapCut Project Hub: Discovers, lists, and manages CapCut drafts
-//! allowing CDCedit to browse CapCut projects just like CapCut's desktop home page.
+//! allowing CDCAi to browse CapCut projects just like CapCut's desktop home page.
 
 use std::path::{Path, PathBuf};
 use serde_json::Value;

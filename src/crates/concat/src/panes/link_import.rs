@@ -183,7 +183,7 @@ impl LinkImport {
                                         }
                                     }
                                     let msg = format!(
-                                        "Đã tải {} file và lưu vào Bộ sưu tập (Movies/CDCedit)",
+                                        "Đã tải {} file và lưu vào Bộ sưu tập (Movies/CDCAi)",
                                         files.len()
                                     );
                                     self.message = msg.clone();
@@ -211,7 +211,7 @@ impl LinkImport {
                                     }
                                     if pub_count > 0 {
                                         let msg = format!(
-                                            "Đã tải {} file và lưu vào Bộ sưu tập (Movies/CDCedit)",
+                                            "Đã tải {} file và lưu vào Bộ sưu tập (Movies/CDCAi)",
                                             pub_count
                                         );
                                         self.message = msg.clone();

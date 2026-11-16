@@ -1,9 +1,9 @@
-# The CDCedit sound library
+# The CDCAi sound library
 
-The Library's **Audio** page has a **CDCedit** shelf of built-in sounds and
+The Library's **Audio** page has a **CDCAi** shelf of built-in sounds and
 music (#60). Nothing ships inside the app: the shelf reads a manifest from
 the [`concatapp/assets`](https://github.com/concatapp/assets) repository the
-first time someone asks for it (a "Load CDCedit sounds" button, never at
+first time someone asks for it (a "Load CDCAi sounds" button, never at
 startup), and each sound is downloaded the first time it is played or used,
 then checked against its SHA-256 and kept in the app's cache.
 

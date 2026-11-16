@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Jareer Abdullah and Concat contributors
 
-//! CDCedit for AI agents: a Model Context Protocol server over standard
+//! CDCAi for AI agents: a Model Context Protocol server over standard
 //! input and output, shipped inside the app as `concat --mcp`.
 //!
 //! It is a thin adapter, and deliberately so. Every tool is a

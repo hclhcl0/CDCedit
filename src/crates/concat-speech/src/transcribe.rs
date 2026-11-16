@@ -205,7 +205,7 @@ pub fn cpu_backend() -> Result<String, String> {
                 }
             }
             Err(format!(
-                "whisper's CPU kernels (ggml-cpu-*) are missing from {} - reinstall CDCedit",
+                "whisper's CPU kernels (ggml-cpu-*) are missing from {} - reinstall CDCAi",
                 folders[0].display()
             ))
         })
@@ -462,7 +462,7 @@ impl Transcriber {
         })
     }
 
-    /// Streams one model from CDCedit's mirror into the models folder. Blocks
+    /// Streams one model from CDCAi's mirror into the models folder. Blocks
     /// for the whole download: run it on its own thread.
     ///
     /// Written to `<file>.part` and renamed at the end: a download killed
@@ -505,9 +505,9 @@ impl Transcriber {
 
     /// What model `id` is called as a file, and every address a download
     /// of it tries, in order: for a person whose network lets their
-    /// browser through and not CDCedit, who can fetch the first in the
+    /// browser through and not CDCAi, who can fetch the first in the
     /// browser and hand the file to [`concat_host::models::supply`] under
-    /// that name. `None` for a model CDCedit does not know.
+    /// that name. `None` for a model CDCAi does not know.
     pub fn model_sources(id: &str) -> Option<(String, Vec<String>)> {
         known(id)?;
         let file = model_archive(id);

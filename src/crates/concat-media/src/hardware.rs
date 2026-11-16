@@ -264,7 +264,7 @@ pub fn mediacodec_decoder(codec: ffmpeg::codec::Id, format: Pixel) -> Option<&'s
 /// chip spends on two or three 4K streams. Past it, `configure` fails and
 /// the reader falls back anyway, but only after the attempt; and every
 /// session spent on a reader sitting idle in the pool is one the camera,
-/// the export's MediaCodec encoder or another app cannot have. CDCedit
+/// the export's MediaCodec encoder or another app cannot have. CDCAi
 /// keeps up to eight warm readers plus the filmstrip's and the export's,
 /// while what a person watches needs few at once: the clip under the
 /// playhead, the next one ready at a cut, and one more for a layer over

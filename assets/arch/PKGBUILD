@@ -1,5 +1,5 @@
 # Maintainer: noxygalaxy <noxycraftyt@gmail.com>
-pkgname=cdcedit
+pkgname=cdcai
 pkgver=${CONCAT_VERSION:?CONCAT_VERSION must be set}
 pkgrel=1
 pkgdesc="Free and open source video editor"
@@ -13,17 +13,17 @@ source=()
 stage=${CONCAT_STAGE:?CONCAT_STAGE must point at the staged folder}
 
 package() {
-  install -Dm755 "$stage/cdcedit" "$pkgdir/opt/cdcedit/cdcedit"
-  install -d "$pkgdir/opt/cdcedit/lib"
-  cp -a "$stage"/lib/. "$pkgdir/opt/cdcedit/lib/"
+  install -Dm755 "$stage/cdcai" "$pkgdir/opt/cdcai/cdcai"
+  install -d "$pkgdir/opt/cdcai/lib"
+  cp -a "$stage"/lib/. "$pkgdir/opt/cdcai/lib/"
 
   install -d "$pkgdir/usr/bin"
-  printf '#!/bin/sh\nexec /opt/cdcedit/cdcedit "$@"\n' > "$pkgdir/usr/bin/cdcedit"
-  chmod 755 "$pkgdir/usr/bin/cdcedit"
-  install -Dm644 "$stage/cdcedit.desktop" "$pkgdir/usr/share/applications/cdcedit.desktop"
-  sed -i 's|^Exec=cdcedit|Exec=/opt/cdcedit/cdcedit %U|' "$pkgdir/usr/share/applications/cdcedit.desktop"
-  install -Dm644 "$stage/cdcedit.png" "$pkgdir/usr/share/icons/hicolor/256x256/apps/cdcedit.png"
+  printf '#!/bin/sh\nexec /opt/cdcai/cdcai "$@"\n' > "$pkgdir/usr/bin/cdcai"
+  chmod 755 "$pkgdir/usr/bin/cdcai"
+  install -Dm644 "$stage/cdcai.desktop" "$pkgdir/usr/share/applications/cdcai.desktop"
+  sed -i 's|^Exec=cdcai|Exec=/opt/cdcai/cdcai %U|' "$pkgdir/usr/share/applications/cdcai.desktop"
+  install -Dm644 "$stage/cdcai.png" "$pkgdir/usr/share/icons/hicolor/256x256/apps/cdcai.png"
 
-  install -Dm644 "$stage/LICENSE" "$pkgdir/usr/share/licenses/cdcedit/LICENSE"
-  install -Dm644 "$stage/THIRD_PARTY_NOTICES.md" "$pkgdir/usr/share/licenses/cdcedit/THIRD_PARTY_NOTICES.md"
+  install -Dm644 "$stage/LICENSE" "$pkgdir/usr/share/licenses/cdcai/LICENSE"
+  install -Dm644 "$stage/THIRD_PARTY_NOTICES.md" "$pkgdir/usr/share/licenses/cdcai/THIRD_PARTY_NOTICES.md"
 }

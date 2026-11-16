@@ -1,4 +1,4 @@
-package app.cdcedit.editor.spike
+package app.cdcai.editor.spike
 
 import android.content.Context
 import android.view.Surface

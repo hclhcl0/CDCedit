@@ -42,7 +42,7 @@ automatically; inspect Flow before submitting a replacement job.
   dependency's DLL copier failing on the custom quick profile.
   Use `-Mode Build -NoAppIncremental` on a space-limited machine to avoid the
   generated UI's large incremental query cache; library caches are retained.
-- Package Node + worker beside `cdcedit.exe` with
+- Package Node + worker beside `cdcai.exe` with
   `scripts/package-flow-worker.ps1 -Destination <absolute-path>/google-flow-worker`.
   Chrome is a prerequisite. Do not distribute profile/data/log directories.
 - Bridge test: `node --test bridge.test.mjs` in the worker folder. It verifies
@@ -286,7 +286,7 @@ Changing steps does not submit an AI or generation request.
 ## Workflow build verification — 2026-11-07
 
 The quick-profile desktop build and worker packaging completed successfully.
-The new `cdcedit.exe` passed `--version` and `--smoke` (exit 0, GPU and Whisper
+The new `cdcai.exe` passed `--version` and `--smoke` (exit 0, GPU and Whisper
 CPU backend initialized). Slint renders were reviewed for all five Flow steps
 and the complete inspector at a 440 px panel width. Interactive input to the
 running user window was stopped when the user pressed Escape; the existing
@@ -361,9 +361,9 @@ a node-graph video canvas is not included in this change.
 Workspace-size validation (2026-11-08): full Slint checking, reviewed headless
 renders at 460 px and 1366 px, two tests against the actual dock module, and
 `cargo check` passed. Cargo compiled and linked the new EXE, then failed to
-replace the top-level `cdcedit.exe` because the user's running process held it
-open. The newly linked `deps/cdcedit.exe` was therefore staged alongside it as
-`cdcedit-flow-workspace.exe`, given the normal 32 MiB stack reservation and
+replace the top-level `cdcai.exe` because the user's running process held it
+open. The newly linked `deps/cdcai.exe` was therefore staged alongside it as
+`cdcai-flow-workspace.exe`, given the normal 32 MiB stack reservation and
 packaged with the current worker. Both `--version` and `--smoke` passed (exit 0,
 GPU and Whisper initialized), with the existing restricted-AppData warnings.
 The running older editor was left untouched. Interactive clicking in the new
@@ -406,7 +406,7 @@ refusal of image submission without authorization. The desktop compiled in
 now compares the final runtime overlay by hash and skips identical DLLs; rerunning
 the full build helper completed successfully without recompilation.
 
-`cdcedit-flow-images.exe` passed `--version` and `--smoke` (exit 0, GPU and
+`cdcai-flow-images.exe` passed `--version` and `--smoke` (exit 0, GPU and
 Whisper initialized), with the existing restricted-AppData warnings. No live
 image generation or multi-scene video consistency assessment was performed;
 no Flow credit was spent during these checks.

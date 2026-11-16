@@ -3059,7 +3059,7 @@ mod tests {
     /// Three bands, opaque red, half-transparent green and clear, written
     /// in each alpha codec and read back: the alpha survives, and so does
     /// the colour where there is some to see. The decoder's side is the
-    /// import of a CDCedit overlay back into a project - ProRes' alpha comes
+    /// import of a CDCAi overlay back into a project - ProRes' alpha comes
     /// through its own decoder, VP9's through libvpx (#429). A codec whose
     /// encoder this FFmpeg does not link is skipped.
     #[test]

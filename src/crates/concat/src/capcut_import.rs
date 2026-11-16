@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-//! Import a CapCut PC Draft directly into a Concat / CDCedit project.
+//! Import a CapCut PC Draft directly into a Concat / CDCAi project.
 //!
 //! CapCut PC stores drafts containing `draft_content.json` and `draft_meta_info.json`.
 //! This importer parses all tracks (video, audio, text/subtitles), resolves materials,
-//! converts coordinate systems and styles, and opens the imported timeline in CDCedit.
+//! converts coordinate systems and styles, and opens the imported timeline in CDCAi.
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -829,13 +829,13 @@ pub fn import_capcut_draft_path(studio: &mut Studio, input_path: &Path) {
         extra: Default::default(),
     };
 
-    // 6. Write Concat Project to disk
+    // 6. Write CDCAi Project to disk
     let default_loc = if cfg!(target_os = "android") {
-        let home_candidate = crate::studio::home_folder("CDCedit");
+        let home_candidate = crate::studio::home_folder("CDCAi");
         if !home_candidate.is_empty() && Path::new(&home_candidate).is_dir() {
             home_candidate
         } else {
-            let android_p = Path::new("/storage/emulated/0/CDCedit");
+            let android_p = Path::new("/storage/emulated/0/CDCAi");
             if android_p.is_dir() || std::fs::create_dir_all(android_p).is_ok() {
                 android_p.to_string_lossy().into_owned()
             } else {
@@ -845,7 +845,7 @@ pub fn import_capcut_draft_path(studio: &mut Studio, input_path: &Path) {
             }
         }
     } else if cfg!(target_os = "ios") {
-        crate::studio::home_folder("Documents/CDCedit")
+        crate::studio::home_folder("Documents/CDCAi")
     } else {
         crate::studio::home_folder("Desktop")
     };
@@ -898,7 +898,7 @@ pub fn import_capcut_draft_path(studio: &mut Studio, input_path: &Path) {
     ) {
         Ok(info) => info,
         Err(e) => {
-            studio.notify(&format!("Không thể tạo dự án Concat mới: {e}"), true);
+            studio.notify(&format!("Không thể tạo dự án CDCAi mới: {e}"), true);
             return;
         }
     };

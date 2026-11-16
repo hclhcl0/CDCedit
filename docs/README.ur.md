@@ -1,15 +1,15 @@
-<p align="center"><img src="../assets/icons/cdcedit_logo_256.png" alt="CDCedit" width="100" /></p>
-<h1 align="center">CDCedit</h1>
+<p align="center"><img src="../assets/icons/cdcai_logo_256.png" alt="CDCAi" width="100" /></p>
+<h1 align="center">CDCAi</h1>
 
-CDCedit is a customized video editor derived from [Concat](https://github.com/jub0t/Concat). Original author and license notices are retained. Build this fork to use CDCedit features; upstream release links below refer to the original project.
+CDCAi is a customized video editor derived from [Concat](https://github.com/jub0t/Concat). Original author and license notices are retained. Build this fork to use CDCAi features; upstream release links below refer to the original project.
 
-CDCedit ایک مفت، اوپن سورس ویڈیو ایڈیٹر اور macOS، Windows، Linux اور Android کے لیے CapCut کا متبادل ہے۔ یہ وہی سب کرتا ہے جس کے لیے لوگ اصل میں CapCut کھولتے ہیں: خودکار کیپشن، متن سے آواز، پس منظر ہٹانا، کی فریم اینیمیشن، ایفیکٹس اور ٹائٹل، ملٹی ٹریک کٹنگ، 4K ایکسپورٹ۔ اور کسی چالاکی کے بغیر: نہ واٹر مارک، نہ اکاؤنٹ، نہ سبسکرپشن، نہ اپ لوڈ۔
+CDCAi ایک مفت، اوپن سورس ویڈیو ایڈیٹر اور macOS، Windows، Linux اور Android کے لیے CapCut کا متبادل ہے۔ یہ وہی سب کرتا ہے جس کے لیے لوگ اصل میں CapCut کھولتے ہیں: خودکار کیپشن، متن سے آواز، پس منظر ہٹانا، کی فریم اینیمیشن، ایفیکٹس اور ٹائٹل، ملٹی ٹریک کٹنگ، 4K ایکسپورٹ۔ اور کسی چالاکی کے بغیر: نہ واٹر مارک، نہ اکاؤنٹ، نہ سبسکرپشن، نہ اپ لوڈ۔
 
 سب کچھ GPU کمپوزیٹر والے نیٹو Rust انجن پر مقامی طور پر چلتا ہے۔ انسٹال کریں، فوٹیج ڈالیں، کاٹیں۔ کیپشن، آوازوں اور کٹ آؤٹ کے AI ماڈل سیٹنگز سے ایک بار ڈاؤن لوڈ ہوتے ہیں اور اس کے بعد آف لائن کام کرتے ہیں۔ آپ کی فوٹیج کبھی آپ کی ڈسک سے باہر نہیں جاتی۔
 
 **ان کے لیے موزوں:** TikTok، Reels اور Shorts، YouTube ویڈیوز، ٹیوٹوریل اور اسکرین ریکارڈنگ، پوڈکاسٹ کلپس، میمز۔
 
-**مشینوں کے لیے بھی:** AI ایجنٹس کے لیے بلٹ ان MCP سرور (`cdcedit --mcp`، [سیٹ اپ](MCP.md)) اور اسکرپٹس کے لیے ایک JSON-RPC API، تاکہ وہ بھی اس سے ویڈیو کاٹ سکیں۔
+**مشینوں کے لیے بھی:** AI ایجنٹس کے لیے بلٹ ان MCP سرور (`cdcai --mcp`، [سیٹ اپ](MCP.md)) اور اسکرپٹس کے لیے ایک JSON-RPC API، تاکہ وہ بھی اس سے ویڈیو کاٹ سکیں۔
 
 ## نمایاں خصوصیات
 
@@ -36,12 +36,12 @@ CDCedit ایک مفت، اوپن سورس ویڈیو ایڈیٹر اور macOS،
 1. **[ویب سائٹ](https://concatenate.pages.dev/#download)** آپ کی مشین کے لیے درست بلڈ دیتی ہے۔ یہیں سے شروع کریں۔
 2. **[GitHub Releases](https://github.com/jub0t/Concat/releases)** پر ہر پلیٹ فارم کی ہر بلڈ ہے، انسٹالرز، پیکجز اور چیک سمز کے ساتھ۔ جب آپ خود چننا چاہیں۔
 
-CDCedit **بیٹا** میں ہے: یہ کام کرتا ہے، اور ابھی اس میں کچھ کھردرا پن ہے۔ کوئی ملے تو [بتائیں](https://github.com/jub0t/Concat/issues)۔
+CDCAi **بیٹا** میں ہے: یہ کام کرتا ہے، اور ابھی اس میں کچھ کھردرا پن ہے۔ کوئی ملے تو [بتائیں](https://github.com/jub0t/Concat/issues)۔
 
 **پلیٹ فارمز**
 
 - ✅ **Windows** · x86_64 (ARM بلڈز فی الحال روکی گئی ہیں، دیکھیں [#326](https://github.com/jub0t/Concat/issues/326))۔ ایک سیٹ اپ اور ایک `.msi`۔ اگر SmartScreen غیر دستخط شدہ بلڈ روکے: **More info** › **Run anyway**
-- ✅ **macOS** · Intel اور Apple Silicon۔ اگر macOS غیر دستخط شدہ بلڈ کھولنے سے انکار کرے: `xattr -dr com.apple.quarantine /Applications/CDCedit.app`
+- ✅ **macOS** · Intel اور Apple Silicon۔ اگر macOS غیر دستخط شدہ بلڈ کھولنے سے انکار کرے: `xattr -dr com.apple.quarantine /Applications/CDCAi.app`
 - ✅ **Linux** · x86_64 اور ARM۔ ‏`.deb`، `.rpm`، `.AppImage` اور ایک Arch پیکج۔ ساتھ ہی **[Flatpark](https://flatpark.org/apps/app.concat.editor/)** پر ایک Flatpak، جو ایک کمیونٹی Flatpak ریموٹ ہے اور ہر ریلیز کی x86_64 ‏`.deb` کو لپیٹ کر اس کے ساتھ اپ ڈیٹ ہوتا ہے
 - ✅ **Android** · فون اور ٹیبلٹ
 - ✅ **iOS / iPadOS** · iPhone اور iPad، سائیڈ لوڈ کے ذریعے
@@ -57,7 +57,7 @@ CDCedit **بیٹا** میں ہے: یہ کام کرتا ہے، اور ابھی ا
 > [!IMPORTANT]
 > حصہ ڈالنے کا بہترین طریقہ یہ ہے کہ [Releases](https://github.com/jub0t/Concat/releases) صفحے سے ایک بلڈ لیں اور اسے استعمال کریں: معلوم کریں کہاں ٹوٹتا ہے، اور بتائیں کہاں بہتر ہو سکتا ہے۔
 >
-> کوڈ لکھنے کو تیار ہیں؟ [CONTRIBUTING.md](../CONTRIBUTING.md) میں سیٹ اپ، ٹری کی ترتیب، چلائی جانے والی جانچیں اور شراکتوں کے لائسنس کی تفصیل ہے۔ کسی اسکرپٹ، سروس یا ایجنٹ سے CDCedit چلا رہے ہیں؟ [ڈویلپر دستاویزات](https://concatenate.pages.dev/docs) میں CDCedit API اور اس کے ٹرانسپورٹس ہیں: JSON-RPC اور gRPC۔ پراجیکٹ کا اعلان [اس Discussion](https://github.com/jub0t/Concat/discussions/3) میں ہوا تھا۔
+> کوڈ لکھنے کو تیار ہیں؟ [CONTRIBUTING.md](../CONTRIBUTING.md) میں سیٹ اپ، ٹری کی ترتیب، چلائی جانے والی جانچیں اور شراکتوں کے لائسنس کی تفصیل ہے۔ کسی اسکرپٹ، سروس یا ایجنٹ سے CDCAi چلا رہے ہیں؟ [ڈویلپر دستاویزات](https://concatenate.pages.dev/docs) میں CDCAi API اور اس کے ٹرانسپورٹس ہیں: JSON-RPC اور gRPC۔ پراجیکٹ کا اعلان [اس Discussion](https://github.com/jub0t/Concat/discussions/3) میں ہوا تھا۔
 > 
 > شراکت دار Discord سرور پر `@Contributor` رول لے سکتے ہیں: بس مانگ لیں۔
 

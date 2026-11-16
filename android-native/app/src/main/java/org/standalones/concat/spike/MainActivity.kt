@@ -1,4 +1,4 @@
-package app.cdcedit.editor.spike
+package app.cdcai.editor.spike
 
 import android.net.Uri
 import android.os.Bundle
@@ -238,7 +238,7 @@ private fun Editor(
                     exportToPublicDownloads(context, file)
                     android.widget.Toast.makeText(
                         context,
-                        "Đã tải xong: Lưu vào Download/CDCedit",
+                        "Đã tải xong: Lưu vào Download/CDCAi",
                         android.widget.Toast.LENGTH_LONG
                     ).show()
                     scope.launch { importFile(file) }
@@ -559,7 +559,7 @@ private fun exportToPublicDownloads(context: android.content.Context, sourceFile
                 )
                 put(
                     android.provider.MediaStore.MediaColumns.RELATIVE_PATH,
-                    "${android.os.Environment.DIRECTORY_DOWNLOADS}/CDCedit"
+                    "${android.os.Environment.DIRECTORY_DOWNLOADS}/CDCAi"
                 )
                 put(android.provider.MediaStore.MediaColumns.IS_PENDING, 1)
             }
@@ -581,7 +581,7 @@ private fun exportToPublicDownloads(context: android.content.Context, sourceFile
         } else {
             val pubDir = File(
                 android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS),
-                "CDCedit"
+                "CDCAi"
             ).apply { mkdirs() }
             val dest = File(pubDir, sourceFile.name)
             sourceFile.copyTo(dest, overwrite = true)

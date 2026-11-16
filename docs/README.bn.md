@@ -1,9 +1,9 @@
-<p align="center"><img src="../assets/icons/cdcedit_logo_256.png" alt="CDCedit" width="100" /></p>
-<h1 align="center">CDCedit</h1>
+<p align="center"><img src="../assets/icons/cdcai_logo_256.png" alt="CDCAi" width="100" /></p>
+<h1 align="center">CDCAi</h1>
 
-CDCedit is a customized video editor derived from [Concat](https://github.com/jub0t/Concat). Original author and license notices are retained. Build this fork to use CDCedit features; upstream release links below refer to the original project.
+CDCAi is a customized video editor derived from [Concat](https://github.com/jub0t/Concat). Original author and license notices are retained. Build this fork to use CDCAi features; upstream release links below refer to the original project.
 
-CDCedit হলো macOS, Windows, Linux ও Android-এর জন্য একটি বিনামূল্যের, ওপেন-সোর্স ভিডিও এডিটর এবং CapCut-এর বিকল্প। মানুষ আসলে যে কাজগুলোর জন্য CapCut খোলে, তার সবই এতে আছে: অটো-ক্যাপশন, টেক্সট-টু-স্পিচ, ব্যাকগ্রাউন্ড রিমুভ, কীফ্রেম অ্যানিমেশন, ইফেক্ট ও টাইটেল, মাল্টি-ট্র্যাক কাটিং, 4K এক্সপোর্ট। আর কোনো শর্ত ছাড়াই: না ওয়াটারমার্ক, না অ্যাকাউন্ট, না সাবস্ক্রিপশন, না আপলোড।
+CDCAi হলো macOS, Windows, Linux ও Android-এর জন্য একটি বিনামূল্যের, ওপেন-সোর্স ভিডিও এডিটর এবং CapCut-এর বিকল্প। মানুষ আসলে যে কাজগুলোর জন্য CapCut খোলে, তার সবই এতে আছে: অটো-ক্যাপশন, টেক্সট-টু-স্পিচ, ব্যাকগ্রাউন্ড রিমুভ, কীফ্রেম অ্যানিমেশন, ইফেক্ট ও টাইটেল, মাল্টি-ট্র্যাক কাটিং, 4K এক্সপোর্ট। আর কোনো শর্ত ছাড়াই: না ওয়াটারমার্ক, না অ্যাকাউন্ট, না সাবস্ক্রিপশন, না আপলোড।
 
 সবকিছু আপনার মেশিনেই চলে, GPU কম্পোজিটরসহ একটি নেটিভ Rust ইঞ্জিনে। ইনস্টল করুন, ফুটেজ টেনে আনুন, কাটুন। ক্যাপশন, ভয়েস আর কাটআউটের AI মডেলগুলো সেটিংস থেকে একবার ডাউনলোড করলেই পরে অফলাইনে কাজ করে। আপনার ফুটেজ কখনো আপনার ডিস্ক ছেড়ে যায় না।
 
@@ -36,12 +36,12 @@ CDCedit হলো macOS, Windows, Linux ও Android-এর জন্য এক�
 1. **[ওয়েবসাইট](https://concatenate.pages.dev/#download)** আপনার মেশিনের জন্য ঠিক বিল্ডটি দিয়ে দেয়। এখান থেকেই শুরু করুন।
 2. **[GitHub Releases](https://github.com/jub0t/Concat/releases)** প্রতিটি প্ল্যাটফর্মের সব বিল্ড রাখে, ইনস্টলার, প্যাকেজ আর চেকসামসহ। যখন নিজে বেছে নিতে চান, তখনকার জন্য।
 
-CDCedit এখন **বেটা** পর্যায়ে: কাজ করে, তবে এখনো কিছু খুঁত আছে। কোনোটা পেলে [জানান](https://github.com/jub0t/Concat/issues)।
+CDCAi এখন **বেটা** পর্যায়ে: কাজ করে, তবে এখনো কিছু খুঁত আছে। কোনোটা পেলে [জানান](https://github.com/jub0t/Concat/issues)।
 
 **প্ল্যাটফর্ম**
 
 - ✅ **Windows** · x86_64 (ARM বিল্ড আপাতত বন্ধ আছে, দেখুন [#326](https://github.com/jub0t/Concat/issues/326))। একটি সেটআপ ও একটি `.msi`। SmartScreen কোনো আনসাইনড বিল্ড আটকে দিলে: **More info** › **Run anyway**
-- ✅ **macOS** · Intel ও Apple silicon। macOS কোনো আনসাইনড বিল্ড খুলতে না দিলে: `xattr -dr com.apple.quarantine /Applications/CDCedit.app`
+- ✅ **macOS** · Intel ও Apple silicon। macOS কোনো আনসাইনড বিল্ড খুলতে না দিলে: `xattr -dr com.apple.quarantine /Applications/CDCAi.app`
 - ✅ **Linux** · x86_64 ও ARM। `.deb`, `.rpm`, `.AppImage` এবং একটি Arch প্যাকেজ। এ ছাড়া **[Flatpark](https://flatpark.org/apps/app.concat.editor/)**-এ একটি Flatpak-ও আছে, যা একটি কমিউনিটি Flatpak রিমোট; এটি প্রতিটি রিলিজের x86_64 `.deb` মুড়ে দেয় এবং রিলিজের সঙ্গে সঙ্গে আপডেট হয়
 - ✅ **Android** · ফোন ও ট্যাবলেট
 - ✅ **iOS / iPadOS** · iPhone ও iPad, সাইডলোড করে
@@ -57,7 +57,7 @@ CDCedit এখন **বেটা** পর্যায়ে: কাজ করে
 > [!IMPORTANT]
 > অবদান রাখার সবচেয়ে ভালো উপায় হলো [Releases](https://github.com/jub0t/Concat/releases) পেজ থেকে একটি বিল্ড নিয়ে ব্যবহার করা: কোথায় ভেঙে পড়ে খুঁজে বের করুন, আর কোথায় আরও ভালো হতে পারে বলুন।
 >
-> কোড লিখতে প্রস্তুত? [CONTRIBUTING.md](../CONTRIBUTING.md)-এ সেটআপ, সোর্স ট্রির গঠন, কোন চেকগুলো চালাতে হবে, আর অবদানগুলো কোন লাইসেন্সে যায় তা লেখা আছে। স্ক্রিপ্ট, সার্ভিস বা এজেন্ট থেকে CDCedit চালাতে চান? [ডেভেলপার ডকস](https://concatenate.pages.dev/docs)-এ CDCedit API আর তার ট্রান্সপোর্টগুলোর কথা আছে: JSON-RPC ও gRPC। [এই Discussion](https://github.com/jub0t/Concat/discussions/3)-এ প্রজেক্টটির ঘোষণা দেওয়া হয়েছিল।
+> কোড লিখতে প্রস্তুত? [CONTRIBUTING.md](../CONTRIBUTING.md)-এ সেটআপ, সোর্স ট্রির গঠন, কোন চেকগুলো চালাতে হবে, আর অবদানগুলো কোন লাইসেন্সে যায় তা লেখা আছে। স্ক্রিপ্ট, সার্ভিস বা এজেন্ট থেকে CDCAi চালাতে চান? [ডেভেলপার ডকস](https://concatenate.pages.dev/docs)-এ CDCAi API আর তার ট্রান্সপোর্টগুলোর কথা আছে: JSON-RPC ও gRPC। [এই Discussion](https://github.com/jub0t/Concat/discussions/3)-এ প্রজেক্টটির ঘোষণা দেওয়া হয়েছিল।
 > 
 > অবদানকারীরা Discord সার্ভারে `@Contributor` রোল নিতে পারেন: শুধু চেয়ে নিন।
 

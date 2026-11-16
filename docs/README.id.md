@@ -1,9 +1,9 @@
-<p align="center"><img src="../assets/icons/cdcedit_logo_256.png" alt="CDCedit" width="100" /></p>
-<h1 align="center">CDCedit</h1>
+<p align="center"><img src="../assets/icons/cdcai_logo_256.png" alt="CDCAi" width="100" /></p>
+<h1 align="center">CDCAi</h1>
 
-CDCedit is a customized video editor derived from [Concat](https://github.com/jub0t/Concat). Original author and license notices are retained. Build this fork to use CDCedit features; upstream release links below refer to the original project.
+CDCAi is a customized video editor derived from [Concat](https://github.com/jub0t/Concat). Original author and license notices are retained. Build this fork to use CDCAi features; upstream release links below refer to the original project.
 
-CDCedit adalah penyunting video gratis dan sumber terbuka, alternatif CapCut untuk macOS, Windows, Linux, dan Android. Ia mencakup hal-hal yang sebenarnya dicari orang saat membuka CapCut: teks otomatis, teks ke suara, penghapusan latar, animasi keyframe, efek dan judul, pemotongan multi-trek, ekspor 4K. Tanpa jebakan apa pun: tanpa tanda air, tanpa akun, tanpa langganan, tanpa unggahan.
+CDCAi adalah penyunting video gratis dan sumber terbuka, alternatif CapCut untuk macOS, Windows, Linux, dan Android. Ia mencakup hal-hal yang sebenarnya dicari orang saat membuka CapCut: teks otomatis, teks ke suara, penghapusan latar, animasi keyframe, efek dan judul, pemotongan multi-trek, ekspor 4K. Tanpa jebakan apa pun: tanpa tanda air, tanpa akun, tanpa langganan, tanpa unggahan.
 
 Semuanya berjalan lokal di mesin Rust native dengan kompositor GPU. Pasang, jatuhkan rekaman, potong. Model AI untuk teks, suara, dan pemotongan latar diunduh sekali dari Pengaturan dan setelah itu bekerja luring. Rekaman Anda tidak pernah meninggalkan disk Anda.
 
@@ -36,12 +36,12 @@ Dua jalan masuk:
 1. **[Situs web](https://concatenate.pages.dev/#download)** memberi Anda build yang tepat untuk mesin Anda. Mulai dari sini.
 2. **[GitHub Releases](https://github.com/jub0t/Concat/releases)** punya setiap build untuk setiap platform, dengan pemasang, paket, dan checksum. Untuk saat Anda ingin memilih sendiri.
 
-CDCedit masih **beta**: ia bekerja, dan masih ada sisi kasarnya. [Beri tahu](https://github.com/jub0t/Concat/issues) saat Anda menemukannya.
+CDCAi masih **beta**: ia bekerja, dan masih ada sisi kasarnya. [Beri tahu](https://github.com/jub0t/Concat/issues) saat Anda menemukannya.
 
 **Platform**
 
 - ✅ **Windows** · x86_64 (build ARM sedang dijeda, lihat [#326](https://github.com/jub0t/Concat/issues/326)). Sebuah setup dan `.msi`. Jika SmartScreen menghentikan build tanpa tanda tangan: **More info** › **Run anyway**
-- ✅ **macOS** · Intel dan Apple Silicon. Jika macOS menolak membuka build tanpa tanda tangan: `xattr -dr com.apple.quarantine /Applications/CDCedit.app`
+- ✅ **macOS** · Intel dan Apple Silicon. Jika macOS menolak membuka build tanpa tanda tangan: `xattr -dr com.apple.quarantine /Applications/CDCAi.app`
 - ✅ **Linux** · x86_64 dan ARM. `.deb`, `.rpm`, `.AppImage`, dan paket Arch. Juga Flatpak di **[Flatpark](https://flatpark.org/apps/app.concat.editor/)**, remote Flatpak komunitas yang membungkus `.deb` x86_64 setiap rilis dan ikut memperbarui bersamanya
 - ✅ **Android** · ponsel dan tablet
 - ✅ **iOS / iPadOS** · iPhone dan iPad, lewat sideload
@@ -57,7 +57,7 @@ CDCedit masih **beta**: ia bekerja, dan masih ada sisi kasarnya. [Beri tahu](htt
 > [!IMPORTANT]
 > Cara terbaik berkontribusi adalah mengambil build dari halaman [Releases](https://github.com/jub0t/Concat/releases) dan memakainya: temukan di mana ia rusak, dan katakan di mana ia bisa lebih baik.
 >
-> Siap menulis kode? [CONTRIBUTING.md](../CONTRIBUTING.md) membahas penyiapan, tata letak pohon, pemeriksaan yang dijalankan, dan bagaimana kontribusi dilisensikan. Mengendalikan CDCedit dari skrip, layanan, atau agen? [Dokumentasi pengembang](https://concatenate.pages.dev/docs) membahas API CDCedit dan transportnya: JSON-RPC dan gRPC. [Diskusi ini](https://github.com/jub0t/Concat/discussions/3) adalah tempat proyek diumumkan.
+> Siap menulis kode? [CONTRIBUTING.md](../CONTRIBUTING.md) membahas penyiapan, tata letak pohon, pemeriksaan yang dijalankan, dan bagaimana kontribusi dilisensikan. Mengendalikan CDCAi dari skrip, layanan, atau agen? [Dokumentasi pengembang](https://concatenate.pages.dev/docs) membahas API CDCAi dan transportnya: JSON-RPC dan gRPC. [Diskusi ini](https://github.com/jub0t/Concat/discussions/3) adalah tempat proyek diumumkan.
 > 
 > Kontributor bisa mendapatkan peran `@Contributor` di server Discord: cukup minta saja.
 

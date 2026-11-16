@@ -4,7 +4,7 @@ Native Rust/Slint integration, milestone 1. This directory vendors the MIT worke
 
 Build: `npm ci --ignore-scripts`, then `node node_modules/typescript/bin/tsc -p tsconfig.build.json`. Concat finds this development directory automatically, or an adjacent `google-flow-worker` folder in a packaged app. `CONCAT_FLOW_WORKER_DIR` overrides the location.
 
-Package Windows runtime with `scripts/package-flow-worker.ps1 -Destination <absolute-path-next-to-cdcedit.exe>\google-flow-worker`. It includes Node and dependencies so the installed app does not need global Node. Chrome is required separately. Include Node's third-party notices when distributing its runtime.
+Package Windows runtime with `scripts/package-flow-worker.ps1 -Destination <absolute-path-next-to-cdcai.exe>\google-flow-worker`. It includes Node and dependencies so the installed app does not need global Node. Chrome is required separately. Include Node's third-party notices when distributing its runtime.
 
 Bridge: one request/response JSON object per line on stdio. Native code serializes requests; no local HTTP listener. Tools: health, flow_connect, flow_status, flow_generate_video, recent. Generation uses allowCredit=true in addition to auto_confirm=true. Jobs are never automatically retried.
 

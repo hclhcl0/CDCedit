@@ -1,6 +1,6 @@
-# CDCedit Engine
+# CDCAi Engine
 
-The video engine behind CDCedit. Rust, no GC, no hidden control flow.
+The video engine behind CDCAi. Rust, no GC, no hidden control flow.
 
 ## Layout
 
@@ -12,7 +12,7 @@ The video engine behind CDCedit. Rust, no GC, no hidden control flow.
 | `concat-render` | Turning a timeline plus a timestamp into one finished frame. | `concat-core`, wgpu (optional) |
 | `concat-effects` | Effect packages: manifests, WGSL shaders for pictures and FFmpeg chain templates for sound, the catalogue. Each built-in effect is a folder under `packages/`. | `concat-project`, serde, toml |
 | `concat-export` | Timeline to file: flatten, the frame-by-frame render loop, the paused monitor's true frame. | `concat-core`, `concat-media`, `concat-render`, `concat-project`, `concat-effects` |
-| `concat-api` | The CDCedit API: JSON requests in, responses and events out. Projects, edits, media, the catalogue, templates, exports as jobs, frames. | `concat-host`, `concat-export`, `concat-effects`, `concat-project` |
+| `concat-api` | The CDCAi API: JSON requests in, responses and events out. Projects, edits, media, the catalogue, templates, exports as jobs, frames. | `concat-host`, `concat-export`, `concat-effects`, `concat-project` |
 | `concat-server` | The API on a socket: JSON-RPC lines over TCP or a Unix socket, and gRPC behind the `grpc` feature. One dispatcher, many callers. | `concat-api`; tonic and tokio with `grpc` |
 | `concat-cli` | A binary to drive the above: `probe`, `render`, `api` (the API over stdin and stdout) and `serve` (the API on a socket). | `concat-server`, `concat-api`, the engine crates |
 | `concat-host` | What the window needs that is not the edit: sessions, project folders, previews, playback, templates, job slots. | `concat-media`, `concat-project`, `concat-export`, cpal |
@@ -94,7 +94,7 @@ scripts/ffmpeg-mobile.sh aarch64-apple-ios
 scripts/sherpa-mobile.sh aarch64-apple-ios
 eval "$(scripts/mobile-env.sh aarch64-apple-ios)"
 cargo build --release -p concat --target aarch64-apple-ios
-scripts/ios-app.sh aarch64-apple-ios release                    # CDCedit.app
+scripts/ios-app.sh aarch64-apple-ios release                    # CDCAi.app
 ```
 
 `.github/workflows/mobile.yml` runs exactly this on every pull request
@@ -104,14 +104,14 @@ activity's `android_main`, and `crates/concat/src/platform.rs` is where
 the three differ - how the backend is chosen, how files are picked, and
 whether there is a title strip to drag.
 
-## Driving CDCedit without the window
+## Driving CDCAi without the window
 
 The full reference - every method, every edit command, every type, and a
 page per transport - lives on the website at
 [concatenate.pages.dev/docs](https://concatenate.pages.dev/docs). What follows
 is the short version.
 
-Everything the window does to a project, a script can do through the CDCedit
+Everything the window does to a project, a script can do through the CDCAi
 API: `concat-api` is the one dispatcher, and the transports only carry it.
 On a line - stdin, TCP, a Unix socket - a call is JSON-RPC 2.0, one object
 per line, and the response comes back with the call's id:

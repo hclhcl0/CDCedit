@@ -238,7 +238,7 @@ mod platform {
         }
     }
 
-    /// Where the faulting instruction is, on the targets CDCedit ships to.
+    /// Where the faulting instruction is, on the targets CDCAi ships to.
     #[allow(unused_variables)]
     unsafe fn program_counter(context: *mut c_void) -> Option<usize> {
         if context.is_null() {
@@ -544,7 +544,7 @@ mod tests {
     #[test]
     fn a_module_is_named_without_its_folder() {
         assert_eq!(
-            file_name(r"C:\Program Files\CDCedit\onnxruntime.dll"),
+            file_name(r"C:\Program Files\CDCAi\onnxruntime.dll"),
             "onnxruntime.dll"
         );
         assert_eq!(

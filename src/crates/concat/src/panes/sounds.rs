@@ -34,14 +34,14 @@ use crate::ui::{SoundCardData, VoiceCardData};
 
 /// The prefix of a card id on the Mine shelf.
 const MINE: &str = "mine-";
-/// The prefix of a card id on the CDCedit shelf.
+/// The prefix of a card id on the CDCAi shelf.
 const CONCAT: &str = "concat-";
 
-/// The CDCedit shelf's categories, as the manifest names them; the sidebar
+/// The CDCAi shelf's categories, as the manifest names them; the sidebar
 /// shows them in the interface's language, after All.
 pub const CATEGORIES: [&str; 5] = ["Whoosh", "Impact", "Riser", "Ambience", "Music"];
 
-/// Where the CDCedit shelf stands.
+/// Where the CDCAi shelf stands.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ConcatState {
     /// Not asked for: the shelf offers to load it.
@@ -55,7 +55,7 @@ pub enum ConcatState {
     Offline,
 }
 
-/// What to do with a CDCedit sound once it has arrived.
+/// What to do with a CDCAi sound once it has arrived.
 #[derive(Clone, Debug)]
 pub enum Then {
     /// Play it.
@@ -80,15 +80,15 @@ pub enum SoundsMsg {
     /// Whether a library is showing the page, so a drop of sound files on
     /// the window goes into the library rather than the bin.
     Shown(bool),
-    /// "Load CDCedit sounds", or Refresh: the manifest fetched.
+    /// "Load CDCAi sounds", or Refresh: the manifest fetched.
     LoadConcat,
     /// The manifest's worker is done: the list, none yet, or why not.
     ConcatLoaded(Result<Option<Catalogue>, String>),
-    /// A category of the CDCedit shelf picked: 0 All, then [`CATEGORIES`].
+    /// A category of the CDCAi shelf picked: 0 All, then [`CATEGORIES`].
     ConcatCategory(i32),
-    /// A CDCedit sound's download, how far.
+    /// A CDCAi sound's download, how far.
     Fetching(String, f32),
-    /// A CDCedit sound's download is done.
+    /// A CDCAi sound's download is done.
     Fetched(String, Result<PathBuf, String>),
 }
 
@@ -101,7 +101,7 @@ pub struct SoundsPane {
     pub shown: bool,
     /// A sound import running.
     pub importing: bool,
-    /// CDCedit's sounds, once the manifest has been read, and where the
+    /// CDCAi's sounds, once the manifest has been read, and where the
     /// shelf stands.
     pub catalogue: Catalogue,
     pub concat: ConcatState,
@@ -167,7 +167,7 @@ impl SoundsPane {
                 }
                 Ok(None) => self.concat = ConcatState::Soon,
                 Err(error) => {
-                    log::info!("sounds: the CDCedit list could not be fetched: {error}");
+                    log::info!("sounds: the CDCAi list could not be fetched: {error}");
                     // A list already on screen stays: the refresh failed,
                     // not the shelf.
                     if self.concat != ConcatState::Ready {
@@ -293,7 +293,7 @@ impl SoundsPane {
     }
 
     /// The name and the file a card stands for, when it is on disk: a
-    /// sound of the user's own, or one of CDCedit's already downloaded.
+    /// sound of the user's own, or one of CDCAi's already downloaded.
     pub fn file_of(&self, card: &str) -> Option<(String, PathBuf)> {
         if let Some(sound) = self.listed(card) {
             let path = sounds::cached_file(self.dirs.as_ref()?, sound);
@@ -314,12 +314,12 @@ impl SoundsPane {
         Some((sound.name.clone(), sound.duration))
     }
 
-    /// The CDCedit sound a card names.
+    /// The CDCAi sound a card names.
     fn listed(&self, card: &str) -> Option<&sounds::Listed> {
         self.catalogue.get(card.strip_prefix(CONCAT)?)
     }
 
-    /// Downloads a CDCedit sound on a worker, then does `then` with it. A
+    /// Downloads a CDCAi sound on a worker, then does `then` with it. A
     /// second ask while it comes only changes what is done with it.
     pub fn fetch(&mut self, card: &str, then: Then) {
         let (Some(sound), Some(dirs)) = (self.listed(card).cloned(), self.dirs.clone()) else {
@@ -350,7 +350,7 @@ impl SoundsPane {
         );
     }
 
-    /// The CDCedit shelf's rows, narrowed to the category picked.
+    /// The CDCAi shelf's rows, narrowed to the category picked.
     pub fn concat_rows(&self) -> Vec<SoundCardData> {
         let category = self
             .category
@@ -548,7 +548,7 @@ impl Studio {
         if let Some((name, path)) = self.sounds.file_of(card) {
             self.place_sound(&name, &path, track_id, start);
         } else {
-            // One of CDCedit's not downloaded yet: it lands where it was
+            // One of CDCAi's not downloaded yet: it lands where it was
             // dropped once it is in.
             self.sounds.fetch(card, Then::Place(track_id, start));
         }

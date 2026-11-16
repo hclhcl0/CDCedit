@@ -3,7 +3,7 @@
 
 //! SVG, which FFmpeg cannot draw.
 //!
-//! FFmpeg reads an SVG only through librsvg, which no build of CDCedit
+//! FFmpeg reads an SVG only through librsvg, which no build of CDCAi
 //! links; without it the file opened as a picture with no size, and the
 //! import said "video stream has no usable size". The SVG is drawn once
 //! with resvg - already in the build, through Slint - into a PNG in the
@@ -104,7 +104,7 @@ fn draw(bytes: &[u8], folder: Option<&Path>) -> std::result::Result<Vec<u8>, Str
     };
     options.fontdb_mut().load_system_fonts();
     let tree = resvg::usvg::Tree::from_data(bytes, &options)
-        .map_err(|error| format!("not an SVG CDCedit can read: {error}"))?;
+        .map_err(|error| format!("not an SVG CDCAi can read: {error}"))?;
     let size = tree.size();
     let scale = LONG_SIDE / size.width().max(size.height());
     let width = (size.width() * scale).round().max(1.0) as u32;

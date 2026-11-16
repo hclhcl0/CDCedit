@@ -67,7 +67,7 @@ pub enum Action {
         /// The command's `op`.
         op: &'static str,
     },
-    /// `version`, with how this server reaches CDCedit added.
+    /// `version`, with how this server reaches CDCAi added.
     Version,
     /// `project.get`, summarised.
     TimelineRead,
@@ -168,8 +168,8 @@ pub fn catalogue() -> Vec<Tool> {
     vec![
         Tool {
             name: "concat_version",
-            title: "CDCedit version",
-            description: "What this CDCedit speaks: the API version, the build, its capabilities, and how this MCP server reaches it (`mcp.mode`: \"window\" when it goes through the open CDCedit window's server, \"headless\" when it runs the editor engine itself). Call it first if unsure what is available.",
+            title: "CDCAi version",
+            description: "What this CDCAi speaks: the API version, the build, its capabilities, and how this MCP server reaches it (`mcp.mode`: \"window\" when it goes through the open CDCAi window's server, \"headless\" when it runs the editor engine itself). Call it first if unsure what is available.",
             read_only: true,
             destructive: false,
             idempotent: true,
@@ -193,7 +193,7 @@ pub fn catalogue() -> Vec<Tool> {
         method(
             "project_open",
             "Open a project",
-            "Opens a project folder so it can be read and edited. Opening one already open returns it as it stands, unsaved edits included. Refused when the CDCedit window has that project open. Returns the project summary.",
+            "Opens a project folder so it can be read and edited. Opening one already open returns it as it stands, unsaved edits included. Refused when the CDCAi window has that project open. Returns the project summary.",
             "project.open",
             Summary,
         )

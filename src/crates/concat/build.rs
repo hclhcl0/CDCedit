@@ -10,7 +10,7 @@ fn main() {
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows")
         && std::env::var("CARGO_CFG_TARGET_ENV").as_deref() == Ok("msvc")
     {
-        println!("cargo:rustc-link-arg-bin=cdcedit=/STACK:33554432");
+        println!("cargo:rustc-link-arg-bin=cdcai=/STACK:33554432");
     }
     // Fonts and images are compiled into the binary rather than read off disk
     // at run time.
@@ -115,15 +115,15 @@ fn main() {
     // and without one they show Windows' generic program icon. Needs the
     // Windows SDK's rc.exe, which an MSVC toolchain has.
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
-        let icon = "../../../assets/icons/cdcedit.ico";
+        let icon = "../../../assets/icons/cdcai.ico";
         println!("cargo:rerun-if-changed={icon}");
         // The file's name and description as Windows shows them in its
-        // properties, and as code signing checks them: "CDCedit" in every
+        // properties, and as code signing checks them: "CDCAi" in every
         // build, where the default would be the crate's lower-case name.
         winresource::WindowsResource::new()
             .set_icon(icon)
-            .set("ProductName", "CDCedit")
-            .set("FileDescription", "CDCedit")
+            .set("ProductName", "CDCAi")
+            .set("FileDescription", "CDCAi")
             .set(
                 "LegalCopyright",
                 "Copyright 2026 Jareer Abdullah and Concat contributors, AGPL-3.0-or-later",

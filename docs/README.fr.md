@@ -1,9 +1,9 @@
-<p align="center"><img src="../assets/icons/cdcedit_logo_256.png" alt="CDCedit" width="100" /></p>
-<h1 align="center">CDCedit</h1>
+<p align="center"><img src="../assets/icons/cdcai_logo_256.png" alt="CDCAi" width="100" /></p>
+<h1 align="center">CDCAi</h1>
 
-CDCedit is a customized video editor derived from [Concat](https://github.com/jub0t/Concat). Original author and license notices are retained. Build this fork to use CDCedit features; upstream release links below refer to the original project.
+CDCAi is a customized video editor derived from [Concat](https://github.com/jub0t/Concat). Original author and license notices are retained. Build this fork to use CDCAi features; upstream release links below refer to the original project.
 
-CDCedit est un éditeur vidéo gratuit et open source, une alternative à CapCut pour macOS, Windows, Linux et Android. Il couvre ce pour quoi on ouvre vraiment CapCut : sous-titres automatiques, synthèse vocale, suppression d’arrière-plan, animation par images clés, effets et titres, montage multipiste, export 4K. Sans aucun piège : pas de filigrane, pas de compte, pas d’abonnement, pas d’envoi.
+CDCAi est un éditeur vidéo gratuit et open source, une alternative à CapCut pour macOS, Windows, Linux et Android. Il couvre ce pour quoi on ouvre vraiment CapCut : sous-titres automatiques, synthèse vocale, suppression d’arrière-plan, animation par images clés, effets et titres, montage multipiste, export 4K. Sans aucun piège : pas de filigrane, pas de compte, pas d’abonnement, pas d’envoi.
 
 Tout tourne en local sur un moteur natif en Rust avec un compositeur GPU. Installez, déposez vos rushes, montez. Les modèles d’IA pour les sous-titres, les voix et le détourage se téléchargent une fois depuis les Réglages et fonctionnent ensuite hors ligne. Vos rushes ne quittent jamais votre disque.
 
@@ -36,12 +36,12 @@ Deux portes d’entrée :
 1. **[Le site web](https://concatenate.pages.dev/#download)** vous donne la bonne version pour votre machine. Commencez ici.
 2. **[GitHub Releases](https://github.com/jub0t/Concat/releases)** propose chaque version pour chaque plateforme, avec installeurs, paquets et sommes de contrôle. Pour quand vous voulez choisir.
 
-CDCedit est en **bêta** : ça marche, et il reste des angles. [Dites-le](https://github.com/jub0t/Concat/issues) quand vous en trouvez un.
+CDCAi est en **bêta** : ça marche, et il reste des angles. [Dites-le](https://github.com/jub0t/Concat/issues) quand vous en trouvez un.
 
 **Plateformes**
 
 - ✅ **Windows** · x86_64 (les versions ARM sont en pause, voir [#326](https://github.com/jub0t/Concat/issues/326)). Un installeur et un `.msi`. Si SmartScreen bloque une version non signée : **Informations complémentaires** › **Exécuter quand même**
-- ✅ **macOS** · Intel et Apple Silicon. Si macOS refuse d’ouvrir une version non signée : `xattr -dr com.apple.quarantine /Applications/CDCedit.app`
+- ✅ **macOS** · Intel et Apple Silicon. Si macOS refuse d’ouvrir une version non signée : `xattr -dr com.apple.quarantine /Applications/CDCAi.app`
 - ✅ **Linux** · x86_64 et ARM. `.deb`, `.rpm`, `.AppImage` et un paquet Arch. Aussi un Flatpak sur **[Flatpark](https://flatpark.org/apps/app.concat.editor/)**, un dépôt Flatpak communautaire qui empaquette le `.deb` x86_64 de chaque version et se met à jour avec elle
 - ✅ **Android** · téléphones et tablettes
 - ✅ **iOS / iPadOS** · iPhone et iPad, en sideload
@@ -57,7 +57,7 @@ La **configuration requise** et la taille des modèles optionnels sont sur [le s
 > [!IMPORTANT]
 > La meilleure façon de contribuer est de prendre une version sur la page [Releases](https://github.com/jub0t/Concat/releases) et de s’en servir : trouvez où ça casse, et dites où ça pourrait être mieux.
 >
-> Prêt à écrire du code ? [CONTRIBUTING.md](../CONTRIBUTING.md) couvre l’installation, l’organisation de l’arborescence, les vérifications à lancer et la licence des contributions. Vous pilotez CDCedit depuis un script, un service ou un agent ? [La documentation développeur](https://concatenate.pages.dev/docs) couvre l’API CDCedit et ses transports : JSON-RPC et gRPC. [Cette Discussion](https://github.com/jub0t/Concat/discussions/3) est celle où le projet a été annoncé.
+> Prêt à écrire du code ? [CONTRIBUTING.md](../CONTRIBUTING.md) couvre l’installation, l’organisation de l’arborescence, les vérifications à lancer et la licence des contributions. Vous pilotez CDCAi depuis un script, un service ou un agent ? [La documentation développeur](https://concatenate.pages.dev/docs) couvre l’API CDCAi et ses transports : JSON-RPC et gRPC. [Cette Discussion](https://github.com/jub0t/Concat/discussions/3) est celle où le projet a été annoncé.
 > 
 > Les contributeurs peuvent obtenir un rôle `@Contributor` sur le serveur Discord : il suffit de le demander.
 

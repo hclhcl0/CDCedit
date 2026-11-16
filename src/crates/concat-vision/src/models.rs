@@ -11,7 +11,7 @@
 //! fetching itself is the host's, since it is the host that has a network
 //! and a job slot; this crate only knows the table.
 //!
-//! A model is fetched from CDCedit's own mirror, and `upstream` is where
+//! A model is fetched from CDCAi's own mirror, and `upstream` is where
 //! that mirror was filled from and the second thing tried. The table is
 //! the engine's half of `models/manifest.toml`, which is what fills the
 //! mirror; `scripts/models.py --check` keeps the two saying the same

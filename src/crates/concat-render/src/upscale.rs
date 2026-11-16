@@ -693,7 +693,7 @@ mod tests {
             return;
         };
         let support = std::path::Path::new(&home).join("Library/Application Support");
-        let Some(bytes) = ["app.cdcedit.editor", "app.concat.editor"]
+        let Some(bytes) = ["app.cdcai.editor", "app.cdcedit.editor", "app.concat.editor"]
             .iter()
             .map(|id| {
                 support

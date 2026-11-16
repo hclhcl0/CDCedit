@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Jareer Abdullah and Concat contributors
 
-//! The CDCedit API: the one dispatcher every way of driving the editor
+//! The CDCAi API: the one dispatcher every way of driving the editor
 //! without its window goes through.
 //!
 //! The command line, a daemon on a socket, an MCP server, a plugin: each is
@@ -128,9 +128,9 @@ impl std::fmt::Display for Refusal {
             Refusal::Here(holder) => write!(f, "open in {holder}"),
             Refusal::Elsewhere(owner) => {
                 let what = if owner.role == "window" {
-                    "a CDCedit window"
+                    "a CDCAi window"
                 } else {
-                    "another CDCedit process"
+                    "another CDCAi process"
                 };
                 match owner.pid {
                     Some(pid) => write!(f, "open in {what} (process {pid})"),
@@ -1766,7 +1766,7 @@ mod tests {
         let refused = err(api.dispatch(Request::ProjectOpen { path: path.clone() }));
         assert_eq!(refused.code, ErrorCode::Refused);
         assert!(
-            refused.message.contains("a CDCedit window (process"),
+            refused.message.contains("a CDCAi window (process"),
             "{}",
             refused.message
         );
@@ -1780,7 +1780,7 @@ mod tests {
 
         let refused = err(other.dispatch(Request::ProjectOpen { path: path.clone() }));
         assert!(
-            refused.message.contains("another CDCedit process"),
+            refused.message.contains("another CDCAi process"),
             "{}",
             refused.message
         );

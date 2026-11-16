@@ -472,7 +472,7 @@ mod tests {
         bases
             .iter()
             .flat_map(|base| {
-                ["app.cdcedit.editor", "app.concat.editor"].map(|id| {
+                ["app.cdcai.editor", "app.cdcedit.editor", "app.concat.editor"].map(|id| {
                     base.join(id)
                         .join("cutout-models")
                         .join("realesr-general-x4v3.onnx")

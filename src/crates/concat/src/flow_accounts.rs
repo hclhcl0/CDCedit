@@ -300,7 +300,7 @@ impl Accounts {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
                 if root.join("chrome").is_dir() {
                     self.config.accounts[0].mode = 0;
-                    self.message = "Đã giữ profile đăng nhập cũ. Concat sẽ tự mở lại Chrome của profile này khi kết nối/tạo ảnh.".into();
+                    self.message = "Đã giữ profile đăng nhập cũ. CDCAi sẽ tự mở lại Chrome của profile này khi kết nối/tạo ảnh.".into();
                 }
             }
             Err(e) => {

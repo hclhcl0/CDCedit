@@ -24,7 +24,7 @@ try {
     Add-Type -AssemblyName System.Windows.Forms
     [System.Windows.Forms.MessageBox]::Show(
         "Đã thiết lập Pagefile sang ổ C: (SSD) thành công!`n`nSau khi bạn khởi động lại máy tính (Restart), Windows sẽ sử dụng RAM ảo trên ổ SSD C:, giúp tăng tốc độ build lên nhiều lần!`n`nHãy bấm OK rồi khởi động lại máy tính bất kỳ lúc nào bạn thuận tiện.",
-        "Thiết lập hoàn tất - CDCedit SSD Pagefile",
+        "Thiết lập hoàn tất - CDCAi SSD Pagefile",
         [System.Windows.Forms.MessageBoxButtons]::OK,
         [System.Windows.Forms.MessageBoxIcon]::Information
     ) | Out-Null

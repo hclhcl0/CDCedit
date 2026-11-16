@@ -1,9 +1,9 @@
-<p align="center"><img src="../assets/icons/cdcedit_logo_256.png" alt="CDCedit" width="100" /></p>
-<h1 align="center">CDCedit</h1>
+<p align="center"><img src="../assets/icons/cdcai_logo_256.png" alt="CDCAi" width="100" /></p>
+<h1 align="center">CDCAi</h1>
 
-CDCedit is a customized video editor derived from [Concat](https://github.com/jub0t/Concat). Original author and license notices are retained. Build this fork to use CDCedit features; upstream release links below refer to the original project.
+CDCAi is a customized video editor derived from [Concat](https://github.com/jub0t/Concat). Original author and license notices are retained. Build this fork to use CDCAi features; upstream release links below refer to the original project.
 
-CDCedit je besplatan videouređivač otvorenog koda i alternativa CapCutu za macOS, Windows, Linux i Android. Pokriva ono zbog čega ljudi zapravo otvaraju CapCut: automatske titlove, pretvorbu teksta u govor, uklanjanje pozadine, animaciju ključnim kadrovima, efekte i naslove, višetračno rezanje, izvoz u 4K. Bez ikakvih kvaka: bez vodenog žiga, bez računa, bez pretplate, bez učitavanja.
+CDCAi je besplatan videouređivač otvorenog koda i alternativa CapCutu za macOS, Windows, Linux i Android. Pokriva ono zbog čega ljudi zapravo otvaraju CapCut: automatske titlove, pretvorbu teksta u govor, uklanjanje pozadine, animaciju ključnim kadrovima, efekte i naslove, višetračno rezanje, izvoz u 4K. Bez ikakvih kvaka: bez vodenog žiga, bez računa, bez pretplate, bez učitavanja.
 
 Sve se izvodi lokalno na nativnom Rust motoru s GPU kompozitorom. Instalirajte, ubacite snimke, režite. AI modeli za titlove, glasove i izrezivanje preuzimaju se jednom iz Postavki i nakon toga rade izvan mreže. Vaše snimke nikada ne napuštaju vaš disk.
 
@@ -36,12 +36,12 @@ Dva ulaza:
 1. **[Web-stranica](https://concatenate.pages.dev/#download)** daje vam pravu inačicu za vaše računalo. Počnite ovdje.
 2. **[GitHub Releases](https://github.com/jub0t/Concat/releases)** ima svaku inačicu za svaku platformu, s instalacijama, paketima i kontrolnim zbrojevima. Za kad želite birati.
 
-CDCedit je u **beti**: radi, a još ima rubova. [Javite](https://github.com/jub0t/Concat/issues) kad naiđete na jedan.
+CDCAi je u **beti**: radi, a još ima rubova. [Javite](https://github.com/jub0t/Concat/issues) kad naiđete na jedan.
 
 **Platforme**
 
 - ✅ **Windows** · x86_64 (ARM inačice su pauzirane, vidi [#326](https://github.com/jub0t/Concat/issues/326)). Instalacija i `.msi`. Ako SmartScreen zaustavi nepotpisanu inačicu: **Više informacija** › **Svejedno pokreni**
-- ✅ **macOS** · Intel i Apple Silicon. Ako macOS odbije otvoriti nepotpisanu inačicu: `xattr -dr com.apple.quarantine /Applications/CDCedit.app`
+- ✅ **macOS** · Intel i Apple Silicon. Ako macOS odbije otvoriti nepotpisanu inačicu: `xattr -dr com.apple.quarantine /Applications/CDCAi.app`
 - ✅ **Linux** · x86_64 i ARM. `.deb`, `.rpm`, `.AppImage` i Arch paket. Također Flatpak na **[Flatparku](https://flatpark.org/apps/app.concat.editor/)**, Flatpak repozitoriju zajednice koji omata x86_64 `.deb` svakog izdanja i ažurira se s njim
 - ✅ **Android** · telefoni i tableti
 - ✅ **iOS / iPadOS** · iPhone i iPad, sideloadom
@@ -57,7 +57,7 @@ CDCedit je u **beti**: radi, a još ima rubova. [Javite](https://github.com/jub0
 > [!IMPORTANT]
 > Najbolji način doprinosa jest uzeti inačicu sa stranice [Releases](https://github.com/jub0t/Concat/releases) i koristiti je: pronaći gdje puca i reći gdje bi mogla biti bolja.
 >
-> Spremni pisati kod? [CONTRIBUTING.md](../CONTRIBUTING.md) pokriva postavljanje, raspored stabla, provjere koje treba pokrenuti i kako se doprinosi licenciraju. Upravljate Concatom iz skripte, servisa ili agenta? [Dokumentacija za razvojne programere](https://concatenate.pages.dev/docs) pokriva CDCedit API i njegove prijenose: JSON-RPC i gRPC. [U ovoj raspravi](https://github.com/jub0t/Concat/discussions/3) projekt je najavljen.
+> Spremni pisati kod? [CONTRIBUTING.md](../CONTRIBUTING.md) pokriva postavljanje, raspored stabla, provjere koje treba pokrenuti i kako se doprinosi licenciraju. Upravljate Concatom iz skripte, servisa ili agenta? [Dokumentacija za razvojne programere](https://concatenate.pages.dev/docs) pokriva CDCAi API i njegove prijenose: JSON-RPC i gRPC. [U ovoj raspravi](https://github.com/jub0t/Concat/discussions/3) projekt je najavljen.
 > 
 > Suradnici mogu zatražiti ulogu `@Contributor` na Discord poslužitelju: samo pitajte.
 

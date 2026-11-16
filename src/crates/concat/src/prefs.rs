@@ -95,7 +95,7 @@ pub struct Preferences {
     /// software by itself (see `safe_start`): until another build starts,
     /// or the person turns the GPU back on. A crash that an update fixed -
     /// the stray dxcompiler.dll of #418 - or a driver that a later one did
-    /// would otherwise leave CDCedit on the CPU for good.
+    /// would otherwise leave CDCAi on the CPU for good.
     pub software_after_crash: Option<String>,
     /// The magnetic timeline: a delete and a trim close the gap they would
     /// leave, on the lane they happen on. Off by default on a desk, because
@@ -129,7 +129,7 @@ pub struct Preferences {
     pub download_source: Option<String>,
     /// The base URL a custom download source appends a model's file to.
     pub download_base: Option<String>,
-    /// The CDCedit API on a socket while the window is open.
+    /// The CDCAi API on a socket while the window is open.
     #[serde(default)]
     pub server: ServerPrefs,
     /// The look new titles start from and generated captions are set in,

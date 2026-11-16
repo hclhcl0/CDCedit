@@ -538,12 +538,12 @@ pub fn select_backend(
             .with_winit_window_attributes_hook(|attributes| attributes.with_decorations(false));
     }
     selector.select()?;
-    // The desktop entry's name (concat.desktop, in every Linux package and
+    // The desktop entry's name (cdcai.desktop, in every Linux package and
     // the flake), as the window's Wayland app_id and X11 class, so a dock
     // or a task switcher files the running window under the launcher it
     // came from - its icon, its pin - rather than as an unknown app. Slint
     // ignores it off Linux and the BSDs.
-    let _ = slint::set_xdg_app_id("concat");
+    let _ = slint::set_xdg_app_id("cdcai");
     Ok(gpu)
 }
 
@@ -556,13 +556,13 @@ pub fn select_backend(
 pub fn report_startup_failure(error: &str) {
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
-        let mut description = format!("CDCedit could not start.\n\n{error}");
+        let mut description = format!("CDCAi could not start.\n\n{error}");
         if let Some(path) = concat_host::logs::current() {
             description.push_str(&format!("\n\nLog: {}", path.display()));
         }
         rfd::MessageDialog::new()
             .set_level(rfd::MessageLevel::Error)
-            .set_title("CDCedit")
+            .set_title("CDCAi")
             .set_description(description)
             .set_buttons(rfd::MessageButtons::Ok)
             .show();
@@ -729,7 +729,7 @@ pub fn pick_folder(title: &str, start: &str) -> Option<PathBuf> {
 
 /// Where a folder dialog asked to start at `start` can open: `start`
 /// itself, or the nearest folder above it that exists. A new project's
-/// default, `<Desktop>/CDCedit`, is not made until the first project is, and
+/// default, `<Desktop>/CDCAi`, is not made until the first project is, and
 /// GNOME's chooser (Nautilus, behind the portal) fails on a folder that is
 /// not there, where GTK's quietly opens elsewhere.
 /// https://github.com/jub0t/Concat/issues/331
@@ -842,7 +842,7 @@ pub fn install_file_picker(picker: FilePicker) {
 /// [`install_export_publisher`].
 #[cfg(any(target_os = "android", target_os = "ios"))]
 pub struct ExportPublisher {
-    /// Where the files go, as the phone names it: "Movies/CDCedit".
+    /// Where the files go, as the phone names it: "Movies/CDCAi".
     pub folder: String,
     /// Moves the file there and answers with its path under the phone's
     /// storage, or with why it could not, leaving the file where it was.
@@ -850,7 +850,7 @@ pub struct ExportPublisher {
     pub publish: Box<dyn Fn(&std::path::Path) -> Result<String, String> + Send + Sync>,
     /// The same for a small file that is not a video - a subtitle file -
     /// with its MIME type: moved to where the phone's file manager shows
-    /// it (Android's Download/CDCedit, the iPhone's Files), never over
+    /// it (Android's Download/CDCAi, the iPhone's Files), never over
     /// another file, and answered with where, as the person would look
     /// for it.
     pub publish_document:
@@ -965,7 +965,7 @@ pub fn microphone_allowed() -> bool {
 }
 
 /// Where a finished export ends up on this device when that is not the
-/// folder the export writes into: a phone's "Movies/CDCedit". None on a
+/// folder the export writes into: a phone's "Movies/CDCAi". None on a
 /// desktop, and on a phone too old to be asked, where the file stays where
 /// the sheet says.
 pub fn published_folder() -> Option<&'static str> {
@@ -1170,7 +1170,7 @@ mod tests {
     fn a_folder_dialog_starts_at_a_folder_that_exists() {
         let root = std::env::temp_dir().join(format!("concat-pick-{}", std::process::id()));
         std::fs::create_dir_all(&root).unwrap();
-        let missing = root.join("CDCedit");
+        let missing = root.join("CDCAi");
         assert_eq!(
             existing_folder(&missing.to_string_lossy()),
             Some(root.as_path())

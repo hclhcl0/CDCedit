@@ -82,7 +82,7 @@ pub struct DownloadProgress {
 }
 
 /// Streams a model into `partial` through the host's downloader:
-/// CDCedit's own mirror first, the upstream it was filled from after it,
+/// CDCAi's own mirror first, the upstream it was filled from after it,
 /// or the copy the person chose themselves, and the finished file checked
 /// against the digest its table carries before the caller is told it
 /// arrived. See [`concat_host::models::fetch`], which also says - when

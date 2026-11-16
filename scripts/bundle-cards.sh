@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Jareer Abdullah and Concat contributors
 #
-# Copies the effect cards a run of CDCedit drew on a real GPU into
+# Copies the effect cards a run of CDCAi drew on a real GPU into
 # src/crates/concat/cards/, one <package id>.jpg each, which the binary
 # carries: what a shelf shows until a machine has drawn its own (#416).
 #
@@ -14,9 +14,9 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 out="$root/src/crates/concat/cards"
 case "$(uname -s)" in
-  Darwin) default="$HOME/Library/Application Support/app.cdcedit.editor/cards" ;;
-  Linux) default="${XDG_DATA_HOME:-$HOME/.local/share}/app.cdcedit.editor/cards" ;;
-  *) default="${LOCALAPPDATA:-}/app.cdcedit.editor/cards" ;;
+  Darwin) default="$HOME/Library/Application Support/app.cdcai.editor/cards" ;;
+  Linux) default="${XDG_DATA_HOME:-$HOME/.local/share}/app.cdcai.editor/cards" ;;
+  *) default="${LOCALAPPDATA:-}/app.cdcai.editor/cards" ;;
 esac
 from="${1:-$default}"
 [ -d "$from" ] || { echo "no card folder at $from" >&2; exit 1; }

@@ -261,6 +261,12 @@ impl Tools {
         c.arg("--config").arg(&self.config);
         c
     }
+    fn drive_remote(&self) -> &'static str {
+        match fs::read_to_string(&self.config) {
+            Ok(s) if !s.contains("[cdcai]") && s.contains("[cdcedit]") => "cdcedit:",
+            _ => "cdcai:",
+        }
+    }
 }
 /// Invoke a bounded worker process and reap it, including children on cancellation.
 fn run(
@@ -517,6 +523,7 @@ fn ensure_android_python(tools: &Tools, native_libs: &Path) {
 
     let py_candidates = [
         tools.bin.join("python.zip"),
+        tools.bin.parent().unwrap_or(&tools.bin).join("app.cdcai.editor").join("link-tools").join("python.zip"),
         tools.bin.parent().unwrap_or(&tools.bin).join("app.cdcedit.editor").join("link-tools").join("python.zip"),
         tools.bin.parent().unwrap_or(&tools.bin).join("concat").join("link-tools").join("python.zip"),
         native_libs.join("libpython.zip.so"),
@@ -527,6 +534,7 @@ fn ensure_android_python(tools: &Tools, native_libs: &Path) {
 
     let ff_candidates = [
         tools.bin.join("ffmpeg.zip"),
+        tools.bin.parent().unwrap_or(&tools.bin).join("app.cdcai.editor").join("link-tools").join("ffmpeg.zip"),
         tools.bin.parent().unwrap_or(&tools.bin).join("app.cdcedit.editor").join("link-tools").join("ffmpeg.zip"),
         tools.bin.parent().unwrap_or(&tools.bin).join("concat").join("link-tools").join("ffmpeg.zip"),
         native_libs.join("libffmpeg.zip.so"),
@@ -539,6 +547,7 @@ fn ensure_android_python(tools: &Tools, native_libs: &Path) {
     // without requiring zipimport decompression on startup.
     let ytdlp_candidates = [
         tools.bin.join("ytdlp"),
+        tools.bin.parent().unwrap_or(&tools.bin).join("app.cdcai.editor").join("link-tools").join("ytdlp"),
         tools.bin.parent().unwrap_or(&tools.bin).join("app.cdcedit.editor").join("link-tools").join("ytdlp"),
         tools.bin.parent().unwrap_or(&tools.bin).join("concat").join("link-tools").join("ytdlp"),
         tools.bin.join("yt-dlp"),
@@ -561,6 +570,7 @@ fn video_command(tools: &Tools, cookies: Option<&Path>) -> Command {
             let py_exe = lib_dir.join("libpython.so");
             let ytdlp_candidates = [
                 tools.bin.join("ytdlp"),
+                tools.bin.parent().unwrap_or(&tools.bin).join("app.cdcai.editor").join("link-tools").join("ytdlp"),
                 tools.bin.parent().unwrap_or(&tools.bin).join("app.cdcedit.editor").join("link-tools").join("ytdlp"),
                 tools.bin.parent().unwrap_or(&tools.bin).join("concat").join("link-tools").join("ytdlp"),
                 tools.bin.join("yt-dlp"),
@@ -672,7 +682,7 @@ pub fn connect(tools: &Tools, cancel: &AtomicBool) -> Result<(), String> {
     c.args([
         "config",
         "create",
-        "cdcedit",
+        "cdcai",
         "drive",
         "scope",
         "drive.readonly",
@@ -966,7 +976,7 @@ pub fn inspect(
                     resource_key(&mut c, &url);
                     c.args([
                         "lsjson",
-                        "cdcedit:",
+                        tools.drive_remote(),
                         "--files-only",
                         "--drive-root-folder-id",
                         &id,
@@ -1163,7 +1173,7 @@ pub fn download(
         } else {
             let mut c = tools.drive();
             resource_key(&mut c, &item.url);
-            c.args(["backend", "copyid", "cdcedit:", &item.drive_id]);
+            c.args(["backend", "copyid", tools.drive_remote(), &item.drive_id]);
             c.arg(format!("{}/", dir.to_string_lossy().replace('\\', "/")));
             c.args([
                 "--use-json-log",
@@ -1210,7 +1220,7 @@ fn agent() -> ureq::Agent {
 fn fetch(url: &str, max: u64) -> Result<Vec<u8>, String> {
     let response = agent()
         .get(url)
-        .set("User-Agent", "CDCedit-LinkImport")
+        .set("User-Agent", "CDCAi-LinkImport")
         .call()
         .map_err(|_| "Could not download official tools. Check network or retry.")?;
     let mut b = Vec::new();

@@ -412,7 +412,7 @@ pub const NOTO_SANS_THAI: &[u8] = include_bytes!("../fonts/NotoSansThai-Concat.t
 /// ```text
 /// pyftsubset <face>-Regular.ttf --unicodes=<block>,U+0020-007E,U+00A0-00FF,U+2000-206F,U+25CC \
 ///     --text-file=<every locale's characters> --layout-features='*' --no-hinting \
-///     --notdef-outline --name-IDs=0,1,2,3,4,5,6,13,14 --output-file=<face>-CDCedit.ttf
+///     --notdef-outline --name-IDs=0,1,2,3,4,5,6,13,14 --output-file=<face>-CDCAi.ttf
 /// ```
 ///
 /// The licences are `fonts/LICENSE-<face>.txt`. The window registers the

@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-title THIET LAP PAGEFILE SANG O C (SSD) - CDCEDIT
+title THIET LAP PAGEFILE SANG O C (SSD) - CDCAI
 cls
 
 echo ============================================================

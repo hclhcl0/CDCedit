@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Jareer Abdullah and Concat contributors
 
-package app.cdcedit.editor;
+package app.cdcai.editor;
 
 import android.Manifest;
 import android.app.Activity;
@@ -63,7 +63,7 @@ public class ConcatFiles extends Fragment {
     private static final String TAG = "concat-files";
 
     /**
-     * Where a finished export goes, under the phone's storage: Movies/CDCedit.
+     * Where a finished export goes, under the phone's storage: Movies/CDCAi.
      * Null before Android 10, which has no media store an app can write
      * through without a permission; there the file stays in the app's folder.
      */
@@ -71,7 +71,7 @@ public class ConcatFiles extends Fragment {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
             return null;
         }
-        return Environment.DIRECTORY_MOVIES + "/CDCedit";
+        return Environment.DIRECTORY_MOVIES + "/CDCAi";
     }
 
     /**
@@ -105,14 +105,14 @@ public class ConcatFiles extends Fragment {
     /**
      * {@link #publishVideo} for a small file that is not a video - a
      * subtitle file - of MIME type {@code mime}: moved into the phone's
-     * Download/CDCedit, which every file manager shows, under its own name
+     * Download/CDCAi, which every file manager shows, under its own name
      * or "name (1)" where that is taken. The same two strings come back.
      */
     public static String[] publishDocument(Activity activity, String path, String mime) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
             return new String[] {null, "this phone has no media store to put it in"};
         }
-        return publish(activity, path, mime, Environment.DIRECTORY_DOWNLOADS + "/CDCedit",
+        return publish(activity, path, mime, Environment.DIRECTORY_DOWNLOADS + "/CDCAi",
                 MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY));
     }
 

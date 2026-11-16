@@ -1,9 +1,9 @@
-<p align="center"><img src="../assets/icons/cdcedit_logo_256.png" alt="CDCedit" width="100" /></p>
-<h1 align="center">CDCedit</h1>
+<p align="center"><img src="../assets/icons/cdcai_logo_256.png" alt="CDCAi" width="100" /></p>
+<h1 align="center">CDCAi</h1>
 
-CDCedit is a customized video editor derived from [Concat](https://github.com/jub0t/Concat). Original author and license notices are retained. Build this fork to use CDCedit features; upstream release links below refer to the original project.
+CDCAi is a customized video editor derived from [Concat](https://github.com/jub0t/Concat). Original author and license notices are retained. Build this fork to use CDCAi features; upstream release links below refer to the original project.
 
-CDCedit 是一款免费、开源的视频编辑器，是 macOS、Windows、Linux 和 Android 上的 CapCut 替代品。它覆盖了人们真正打开 CapCut 要做的事：自动字幕、文字转语音、背景移除、关键帧动画、特效与标题、多轨剪辑、4K 导出。而且没有任何套路：无水印、无需账号、无需订阅、不上传。
+CDCAi 是一款免费、开源的视频编辑器，是 macOS、Windows、Linux 和 Android 上的 CapCut 替代品。它覆盖了人们真正打开 CapCut 要做的事：自动字幕、文字转语音、背景移除、关键帧动画、特效与标题、多轨剪辑、4K 导出。而且没有任何套路：无水印、无需账号、无需订阅、不上传。
 
 一切都在本地运行，基于带 GPU 合成器的原生 Rust 引擎。安装、拖入素材、开剪。字幕、语音和抠像所用的 AI 模型只需在设置中下载一次，之后离线可用。您的素材永远不会离开您的硬盘。
 
@@ -36,12 +36,12 @@ CDCedit 是一款免费、开源的视频编辑器，是 macOS、Windows、Linux
 1. **[官网](https://concatenate.pages.dev/#download)** 会给您适合您机器的版本。从这里开始。
 2. **[GitHub Releases](https://github.com/jub0t/Concat/releases)** 有每个平台的每个版本，附带安装程序、软件包和校验和。想自己挑选时用它。
 
-CDCedit 处于 **测试版**：能用，但还有毛边。遇到了请 [告诉我们](https://github.com/jub0t/Concat/issues)。
+CDCAi 处于 **测试版**：能用，但还有毛边。遇到了请 [告诉我们](https://github.com/jub0t/Concat/issues)。
 
 **平台**
 
 - ✅ **Windows** · x86_64（ARM 版本已暂停，见 [#326](https://github.com/jub0t/Concat/issues/326)）。安装程序和 `.msi`。如果 SmartScreen 拦截未签名版本：**更多信息** › **仍要运行**
-- ✅ **macOS** · Intel 和 Apple 芯片。如果 macOS 拒绝打开未签名版本：`xattr -dr com.apple.quarantine /Applications/CDCedit.app`
+- ✅ **macOS** · Intel 和 Apple 芯片。如果 macOS 拒绝打开未签名版本：`xattr -dr com.apple.quarantine /Applications/CDCAi.app`
 - ✅ **Linux** · x86_64 和 ARM。`.deb`、`.rpm`、`.AppImage` 和 Arch 软件包。另有 **[Flatpark](https://flatpark.org/apps/app.concat.editor/)** 上的 Flatpak，这是一个社区 Flatpak 仓库，封装每个版本的 x86_64 `.deb` 并随之更新
 - ✅ **Android** · 手机和平板
 - ✅ **iOS / iPadOS** · iPhone 和 iPad，需侧载
@@ -57,7 +57,7 @@ CDCedit 处于 **测试版**：能用，但还有毛边。遇到了请 [告诉�
 > [!IMPORTANT]
 > 最好的贡献方式是从 [Releases](https://github.com/jub0t/Concat/releases) 页面拿一个版本来用：找到它哪里会坏，说出它哪里可以更好。
 >
-> 准备写代码了？[CONTRIBUTING.md](../CONTRIBUTING.md) 介绍了环境搭建、目录结构、要运行的检查以及贡献的许可方式。要从脚本、服务或代理驱动 CDCedit？[开发者文档](https://concatenate.pages.dev/docs) 介绍了 CDCedit API 及其传输方式：JSON-RPC 和 gRPC。项目在 [这个 Discussion](https://github.com/jub0t/Concat/discussions/3) 里发布。
+> 准备写代码了？[CONTRIBUTING.md](../CONTRIBUTING.md) 介绍了环境搭建、目录结构、要运行的检查以及贡献的许可方式。要从脚本、服务或代理驱动 CDCAi？[开发者文档](https://concatenate.pages.dev/docs) 介绍了 CDCAi API 及其传输方式：JSON-RPC 和 gRPC。项目在 [这个 Discussion](https://github.com/jub0t/Concat/discussions/3) 里发布。
 > 
 > 贡献者可以在 Discord 服务器申请 `@Contributor` 身份组，开口要就行。
 

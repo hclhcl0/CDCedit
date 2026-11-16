@@ -541,7 +541,7 @@ fn adopt(from: &Path, name: &str) -> Option<PathBuf> {
 
 /// Moves a written document - a subtitle file - into Documents/Exports,
 /// beside the exported videos, under its own name or `name (2)` where that
-/// is taken; and answers with where Files shows it: On My iPhone, CDCedit,
+/// is taken; and answers with where Files shows it: On My iPhone, CDCAi,
 /// Exports.
 fn keep_in_exports(from: &Path) -> Result<String, String> {
     let home = std::env::home_dir().ok_or("no home folder to keep it in")?;
@@ -560,7 +560,7 @@ fn keep_in_exports(from: &Path) -> Result<String, String> {
         .file_name()
         .map(|name| name.to_string_lossy().into_owned())
         .unwrap_or(name);
-    Ok(format!("CDCedit › Exports › {kept}"))
+    Ok(format!("CDCAi › Exports › {kept}"))
 }
 
 /// `name`, or `name (2)`, `name (3)`... until nothing is overwritten.

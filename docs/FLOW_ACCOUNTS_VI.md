@@ -9,13 +9,13 @@ Mở **Cài đặt → Google Flow** để thêm tài khoản và cấu hình k�
 
 ## Ba chế độ kết nối
 
-- **Profile riêng do Concat quản lý:** Concat mở Chrome với thư mục dữ liệu
+- **Profile riêng do CDCAi quản lý:** CDCAi mở Chrome với thư mục dữ liệu
   riêng, giữ phiên đăng nhập cho những lần sau.
 - **Chrome đang chạy qua CDP:** kết nối đến Chrome đã bật remote debugging
   trên máy này, theo cổng đã nhập. Chế độ này không tự mở Chrome thay thế.
 - **Thư mục profile có sẵn:** chọn thư mục `user-data-dir` dành riêng và tên
   profile bên trong, ví dụ `Default` hoặc `Profile 1`. Đóng phiên đang sử dụng
-  thư mục đó trước khi Concat mở nó.
+  thư mục đó trước khi CDCAi mở nó.
 
 Chrome thông thường chưa bật CDP không thể kết nối bằng cách nhập tên profile.
 Không dùng thư mục `Google/Chrome/User Data` mặc định cho chế độ mở profile
@@ -26,7 +26,7 @@ khác nhau; `Profile 1` và `Profile 2` trong cùng thư mục không đáp ứn
 
 Hai lựa chọn đều từ 1 đến 4. Số tác vụ chạy thực tế tối đa bằng giá trị nhỏ
 hơn; mỗi tài khoản chạy một tác vụ. Ví dụ, đặt 3 tài khoản và 2 luồng thì chạy
-tối đa 2 tác vụ cùng lúc. Giới hạn áp dụng trong một phiên Concat đang chạy.
+tối đa 2 tác vụ cùng lúc. Giới hạn áp dụng trong một phiên CDCAi đang chạy.
 
 Trong **Flow Studio → Tạo video**, chọn tài khoản cố định cho từng cảnh hoặc
 để tự động phân công. Có thể đặt URL dự án mặc định cho mỗi tài khoản trong
@@ -38,7 +38,7 @@ tiếp theo; video đã gửi vẫn có thể hoàn tất. Tác vụ lỗi hoặ
 không được tự gửi lại sang tài khoản khác. Kiểm tra kết quả trên Flow trước
 khi chủ động chạy lại.
 
-Xóa mục tài khoản không xóa thư mục Chrome hoặc video đã tải. Concat không
+Xóa mục tài khoản không xóa thư mục Chrome hoặc video đã tải. CDCAi không
 sao chép mật khẩu/cookie từ profile khác.
 
 ## Tạo ảnh nhân vật và bối cảnh bằng Flow

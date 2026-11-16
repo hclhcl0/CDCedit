@@ -1,26 +1,26 @@
 <p align="center">
-  <img src="https://cdn.jsdelivr.net/gh/jub0t/Concat@main/assets/concat-mark-dark.png" alt="CDCedit" width="100" />
+  <img src="https://cdn.jsdelivr.net/gh/jub0t/Concat@main/assets/concat-mark-dark.png" alt="CDCAi" width="100" />
 </p>
 
-<h1 align="center">CDCedit</h1>
+<h1 align="center">CDCAi</h1>
 <h3 align="center">무료 오픈 소스 크로스 플랫폼 CapCut 대체재.</h3>
 
 <div align="center">
 
-<img src="https://cdn.jsdelivr.net/gh/jub0t/Concat@main/assets/editor.png" alt="CDCedit editor" width="100%" />
+<img src="https://cdn.jsdelivr.net/gh/jub0t/Concat@main/assets/editor.png" alt="CDCAi editor" width="100%" />
 
 <p align="center">
   <a href="https://github.com/jub0t/Concat/releases"><img src="https://img.shields.io/github/downloads/jub0t/concat/total?style=flat&logo=github&logoColor=F8F8F8&label=Downloads&labelColor=212123&color=0568FD" alt="Total Downloads" /></a>
   <a href="https://github.com/jub0t/Concat/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/jub0t/Concat/ci.yml?style=flat&logo=githubactions&logoColor=F8F8F8&label=Build&labelColor=000000" alt="Build Status" /></a>
-  <a href="https://github.com/jub0t/Concat/releases"><img src="https://img.shields.io/badge/Version-0.2.8-0568FD?style=flat&logo=semver&logoColor=F8F8F8&labelColor=212123" alt="CDCedit Version 0.2.8" /></a>
-  <a href="https://discord.gg/DVuPfpXfqP"><img src="https://img.shields.io/badge/Discord-Join%20the%20server-5865F2?style=flat&logo=discord&logoColor=F8F8F8&labelColor=000000" alt="Join CDCedit Discord" /></a>
+  <a href="https://github.com/jub0t/Concat/releases"><img src="https://img.shields.io/badge/Version-0.2.8-0568FD?style=flat&logo=semver&logoColor=F8F8F8&labelColor=212123" alt="CDCAi Version 0.2.8" /></a>
+  <a href="https://discord.gg/DVuPfpXfqP"><img src="https://img.shields.io/badge/Discord-Join%20the%20server-5865F2?style=flat&logo=discord&logoColor=F8F8F8&labelColor=000000" alt="Join CDCAi Discord" /></a>
   <a href="../LICENSE"><img src="https://img.shields.io/badge/License-AGPL%20v3-0568FD?style=flat&logo=gnu&logoColor=F8F8F8&labelColor=212123" alt="License: AGPL-3.0-or-later" /></a>
 </p>
 
 <p align="center">
   <a href="https://www.star-history.com/jub0t/concat"><img src="https://api.star-history.com/badge?repo=jub0t/concat&type=rank" alt="Star History Rank" height="62" /></a>
   <a href="https://trendshift.io/repositories/191379?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-191379" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/191379/daily?language=Rust" alt="jub0t%2FConcat | Trendshift" width="250" height="55"/></a>
-  <a href="https://concatenate.pages.dev/#download"><img src="../assets/download_button.svg" alt="Download CDCedit" width="251" /></a>
+  <a href="https://concatenate.pages.dev/#download"><img src="../assets/download_button.svg" alt="Download CDCAi" width="251" /></a>
 </p>
 
 [🇬🇧 English](../README.md) · [🇩🇪 Deutsch](README.de.md) · [🇪🇸 Español](README.es.md) · [🇫🇷 Français](README.fr.md) · [🇮🇹 Italiano](README.it.md) · [🇳🇱 Nederlands](README.nl.md) · [🇵🇱 Polski](README.pl.md) · [🇧🇷 Português (Brasil)](README.pt-BR.md) · [🇷🇺 Русский](README.ru.md) · [🇺🇦 Українська](README.uk.md) · [🇹🇷 Türkçe](README.tr.md) · [🇦🇿 Azərbaycanca](README.az.md) · [🇭🇷 Hrvatski](README.hr.md) · [🇮🇩 Bahasa Indonesia](README.id.md) · [🇻🇳 Tiếng Việt](README.vi.md) · [🇹🇭 ไทย](README.th.md) · [🇯🇵 日本語](README.ja.md) · **🇰🇷 한국어** · [🇨🇳 简体中文](README.zh-Hans.md) · [🇹🇼 繁體中文](README.zh-TW.md) · [🇸🇦 العربية](README.ar.md) · [🇮🇱 עברית](README.he.md) · [🇮🇷 فارسی](README.fa.md) · [🇮🇳 हिन्दी](README.hi.md) · [🇵🇰 اردو](README.ur.md) · [🇧🇩 বাংলা](README.bn.md)
@@ -82,7 +82,7 @@ Concat은 **베타**입니다: 동작하지만 아직 거친 부분이 있습니
 **플랫폼**
 
 - ✅ **Windows** · x86_64 (ARM 빌드는 일시 중단됨, [#326](https://github.com/jub0t/Concat/issues/326) 참고). 설치 프로그램과 `.msi`. SmartScreen이 서명되지 않은 빌드를 막으면: **추가 정보** › **실행**
-- ✅ **macOS** · Intel과 Apple Silicon. macOS가 서명되지 않은 빌드를 열지 않으면: `xattr -dr com.apple.quarantine /Applications/CDCedit.app`
+- ✅ **macOS** · Intel과 Apple Silicon. macOS가 서명되지 않은 빌드를 열지 않으면: `xattr -dr com.apple.quarantine /Applications/CDCAi.app`
 - ✅ **Linux** · x86_64와 ARM. `.deb`, `.rpm`, `.AppImage`, Arch 패키지. 그리고 **[Flatpark](https://flatpark.org/apps/app.concat.editor/)**의 Flatpak도 있습니다. 각 릴리스의 x86_64 `.deb`를 감싸고 릴리스와 함께 업데이트되는 커뮤니티 Flatpak 원격 저장소입니다
 - ✅ **Android** · 휴대폰과 태블릿
 - ✅ **iOS / iPadOS** · iPhone과 iPad, 사이드로드
@@ -98,7 +98,7 @@ Concat은 **베타**입니다: 동작하지만 아직 거친 부분이 있습니
 > [!IMPORTANT]
 > 가장 좋은 기여는 [Releases](https://github.com/jub0t/Concat/releases) 페이지에서 빌드를 받아 써 보는 것입니다: 어디서 깨지는지 찾고, 어디가 더 나아질 수 있는지 말해 주세요.
 >
-> 코드를 쓸 준비가 되셨나요? [CONTRIBUTING.md](../CONTRIBUTING.md)에 설정, 트리 구조, 실행할 검사, 기여의 라이선스가 적혀 있습니다. 스크립트, 서비스, 에이전트에서 Concat을 다루시나요? [개발자 문서](https://concatenate.pages.dev/docs)에 CDCedit API와 전송 방식(JSON-RPC, gRPC)이 있습니다. 프로젝트는 [이 Discussion](https://github.com/jub0t/Concat/discussions/3)에서 공개되었습니다.
+> 코드를 쓸 준비가 되셨나요? [CONTRIBUTING.md](../CONTRIBUTING.md)에 설정, 트리 구조, 실행할 검사, 기여의 라이선스가 적혀 있습니다. 스크립트, 서비스, 에이전트에서 Concat을 다루시나요? [개발자 문서](https://concatenate.pages.dev/docs)에 CDCAi API와 전송 방식(JSON-RPC, gRPC)이 있습니다. 프로젝트는 [이 Discussion](https://github.com/jub0t/Concat/discussions/3)에서 공개되었습니다.
 > 
 > 기여자는 Discord 서버에서 `@Contributor` 역할을 받을 수 있습니다. 요청만 하세요.
 

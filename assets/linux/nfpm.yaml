@@ -1,24 +1,24 @@
-# CDCedit's Linux packages: one description for the .deb and the .rpm.
+# CDCAi's Linux packages: one description for the .deb and the .rpm.
 #
 # Built by build-app.yml with nfpm from the staged folder the AppImage is
 # also made of, so every Linux bundle ships the same files. The program lives
-# whole under /opt/cdcedit - the binary finds its libraries in lib/ beside
+# whole under /opt/cdcai - the binary finds its libraries in lib/ beside
 # itself, by rpath, and nothing else on the system has to line up - with
 # a launcher on the path, a desktop entry and an icon where the desktop
 # looks for them. The version and architecture are handed in as
 # environment; the files are named relative to the staged folder, which
 # is where nfpm is run from:
 #
-#   cd stage/CDCedit-0.2.8-linux-x86_64
+#   cd stage/CDCAi-0.2.8-linux-x86_64
 #   VERSION=0.2.8 NFPM_ARCH=amd64 nfpm package -f ../../assets/linux/nfpm.yaml -p deb -t ..
-name: cdcedit
+name: cdcai
 arch: ${NFPM_ARCH}
 platform: linux
 version: ${VERSION}
 section: video
 priority: optional
-maintainer: CDCedit contributors
-vendor: CDCedit contributors
+maintainer: CDCAi contributors
+vendor: CDCAi contributors
 license: AGPL-3.0-or-later
 description: |
   Free and open source video editor.
@@ -26,24 +26,24 @@ description: |
   with FFmpeg underneath and hardware-accelerated preview and export.
 
 contents:
-  - src: cdcedit
-    dst: /opt/cdcedit/cdcedit
+  - src: cdcai
+    dst: /opt/cdcai/cdcai
     file_info:
       mode: 0755
   - src: lib/*
-    dst: /opt/cdcedit/lib/
-  - src: pkg/cdcedit
-    dst: /usr/bin/cdcedit
+    dst: /opt/cdcai/lib/
+  - src: pkg/cdcai
+    dst: /usr/bin/cdcai
     file_info:
       mode: 0755
-  - src: pkg/cdcedit.desktop
-    dst: /usr/share/applications/cdcedit.desktop
-  - src: cdcedit.png
-    dst: /usr/share/icons/hicolor/256x256/apps/cdcedit.png
+  - src: pkg/cdcai.desktop
+    dst: /usr/share/applications/cdcai.desktop
+  - src: cdcai.png
+    dst: /usr/share/icons/hicolor/256x256/apps/cdcai.png
   - src: LICENSE
-    dst: /usr/share/doc/cdcedit/LICENSE
+    dst: /usr/share/doc/cdcai/LICENSE
   - src: THIRD_PARTY_NOTICES.md
-    dst: /usr/share/doc/cdcedit/THIRD_PARTY_NOTICES.md
+    dst: /usr/share/doc/cdcai/THIRD_PARTY_NOTICES.md
 
 # What the binary loads from the system rather than from lib/: the
 # toolkit the file dialogs use, sound, fonts and OpenGL. Named as each

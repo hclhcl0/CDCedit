@@ -22,7 +22,7 @@ Skill giải quyết triệt để các vấn đề phổ biến của video AI:
 ---
 
 ## Khi nào nên sử dụng Skill
-- Khi nhấn nút **"AI viết prompt cảnh đã chọn"** trong CDCedit / Concat.
+- Khi nhấn nút **"AI viết prompt cảnh đã chọn"** trong CDCAi / Concat.
 - Khi muốn chuyển đổi một cảnh kịch bản văn học sang prompt video thực tế cho Google Flow / Veo.
 - Khi một cảnh video sinh ra có chuyển động camera quá chóng mặt và cần chỉnh lại prompt để chuyển động chậm, mượt.
 

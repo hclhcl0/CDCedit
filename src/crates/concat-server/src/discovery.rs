@@ -50,7 +50,7 @@ pub struct Listing {
     /// The process serving, for a reader that wants to tell a stale file
     /// from a server that is busy.
     pub pid: u32,
-    /// The CDCedit build serving.
+    /// The CDCAi build serving.
     pub concat: String,
     /// The API contract it speaks.
     pub api_version: String,

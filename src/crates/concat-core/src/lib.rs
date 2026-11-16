@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Jareer Abdullah and Concat contributors
 
-//! Core vocabulary of the CDCedit engine.
+//! Core vocabulary of the CDCAi engine.
 //!
 //! This crate holds the types that every other crate needs to agree on, and
 //! nothing else. It has no dependencies and does no IO.
 //!
-//! - [`time`] - exact rational timestamps. Every time value in CDCedit is a
+//! - [`time`] - exact rational timestamps. Every time value in CDCAi is a
 //!   [`time::Rational`] number of seconds. Never `f64`.
-//! - [`arena`] - generational arenas and `Copy` handles, the way CDCedit models
+//! - [`arena`] - generational arenas and `Copy` handles, the way CDCAi models
 //!   graphs.
 //! - [`frame`] - a decoded RGBA8 image buffer.
 //! - [`timeline`] - projects, tracks and clips.

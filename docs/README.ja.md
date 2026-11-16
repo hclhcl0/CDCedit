@@ -1,9 +1,9 @@
-<p align="center"><img src="../assets/icons/cdcedit_logo_256.png" alt="CDCedit" width="100" /></p>
-<h1 align="center">CDCedit</h1>
+<p align="center"><img src="../assets/icons/cdcai_logo_256.png" alt="CDCAi" width="100" /></p>
+<h1 align="center">CDCAi</h1>
 
-CDCedit is a customized video editor derived from [Concat](https://github.com/jub0t/Concat). Original author and license notices are retained. Build this fork to use CDCedit features; upstream release links below refer to the original project.
+CDCAi is a customized video editor derived from [Concat](https://github.com/jub0t/Concat). Original author and license notices are retained. Build this fork to use CDCAi features; upstream release links below refer to the original project.
 
-CDCedit は macOS・Windows・Linux・Android 向けの、無料でオープンソースの動画エディタであり、CapCut の代替です。人々が実際に CapCut を開く目的をカバーします。自動字幕、テキスト読み上げ、背景除去、キーフレームアニメーション、エフェクトとタイトル、マルチトラック編集、4K 書き出し。しかも落とし穴なし。透かしなし、アカウント不要、サブスクリプション不要、アップロードなし。
+CDCAi は macOS・Windows・Linux・Android 向けの、無料でオープンソースの動画エディタであり、CapCut の代替です。人々が実際に CapCut を開く目的をカバーします。自動字幕、テキスト読み上げ、背景除去、キーフレームアニメーション、エフェクトとタイトル、マルチトラック編集、4K 書き出し。しかも落とし穴なし。透かしなし、アカウント不要、サブスクリプション不要、アップロードなし。
 
 すべてが GPU コンポジターを備えたネイティブ Rust エンジン上でローカルに動きます。インストールして、素材を放り込んで、切る。字幕・音声・切り抜き用の AI モデルは設定から一度だけダウンロードし、以降はオフラインで動作します。あなたの素材がディスクの外へ出ることはありません。
 
@@ -36,12 +36,12 @@ CDCedit は macOS・Windows・Linux・Android 向けの、無料でオープン�
 1. **[ウェブサイト](https://concatenate.pages.dev/#download)** があなたのマシンに合ったビルドを渡します。まずはここから。
 2. **[GitHub Releases](https://github.com/jub0t/Concat/releases)** にはすべてのプラットフォーム向けのすべてのビルドが、インストーラー、パッケージ、チェックサムとともにあります。自分で選びたいときに。
 
-CDCedit は **ベータ版** です。動きますが、まだ粗い部分があります。見つけたら [教えてください](https://github.com/jub0t/Concat/issues)。
+CDCAi は **ベータ版** です。動きますが、まだ粗い部分があります。見つけたら [教えてください](https://github.com/jub0t/Concat/issues)。
 
 **プラットフォーム**
 
 - ✅ **Windows** · x86_64 (ARM ビルドは一時停止中、[#326](https://github.com/jub0t/Concat/issues/326) を参照)。セットアップと `.msi`。SmartScreen が未署名ビルドを止めたら: **詳細情報** › **実行**
-- ✅ **macOS** · Intel と Apple シリコン。macOS が未署名ビルドを開かないときは: `xattr -dr com.apple.quarantine /Applications/CDCedit.app`
+- ✅ **macOS** · Intel と Apple シリコン。macOS が未署名ビルドを開かないときは: `xattr -dr com.apple.quarantine /Applications/CDCAi.app`
 - ✅ **Linux** · x86_64 と ARM。`.deb`、`.rpm`、`.AppImage`、Arch パッケージ。さらに **[Flatpark](https://flatpark.org/apps/app.concat.editor/)** 上の Flatpak も。各リリースの x86_64 `.deb` を包み、リリースに合わせて更新されるコミュニティ運営の Flatpak リモートです
 - ✅ **Android** · スマートフォンとタブレット
 - ✅ **iOS / iPadOS** · iPhone と iPad、サイドロード
@@ -57,7 +57,7 @@ CDCedit は **ベータ版** です。動きますが、まだ粗い部分があ
 > [!IMPORTANT]
 > いちばんの貢献は、[Releases](https://github.com/jub0t/Concat/releases) ページからビルドを取って使うことです。どこで壊れるかを見つけ、どこがもっと良くなるかを伝えてください。
 >
-> コードを書く準備ができたら、[CONTRIBUTING.md](../CONTRIBUTING.md) にセットアップ、ツリーの構成、実行すべきチェック、貢献のライセンスがまとまっています。スクリプトやサービス、エージェントから CDCedit を動かすなら、[開発者向けドキュメント](https://concatenate.pages.dev/docs) に CDCedit API とそのトランスポート (JSON-RPC、gRPC) があります。プロジェクトは [この Discussion](https://github.com/jub0t/Concat/discussions/3) で発表されました。
+> コードを書く準備ができたら、[CONTRIBUTING.md](../CONTRIBUTING.md) にセットアップ、ツリーの構成、実行すべきチェック、貢献のライセンスがまとまっています。スクリプトやサービス、エージェントから CDCAi を動かすなら、[開発者向けドキュメント](https://concatenate.pages.dev/docs) に CDCAi API とそのトランスポート (JSON-RPC、gRPC) があります。プロジェクトは [この Discussion](https://github.com/jub0t/Concat/discussions/3) で発表されました。
 > 
 > 貢献者は Discord サーバーで `@Contributor` ロールを受け取れます。声をかけてください。
 

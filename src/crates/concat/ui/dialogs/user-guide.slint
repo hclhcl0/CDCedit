@@ -392,7 +392,7 @@ export component UserGuideDialog inherits Modal {
         {index: 9, code: "10", title: "Phím tắt & Sửa lỗi", subtitle: "Phím nóng · Lỗi 429/403", glyph: Glyph.keyboard},
     ];
 
-    title: "Sổ tay Hướng dẫn Sử dụng CDCedit 1.0";
+    title: "Sổ tay Hướng dẫn Sử dụng CDCAi 1.0";
     note: "10 chuyên mục · Ngoại tuyến";
     glyph: Glyph.book;
     surface-width: 980px;
@@ -495,14 +495,14 @@ export component UserGuideDialog inherits Modal {
                         spacing: 12px;
 
                         Text {
-                            text: "Quy trình Dựng phim & Làm chủ CDCedit trong 5 bước";
+                            text: "Quy trình Dựng phim & Làm chủ CDCAi trong 5 bước";
                             color: Theme.fg;
                             font-size: 18px;
                             font-weight: Theme.weight-display;
                             wrap: word-wrap;
                         }
                         Text {
-                            text: "CDCedit kết hợp trình dựng phim đa track chạy trên GPU với PhoWhisper (phụ đề tiếng Việt offline), Piper TTS và Google Flow (Veo 3.1 + Nano Banana Pro). Bạn có thể chạy công cụ AI trực tiếp từ Trang chủ hoặc mở dự án dựng phim đầy đủ.";
+                            text: "CDCAi kết hợp trình dựng phim đa track chạy trên GPU với PhoWhisper (phụ đề tiếng Việt offline), Piper TTS và Google Flow (Veo 3.1 + Nano Banana Pro). Bạn có thể chạy công cụ AI trực tiếp từ Trang chủ hoặc mở dự án dựng phim đầy đủ.";
                             color: Theme.fg-muted;
                             font-size: Theme.fs;
                             wrap: word-wrap;
@@ -565,7 +565,7 @@ export component UserGuideDialog inherits Modal {
                             wrap: word-wrap;
                         }
                         Text {
-                            text: "CDCedit bảo mật mọi API Key bằng mã hóa Windows DPAPI cục bộ và hỗ trợ cơ chế Xoay vòng đa key (Multi-Key Rotation) khi key gặp giới hạn lưu lượng.";
+                            text: "CDCAi bảo mật mọi API Key bằng mã hóa Windows DPAPI cục bộ và hỗ trợ cơ chế Xoay vòng đa key (Multi-Key Rotation) khi key gặp giới hạn lưu lượng.";
                             color: Theme.fg-muted;
                             font-size: Theme.fs;
                             wrap: word-wrap;
@@ -617,7 +617,7 @@ export component UserGuideDialog inherits Modal {
                         GuideCallout {
                             warning: true;
                             title: "Lưu ý bảo mật API Key";
-                            body: "Không chụp ảnh hoặc chia sẻ công khai mã AIzaSy... / xi-.... Tất cả API Key lưu trong cài đặt CDCedit đều được mã hóa cục bộ bằng Windows DPAPI trước khi ghi xuống ổ cứng.";
+                            body: "Không chụp ảnh hoặc chia sẻ công khai mã AIzaSy... / xi-.... Tất cả API Key lưu trong cài đặt CDCAi đều được mã hóa cục bộ bằng Windows DPAPI trước khi ghi xuống ổ cứng.";
                         }
 
                         GuideScreenshot {
@@ -639,7 +639,7 @@ export component UserGuideDialog inherits Modal {
                             wrap: word-wrap;
                         }
                         Text {
-                            text: "CDCedit điều khiển trực tiếp phiên Chrome đã đăng nhập labs.google/fx thông qua giao thức Chrome DevTools Protocol (CDP), giúp bạn giữ toàn quyền kiểm soát tài khoản và không phải nhập mật khẩu bên ngoài trình duyệt Chrome.";
+                            text: "CDCAi điều khiển trực tiếp phiên Chrome đã đăng nhập labs.google/fx thông qua giao thức Chrome DevTools Protocol (CDP), giúp bạn giữ toàn quyền kiểm soát tài khoản và không phải nhập mật khẩu bên ngoài trình duyệt Chrome.";
                             color: Theme.fg-muted;
                             font-size: Theme.fs;
                             wrap: word-wrap;
@@ -649,7 +649,7 @@ export component UserGuideDialog inherits Modal {
                             badge: "Cơ bản";
                             accent-edge: true;
                             title: "Bước 1: Mở Cài đặt › Google Flow và chọn Chế độ kết nối";
-                            body: "Vào Cài đặt (nút Tím ở Trang chủ hoặc Thanh Tiêu đề) -> chọn mục Google Flow bên trái. Chọn 1 trong 3 chế độ cho từng tài khoản:\n• Profile riêng của Concat (Khuyên dùng): Tự khởi tạo cửa sổ Chrome riêng tại cổng CDP 9337, giữ cookie lâu dài.\n• Chrome đang mở (CDP): Kết nối thẳng vào cửa sổ Chrome bạn đã bật Remote Debugging Port.\n• Profile có sẵn · thư mục riêng: Trỏ trực tiếp tới thư mục User Data và Profile 1/2/3 trên máy.";
+                            body: "Vào Cài đặt (nút Tím ở Trang chủ hoặc Thanh Tiêu đề) -> chọn mục Google Flow bên trái. Chọn 1 trong 3 chế độ cho từng tài khoản:\n• Profile riêng của CDCAi (Khuyên dùng): Tự khởi tạo cửa sổ Chrome riêng tại cổng CDP 9337, giữ cookie lâu dài.\n• Chrome đang mở (CDP): Kết nối thẳng vào cửa sổ Chrome bạn đã bật Remote Debugging Port.\n• Profile có sẵn · thư mục riêng: Trỏ trực tiếp tới thư mục User Data và Profile 1/2/3 trên máy.";
                             HorizontalLayout {
                                 spacing: 8px;
                                 alignment: start;
@@ -667,7 +667,7 @@ export component UserGuideDialog inherits Modal {
                         GuideStepCard {
                             badge: "Xác thực";
                             title: "Bước 3: Đăng nhập Google Labs & Kiểm tra trạng thái";
-                            body: "1) Trong Cài đặt › Google Flow, nhấn Kết nối / mở Chrome.\n2) Ở cửa sổ Chrome vừa mở, đăng nhập tài khoản Google đã kích hoạt Google Labs / Flow.\n3) Quay lại CDCedit nhấn Lưu cấu hình rồi nhấn Kiểm tra -> trạng thái chuyển sang \"Đã kết nối & đăng nhập Google Flow\" là sẵn sàng!";
+                            body: "1) Trong Cài đặt › Google Flow, nhấn Kết nối / mở Chrome.\n2) Ở cửa sổ Chrome vừa mở, đăng nhập tài khoản Google đã kích hoạt Google Labs / Flow.\n3) Quay lại CDCAi nhấn Lưu cấu hình rồi nhấn Kiểm tra -> trạng thái chuyển sang \"Đã kết nối & đăng nhập Google Flow\" là sẵn sàng!";
                         }
 
                         GuideStepCard {
@@ -678,7 +678,7 @@ export component UserGuideDialog inherits Modal {
 
                         GuideCallout {
                             title: "Mẹo sửa nhanh lỗi mất kết nối hoặc Chrome không mở cổng CDP";
-                            body: "Windows không cho phép 2 tiến trình Chrome mở cổng CDP trên cùng Default User Data nếu Chrome gốc đang chạy ngầm. Hãy tắt hẳn Chrome nền (kiểm tra Khay hệ thống System Tray) hoặc ưu tiên chọn chế độ 'Profile riêng của Concat' để tách biệt hoàn toàn.";
+                            body: "Windows không cho phép 2 tiến trình Chrome mở cổng CDP trên cùng Default User Data nếu Chrome gốc đang chạy ngầm. Hãy tắt hẳn Chrome nền (kiểm tra Khay hệ thống System Tray) hoặc ưu tiên chọn chế độ 'Profile riêng của CDCAi' để tách biệt hoàn toàn.";
                         }
 
                         GuideScreenshot {
@@ -702,7 +702,7 @@ export component UserGuideDialog inherits Modal {
                         GuideStepCard {
                             badge: "Khu vực 1";
                             title: "Thanh Tiêu đề & Nút Thao tác Nhanh";
-                            body: "Góc trên bên phải cho phép Tạo dự án mới (nút xanh neon), Mở dự án (.cdcedit / thư mục) và truy cập nhanh Cài đặt API (Gemini / ElevenLabs / Google Flow). Dải Sổ tay ngay bên dưới đưa bạn tới đúng chuyên mục hướng dẫn cần tra cứu.";
+                            body: "Góc trên bên phải cho phép Tạo dự án mới (nút xanh neon), Mở dự án (thư mục / concat.json) và truy cập nhanh Cài đặt API (Gemini / ElevenLabs / Google Flow). Dải Sổ tay ngay bên dưới đưa bạn tới đúng chuyên mục hướng dẫn cần tra cứu.";
                         }
                         GuideStepCard {
                             badge: "Khu vực 2";
@@ -718,7 +718,7 @@ export component UserGuideDialog inherits Modal {
                         }
                         GuideStepCard {
                             badge: "Khu vực 3";
-                            title: "Dự án CDCedit & Nhập trực tiếp Dự án CapCut PC";
+                            title: "Dự án CDCAi & Nhập trực tiếp Dự án CapCut PC";
                             body: "Ở mục Dự án gần đây, chuyển Tab sang \"Dự án CapCut\" để tự động quét các draft CapCut trên máy hoặc mở trực tiếp tệp draft_content.json, draft_info.json hay gói .zip.";
                         }
                         GuideScreenshot {

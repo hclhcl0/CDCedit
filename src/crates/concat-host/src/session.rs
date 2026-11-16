@@ -89,7 +89,7 @@ impl Session {
                     > concat_project::DOCUMENT_VERSION =>
                 {
                     return Err(format!(
-                        "{path} was saved by a newer CDCedit than this one: update to open it"
+                        "{path} was saved by a newer CDCAi than this one: update to open it"
                     ));
                 }
                 None => {

@@ -1,9 +1,9 @@
-<p align="center"><img src="../assets/icons/cdcedit_logo_256.png" alt="CDCedit" width="100" /></p>
-<h1 align="center">CDCedit</h1>
+<p align="center"><img src="../assets/icons/cdcai_logo_256.png" alt="CDCAi" width="100" /></p>
+<h1 align="center">CDCAi</h1>
 
-CDCedit is a customized video editor derived from [Concat](https://github.com/jub0t/Concat). Original author and license notices are retained. Build this fork to use CDCedit features; upstream release links below refer to the original project.
+CDCAi is a customized video editor derived from [Concat](https://github.com/jub0t/Concat). Original author and license notices are retained. Build this fork to use CDCAi features; upstream release links below refer to the original project.
 
-CDCedit یک ویرایشگر ویدیوی رایگان و متن‌باز و جایگزینی برای CapCut روی macOS، Windows، Linux و Android است. همان کارهایی را پوشش می‌دهد که مردم واقعاً برایشان CapCut را باز می‌کنند: زیرنویس خودکار، تبدیل متن به گفتار، حذف پس‌زمینه، انیمیشن با فریم‌های کلیدی، جلوه‌ها و عنوان‌ها، برش چندتراکی، خروجی 4K. و بدون هیچ دامی: بدون واترمارک، بدون حساب کاربری، بدون اشتراک، بدون بارگذاری.
+CDCAi یک ویرایشگر ویدیوی رایگان و متن‌باز و جایگزینی برای CapCut روی macOS، Windows، Linux و Android است. همان کارهایی را پوشش می‌دهد که مردم واقعاً برایشان CapCut را باز می‌کنند: زیرنویس خودکار، تبدیل متن به گفتار، حذف پس‌زمینه، انیمیشن با فریم‌های کلیدی، جلوه‌ها و عنوان‌ها، برش چندتراکی، خروجی 4K. و بدون هیچ دامی: بدون واترمارک، بدون حساب کاربری، بدون اشتراک، بدون بارگذاری.
 
 همه‌چیز به‌صورت محلی روی یک موتور بومی Rust با ترکیب‌کنندهٔ GPU اجرا می‌شود. نصب کنید، فیلم‌ها را بیندازید، برش بزنید. مدل‌های هوش مصنوعی برای زیرنویس، صدا و برش پس‌زمینه یک بار از تنظیمات دانلود می‌شوند و بعد از آن آفلاین کار می‌کنند. فیلم‌های شما هرگز از دیسکتان خارج نمی‌شوند.
 
@@ -36,12 +36,12 @@ CDCedit یک ویرایشگر ویدیوی رایگان و متن‌باز و ج
 1. **[وب‌سایت](https://concatenate.pages.dev/#download)** نسخهٔ مناسب دستگاهتان را به شما می‌دهد. از اینجا شروع کنید.
 2. **[GitHub Releases](https://github.com/jub0t/Concat/releases)** همهٔ نسخه‌ها را برای همهٔ سکوها دارد، با نصب‌کننده‌ها، بسته‌ها و چک‌سام‌ها. برای وقتی که می‌خواهید خودتان انتخاب کنید.
 
-CDCedit در مرحلهٔ **بتا** است: کار می‌کند و هنوز لبه‌های تیزی دارد. وقتی یکی را پیدا کردید [بگویید](https://github.com/jub0t/Concat/issues).
+CDCAi در مرحلهٔ **بتا** است: کار می‌کند و هنوز لبه‌های تیزی دارد. وقتی یکی را پیدا کردید [بگویید](https://github.com/jub0t/Concat/issues).
 
 **سکوها**
 
 - ✅ **Windows** · x86_64 (ساخت‌های ARM فعلاً متوقف شده‌اند، [#326](https://github.com/jub0t/Concat/issues/326) را ببینید). یک نصب‌کننده و یک `.msi`. اگر SmartScreen یک نسخهٔ امضانشده را متوقف کرد: **More info** › **Run anyway**
-- ✅ **macOS** · Intel و Apple Silicon. اگر macOS از باز کردن نسخهٔ امضانشده خودداری کرد: `xattr -dr com.apple.quarantine /Applications/CDCedit.app`
+- ✅ **macOS** · Intel و Apple Silicon. اگر macOS از باز کردن نسخهٔ امضانشده خودداری کرد: `xattr -dr com.apple.quarantine /Applications/CDCAi.app`
 - ✅ **Linux** · x86_64 و ARM. ‏`.deb`، `.rpm`، `.AppImage` و یک بستهٔ Arch. همچنین یک Flatpak روی **[Flatpark](https://flatpark.org/apps/app.concat.editor/)**، یک مخزن Flatpak اجتماعی که `.deb` معماری x86_64 هر انتشار را بسته‌بندی می‌کند و همراه آن به‌روز می‌شود
 - ✅ **Android** · گوشی‌ها و تبلت‌ها
 - ✅ **iOS / iPadOS** · iPhone و iPad، با نصب جانبی
@@ -57,7 +57,7 @@ CDCedit در مرحلهٔ **بتا** است: کار می‌کند و هنوز ل
 > [!IMPORTANT]
 > بهترین راه مشارکت این است که نسخه‌ای از صفحهٔ [Releases](https://github.com/jub0t/Concat/releases) بگیرید و از آن استفاده کنید: پیدا کنید کجا خراب می‌شود و بگویید کجا می‌تواند بهتر باشد.
 >
-> آمادهٔ کدنویسی هستید؟ [CONTRIBUTING.md](../CONTRIBUTING.md) راه‌اندازی، چیدمان درخت، بررسی‌هایی که باید اجرا شوند و نحوهٔ مجوزدهی مشارکت‌ها را پوشش می‌دهد. CDCedit را از یک اسکریپت، سرویس یا عامل هدایت می‌کنید؟ [مستندات توسعه‌دهندگان](https://concatenate.pages.dev/docs) API و روش‌های انتقال CDCedit را پوشش می‌دهد: JSON-RPC و gRPC. پروژه در [این گفت‌وگو](https://github.com/jub0t/Concat/discussions/3) معرفی شد.
+> آمادهٔ کدنویسی هستید؟ [CONTRIBUTING.md](../CONTRIBUTING.md) راه‌اندازی، چیدمان درخت، بررسی‌هایی که باید اجرا شوند و نحوهٔ مجوزدهی مشارکت‌ها را پوشش می‌دهد. CDCAi را از یک اسکریپت، سرویس یا عامل هدایت می‌کنید؟ [مستندات توسعه‌دهندگان](https://concatenate.pages.dev/docs) API و روش‌های انتقال CDCAi را پوشش می‌دهد: JSON-RPC و gRPC. پروژه در [این گفت‌وگو](https://github.com/jub0t/Concat/discussions/3) معرفی شد.
 > 
 > مشارکت‌کنندگان می‌توانند نقش `@Contributor` را در سرور Discord بگیرند: فقط درخواست کنید.
 

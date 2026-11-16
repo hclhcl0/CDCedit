@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Jareer Abdullah and Concat contributors
 
-//! CDCedit's editor window, in Slint.
+//! CDCAi's editor window, in Slint.
 //!
 //! This file is the wiring: it starts the engine's services, builds the
 //! window, and binds every callback the `.slint` tree exposes to the state
@@ -1633,7 +1633,7 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
             state.handle(Msg::Sounds(SoundsMsg::Shown(on)));
         }));
         // Voices: Text to speech on the voice or style clicked.
-        // CDCedit's own sounds: the list asked for by a click, never at
+        // CDCAi's own sounds: the list asked for by a click, never at
         // startup.
         sounds.on_load_concat(on_window!(|state| {
             state.handle(Msg::Sounds(SoundsMsg::LoadConcat));
@@ -3319,7 +3319,7 @@ pub fn draw_in_software() {
 /// Metal device is a static whose destructor asserts that every Metal
 /// buffer was freed, and the model a caption loaded stays loaded for the
 /// rest of the run - so a quit after any transcription died of SIGABRT in
-/// `exit`, and macOS said CDCedit had quit unexpectedly. macOS ends an app
+/// `exit`, and macOS said CDCAi had quit unexpectedly. macOS ends an app
 /// that way itself when it opts into sudden termination.
 fn leave(code: i32) -> ! {
     log::logger().flush();

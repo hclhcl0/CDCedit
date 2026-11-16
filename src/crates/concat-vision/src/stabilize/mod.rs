@@ -3,7 +3,7 @@
 
 //! Taking the camera's shake out of a picture.
 //!
-//! Done the way Premiere's Warp Stabilizer and CDCedit's own cutout are:
+//! Done the way Premiere's Warp Stabilizer and CDCAi's own cutout are:
 //! analysed once, cached, applied live. In four parts:
 //!
 //! - [`track`]: the camera's movement between two frames, measured. Good

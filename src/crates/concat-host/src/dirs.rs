@@ -22,9 +22,10 @@
 use std::path::{Path, PathBuf};
 
 /// The app identifier, which is also the folder name everywhere.
-pub const IDENTIFIER: &str = "app.cdcedit.editor";
+pub const IDENTIFIER: &str = "app.cdcai.editor";
 
-/// Original application identifiers, adopted once by CDCedit on first start.
+/// Previous application identifiers, adopted once by CDCAi on first start.
+const PREVIOUS_IDENTIFIER: &str = "app.cdcedit.editor";
 const FORMER_IDENTIFIER: &str = "org.standalones.concat";
 const LEGACY_IDENTIFIER: &str = "app.concat.editor";
 
@@ -125,7 +126,7 @@ const DATA_FOLDERS: [&str; 10] = [
     "logs",           // logs.rs
     "audio",          // sounds.rs: the Audio page's own sounds; see `library`
     "voices",         // voices.rs: saved cloned voices; see `library`
-    "sounds",         // sounds.rs: CDCedit's sounds, downloaded on first use
+    "sounds",         // sounds.rs: CDCAi's sounds, downloaded on first use
 ];
 
 /// Moves what an older build kept under `from` - Windows kept models and
@@ -167,7 +168,7 @@ fn adopt(folder: &Path) {
     if name != IDENTIFIER || folder.exists() {
         return;
     }
-    let former = [FORMER_IDENTIFIER, LEGACY_IDENTIFIER]
+    let former = [PREVIOUS_IDENTIFIER, FORMER_IDENTIFIER, LEGACY_IDENTIFIER]
         .iter()
         .map(|name| parent.join(name))
         .find(|path| path.is_dir() && !path.is_symlink());
@@ -344,6 +345,26 @@ mod tests {
         // Run again, nothing changes; and a folder already there is left be.
         adopt(&folder);
         assert!(folder.join("settings.json").is_file());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn the_cdcedit_identifiers_folder_is_adopted() {
+        let root = std::env::temp_dir().join(format!("cdcai-adopt-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let prev = root.join(PREVIOUS_IDENTIFIER);
+        std::fs::create_dir_all(prev.join("voices")).unwrap();
+        std::fs::write(prev.join("settings.json"), b"{}").unwrap();
+        std::fs::write(prev.join("voices").join("me.wav"), b"voice").unwrap();
+
+        let folder = root.join(IDENTIFIER);
+        adopt(&folder);
+        assert!(folder.join("settings.json").is_file());
+        assert!(folder.join("voices").join("me.wav").is_file());
+        assert_eq!(
+            std::fs::read(prev.join("voices").join("me.wav")).unwrap(),
+            b"voice"
+        );
         let _ = std::fs::remove_dir_all(&root);
     }
 

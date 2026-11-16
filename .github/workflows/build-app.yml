@@ -1,13 +1,13 @@
 name: Build app
 
-# Builds CDCedit - the Slint window, `src/crates/concat` - for every
+# Builds CDCAi - the Slint window, `src/crates/concat` - for every
 # platform and architecture it ships on, each on a runner of that
 # architecture so nothing is cross-compiled, and uploads one artifact per
 # target:
 #
-#   macOS    arm64 (Apple silicon)   x86_64 (Intel)     -> CDCedit-*.dmg
-#   Linux    x86_64                  aarch64            -> CDCedit-*.deb, .rpm, .AppImage, .pkg.tar.zst
-#   Windows  x86_64                  (aarch64, #326)    -> CDCedit-*-setup.exe, .msi
+#   macOS    arm64 (Apple silicon)   x86_64 (Intel)     -> CDCAi-*.dmg
+#   Linux    x86_64                  aarch64            -> CDCAi-*.deb, .rpm, .AppImage, .pkg.tar.zst
+#   Windows  x86_64                  (aarch64, #326)    -> CDCAi-*-setup.exe, .msi
 #
 # Installers and binaries only: the program is not shipped as an archive
 # of a folder to unpack, so what a person downloads is what they run.
@@ -205,7 +205,7 @@ jobs:
         run: |
           version=$(sed -n 's/^version = "\(.*\)"/\1/p' src/Cargo.toml | head -1)
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "Building CDCedit $version for ${{ matrix.target }}"
+          echo "Building CDCAi $version for ${{ matrix.target }}"
 
       # ── Linux ──────────────────────────────────────────────────────────
       # Slint's Skia renderer links fontconfig and freetype; cpal links
@@ -377,9 +377,9 @@ jobs:
           "$dir\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
 
       # ONNX Runtime on Windows: Microsoft's shared build, linked
-      # dynamically, and onnxruntime.dll shipped beside cdcedit.exe.
+      # dynamically, and onnxruntime.dll shipped beside cdcai.exe.
       #
-      # Left to itself ort-sys links pyke's static build into cdcedit.exe,
+      # Left to itself ort-sys links pyke's static build into cdcai.exe,
       # and that build is compiled for Haswell from end to end: BMI2
       # shifts in ordinary code, run at start-up, so 0.2.5 and 0.2.6 died
       # with STATUS_ILLEGAL_INSTRUCTION on every CPU before 2013 (#313).
@@ -580,45 +580,45 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          app=CDCedit.app
+          app=CDCAi.app
           rm -rf "$app"
           mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources" "$app/Contents/Frameworks"
-          cp "src/target/${{ matrix.target }}/app/cdcedit" "$app/Contents/MacOS/cdcedit"
+          cp "src/target/${{ matrix.target }}/app/cdcai" "$app/Contents/MacOS/cdcai"
 
           # The icon set Apple wants: each size and its @2x twin.
-          iconset=CDCedit.iconset
+          iconset=CDCAi.iconset
           rm -rf "$iconset"; mkdir "$iconset"
           icons=assets/icons
-          cp "$icons/cdcedit_logo_16.png"  "$iconset/icon_16x16.png"
-          cp "$icons/cdcedit_logo_32.png"  "$iconset/icon_16x16@2x.png"
-          cp "$icons/cdcedit_logo_32.png"  "$iconset/icon_32x32.png"
-          cp "$icons/cdcedit_logo_64.png"  "$iconset/icon_32x32@2x.png"
-          cp "$icons/cdcedit_logo_128.png" "$iconset/icon_128x128.png"
-          cp "$icons/cdcedit_logo_256.png" "$iconset/icon_128x128@2x.png"
-          cp "$icons/cdcedit_logo_256.png" "$iconset/icon_256x256.png"
-          cp "$icons/cdcedit_logo_512.png" "$iconset/icon_256x256@2x.png"
-          cp "$icons/cdcedit_logo_512.png" "$iconset/icon_512x512.png"
-          iconutil -c icns "$iconset" -o "$app/Contents/Resources/CDCedit.icns"
+          cp "$icons/cdcai_logo_16.png"  "$iconset/icon_16x16.png"
+          cp "$icons/cdcai_logo_32.png"  "$iconset/icon_16x16@2x.png"
+          cp "$icons/cdcai_logo_32.png"  "$iconset/icon_32x32.png"
+          cp "$icons/cdcai_logo_64.png"  "$iconset/icon_32x32@2x.png"
+          cp "$icons/cdcai_logo_128.png" "$iconset/icon_128x128.png"
+          cp "$icons/cdcai_logo_256.png" "$iconset/icon_128x128@2x.png"
+          cp "$icons/cdcai_logo_256.png" "$iconset/icon_256x256.png"
+          cp "$icons/cdcai_logo_512.png" "$iconset/icon_256x256@2x.png"
+          cp "$icons/cdcai_logo_512.png" "$iconset/icon_512x512.png"
+          iconutil -c icns "$iconset" -o "$app/Contents/Resources/CDCAi.icns"
 
           cat > "$app/Contents/Info.plist" <<PLIST
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
-            <key>CFBundleName</key><string>CDCedit</string>
-            <key>CFBundleDisplayName</key><string>CDCedit</string>
-            <key>CFBundleIdentifier</key><string>app.cdcedit.editor</string>
+            <key>CFBundleName</key><string>CDCAi</string>
+            <key>CFBundleDisplayName</key><string>CDCAi</string>
+            <key>CFBundleIdentifier</key><string>app.cdcai.editor</string>
             <key>CFBundleVersion</key><string>${VERSION}</string>
             <key>CFBundleShortVersionString</key><string>${VERSION}</string>
-            <key>CFBundleExecutable</key><string>cdcedit</string>
-            <key>CFBundleIconFile</key><string>CDCedit</string>
+            <key>CFBundleExecutable</key><string>cdcai</string>
+            <key>CFBundleIconFile</key><string>CDCAi</string>
             <key>CFBundlePackageType</key><string>APPL</string>
             <key>LSMinimumSystemVersion</key><string>${MACOSX_DEPLOYMENT_TARGET}</string>
             <key>NSHighResolutionCapable</key><true/>
             <key>NSSupportsAutomaticGraphicsSwitching</key><true/>
             <key>LSApplicationCategoryType</key><string>public.app-category.video</string>
             <key>NSHumanReadableCopyright</key><string>AGPL-3.0-or-later. See THIRD_PARTY_NOTICES.md.</string>
-            <key>NSMicrophoneUsageDescription</key><string>CDCedit records voiceovers from your microphone.</string>
+            <key>NSMicrophoneUsageDescription</key><string>CDCAi records voiceovers from your microphone.</string>
           </dict>
           </plist>
           PLIST
@@ -626,13 +626,13 @@ jobs:
           # Every non-system dylib the binary (and those dylibs) load, copied
           # in and re-pointed at @executable_path/../Frameworks.
           dylibbundler -od -b \
-            -x "$app/Contents/MacOS/cdcedit" \
+            -x "$app/Contents/MacOS/cdcai" \
             -d "$app/Contents/Frameworks" \
             -p @executable_path/../Frameworks
 
           # Nothing outside the bundle may remain: a load path into
           # Homebrew would break on a Mac without it.
-          if otool -L "$app/Contents/MacOS/cdcedit" | grep -E '/opt/homebrew|/usr/local' ; then
+          if otool -L "$app/Contents/MacOS/cdcai" | grep -E '/opt/homebrew|/usr/local' ; then
             echo "the binary still loads libraries from outside the bundle" >&2
             exit 1
           fi
@@ -642,7 +642,7 @@ jobs:
           # looks for (concat-vision's onnx.rs), and on Apple silicon it is
           # inside the binary. A link here is #333 back: the app closing at
           # launch on every macOS older than the runtime.
-          if otool -L "$app/Contents/MacOS/cdcedit" | grep libonnxruntime ; then
+          if otool -L "$app/Contents/MacOS/cdcai" | grep libonnxruntime ; then
             echo "the binary links ONNX Runtime at launch" >&2
             exit 1
           fi
@@ -676,8 +676,8 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          app=CDCedit.app
-          dmg="CDCedit-${VERSION}-macos-${{ matrix.arch }}.dmg"
+          app=CDCAi.app
+          dmg="CDCAi-${VERSION}-macos-${{ matrix.arch }}.dmg"
           if [ -n "${CERT_P12}" ] && [ -n "${IDENTITY}" ]; then
             keychain=$RUNNER_TEMP/signing.keychain-db
             echo "$CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
@@ -698,7 +698,7 @@ jobs:
               '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
               '<plist version="1.0"><dict><key>com.apple.security.device.audio-input</key><true/></dict></plist>' \
               > "$entitlements"
-            codesign --force --options runtime --timestamp --entitlements "$entitlements" -s "$IDENTITY" "$app/Contents/MacOS/cdcedit"
+            codesign --force --options runtime --timestamp --entitlements "$entitlements" -s "$IDENTITY" "$app/Contents/MacOS/cdcai"
             codesign --force --options runtime --timestamp --entitlements "$entitlements" -s "$IDENTITY" "$app"
             codesign --verify --deep --strict "$app"
           else
@@ -706,7 +706,7 @@ jobs:
             codesign --force --deep -s - "$app"
           fi
 
-          hdiutil create -volname CDCedit -srcfolder "$app" -ov -format UDZO "$dmg"
+          hdiutil create -volname CDCAi -srcfolder "$app" -ov -format UDZO "$dmg"
 
           if [ -n "${APPLE_ID}" ] && [ -n "${TEAM_ID}" ] && [ -n "${APP_PASSWORD}" ] && [ -n "${IDENTITY}" ]; then
             codesign --force --timestamp -s "$IDENTITY" "$dmg"
@@ -722,7 +722,7 @@ jobs:
       - name: Smoke test (macOS)
         if: matrix.platform == 'macos'
         timeout-minutes: 10
-        run: scripts/ci/smoke-macos.sh CDCedit.app
+        run: scripts/ci/smoke-macos.sh CDCAi.app
 
       # ── Package: Linux ─────────────────────────────────────────────────
       # The binary, the FFmpeg runtime libraries it loads from lib/ beside
@@ -733,9 +733,9 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          name="CDCedit-${VERSION}-linux-${{ matrix.arch }}"
+          name="CDCAi-${VERSION}-linux-${{ matrix.arch }}"
           mkdir -p "stage/$name/lib"
-          cp "src/target/${{ matrix.target }}/app/cdcedit" "stage/$name/cdcedit"
+          cp "src/target/${{ matrix.target }}/app/cdcai" "stage/$name/cdcai"
           cp -a ffmpeg-dev/lib/*.so* "stage/$name/lib/"
           cp -a "$ORT_DIR"/lib/libonnxruntime.so* "stage/$name/lib/"
           # whisper's shared libraries and its CPU modules, one per x86_64
@@ -756,23 +756,23 @@ jobs:
                 || { echo "libggml-cpu-$module.so is missing from the build" >&2; exit 1; }
             done
           fi
-          cp assets/icons/cdcedit_logo_256.png "stage/$name/cdcedit.png"
-          cat > "stage/$name/cdcedit.desktop" <<DESKTOP
+          cp assets/icons/cdcai_logo_256.png "stage/$name/cdcai.png"
+          cat > "stage/$name/cdcai.desktop" <<DESKTOP
           [Desktop Entry]
           Type=Application
-          Name=CDCedit
+          Name=CDCAi
           Comment=Video editor
-          Exec=cdcedit
-          Icon=cdcedit
+          Exec=cdcai
+          Icon=cdcai
           Categories=AudioVideo;Video;
           Terminal=false
-          StartupWMClass=cdcedit
+          StartupWMClass=cdcai
           DESKTOP
           cp LICENSE THIRD_PARTY_NOTICES.md "stage/$name/"
           # The binary must resolve every library from the folder alone.
           # The whole ldd report goes to the public summary when it does
           # not, so the failure names the library instead of just a step.
-          report=$(env -u LD_LIBRARY_PATH ldd "stage/$name/cdcedit" || true)
+          report=$(env -u LD_LIBRARY_PATH ldd "stage/$name/cdcai" || true)
           if grep -i 'not found' <<<"$report"; then
             {
               echo "### Unresolved libraries: ${{ matrix.target }}"
@@ -806,7 +806,7 @@ jobs:
             tar -xJf sde.tar.xz -C sde --strip-components=1
             args+=(--sde "$PWD/sde/sde64")
           fi
-          scripts/ci/smoke-linux.sh "${args[@]}" "stage/CDCedit-${VERSION}-linux-${{ matrix.arch }}"
+          scripts/ci/smoke-linux.sh "${args[@]}" "stage/CDCAi-${VERSION}-linux-${{ matrix.arch }}"
 
       # Every x86_64 binary in the folder, disassembled and counted for
       # instructions an Ivy Bridge does not have, against what
@@ -819,7 +819,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get install -y llvm
-          scripts/ci/isa-scan.sh "stage/CDCedit-${VERSION}-linux-${{ matrix.arch }}"
+          scripts/ci/isa-scan.sh "stage/CDCAi-${VERSION}-linux-${{ matrix.arch }}"
 
       # Arch Linux package, from the same folder as the .deb and .rpm.
       # Arch ships x86_64 only, so aarch64 comes from Arch Linux ARM.
@@ -829,7 +829,7 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          name="CDCedit-${VERSION}-linux-${{ matrix.arch }}"
+          name="CDCAi-${VERSION}-linux-${{ matrix.arch }}"
           pkgver="${VERSION//-/_}"
           image=archlinux:base-devel
           if [ "${{ matrix.arch }}" = aarch64 ]; then
@@ -859,12 +859,12 @@ jobs:
           docker run --rm --env CONCAT_VERSION="$pkgver" \
             -v "$work:/pkg" -w /pkg "$image" /pkg/build.sh
 
-          mv "$work"/cdcedit-*.pkg.tar.zst "stage/$name.pkg.tar.zst"
+          mv "$work"/cdcai-*.pkg.tar.zst "stage/$name.pkg.tar.zst"
           rm -rf "$work"
           ls -l stage
 
       # The folder three ways. A .deb and an .rpm, from one description in
-      # assets/linux/nfpm.yaml: the program whole under /opt/cdcedit, a
+      # assets/linux/nfpm.yaml: the program whole under /opt/cdcai, a
       # launcher on the path, a desktop entry and an icon. And an AppImage:
       # the folder as an AppDir, one file that runs on any distribution
       # with the toolkit installed, which every desktop has. All three from
@@ -877,15 +877,15 @@ jobs:
           ARCH: ${{ matrix.appimage }}
         run: |
           set -euo pipefail
-          name="CDCedit-${VERSION}-linux-${{ matrix.arch }}"
+          name="CDCAi-${VERSION}-linux-${{ matrix.arch }}"
           export STAGE="$PWD/stage/$name"
 
           # What the packages add over the folder: the launcher, and a
           # desktop entry that names the program by its installed path.
           mkdir -p "$STAGE/pkg"
-          printf '#!/bin/sh\nexec /opt/cdcedit/cdcedit "$@"\n' > "$STAGE/pkg/cdcedit"
-          chmod +x "$STAGE/pkg/cdcedit"
-          sed 's|^Exec=cdcedit|Exec=/opt/cdcedit/cdcedit %U|' "$STAGE/cdcedit.desktop" > "$STAGE/pkg/cdcedit.desktop"
+          printf '#!/bin/sh\nexec /opt/cdcai/cdcai "$@"\n' > "$STAGE/pkg/cdcai"
+          chmod +x "$STAGE/pkg/cdcai"
+          sed 's|^Exec=cdcai|Exec=/opt/cdcai/cdcai %U|' "$STAGE/cdcai.desktop" > "$STAGE/pkg/cdcai.desktop"
 
           scripts/ci/fetch.sh "nfpm-$( [ "${{ matrix.arch }}" = x86_64 ] && echo x86_64 || echo arm64 )" nfpm.tar.gz
           mkdir -p nfpm && tar -xzf nfpm.tar.gz -C nfpm
@@ -899,10 +899,10 @@ jobs:
           # The AppDir: the binary and its lib/ under usr/bin, so the
           # rpath holds; the desktop entry and icon at the root, where
           # the tool wants them; AppRun is the binary.
-          appdir="$PWD/CDCedit.AppDir"
+          appdir="$PWD/CDCAi.AppDir"
           rm -rf "$appdir"
           mkdir -p "$appdir/usr/bin" "$appdir/usr/share/icons/hicolor/256x256/apps" "$appdir/usr/share/applications"
-          cp "$STAGE/cdcedit" "$appdir/usr/bin/cdcedit"
+          cp "$STAGE/cdcai" "$appdir/usr/bin/cdcai"
           cp -a "$STAGE/lib" "$appdir/usr/bin/lib"
           # The X11 keyboard library the window opens by name at start, the
           # core library under it, and the xcb extension under that: a machine
@@ -919,12 +919,12 @@ jobs:
           for lib in libxkbcommon.so.0 libxkbcommon-x11.so.0 libxcb-xkb.so.1; do
             cp -L "$(ldconfig -p | awk -v lib="$lib" '$1 == lib { print $NF; exit }')" "$appdir/usr/bin/lib/$lib"
           done
-          cp "$STAGE/cdcedit.desktop" "$appdir/cdcedit.desktop"
-          cp "$STAGE/cdcedit.desktop" "$appdir/usr/share/applications/cdcedit.desktop"
-          cp "$STAGE/cdcedit.png" "$appdir/cdcedit.png"
-          cp "$STAGE/cdcedit.png" "$appdir/usr/share/icons/hicolor/256x256/apps/cdcedit.png"
-          ln -s cdcedit.png "$appdir/.DirIcon"
-          ln -s usr/bin/cdcedit "$appdir/AppRun"
+          cp "$STAGE/cdcai.desktop" "$appdir/cdcai.desktop"
+          cp "$STAGE/cdcai.desktop" "$appdir/usr/share/applications/cdcai.desktop"
+          cp "$STAGE/cdcai.png" "$appdir/cdcai.png"
+          cp "$STAGE/cdcai.png" "$appdir/usr/share/icons/hicolor/256x256/apps/cdcai.png"
+          ln -s cdcai.png "$appdir/.DirIcon"
+          ln -s usr/bin/cdcai "$appdir/AppRun"
           # The tool and the runtime it puts at the head of the AppImage,
           # both a named release: left to itself the tool downloads the
           # runtime's `continuous` build as it runs.
@@ -934,7 +934,7 @@ jobs:
           # Extract-and-run: the runner has no FUSE to mount the tool with.
           # No "linux" in its name: every AppImage is for Linux, and the
           # AppImage catalog's check warns about names that say so.
-          appimage="stage/CDCedit-${VERSION}-${{ matrix.arch }}.AppImage"
+          appimage="stage/CDCAi-${VERSION}-${{ matrix.arch }}.AppImage"
           ./appimagetool --appimage-extract-and-run --runtime-file appimage-runtime "$appdir" "$appimage"
           chmod +x "$appimage"
 
@@ -955,8 +955,8 @@ jobs:
           set -euo pipefail
           for image in ubuntu:22.04 debian:12; do
             scripts/ci/smoke-linux.sh --container "$image" \
-              "stage/CDCedit-${VERSION}-linux-${{ matrix.arch }}.deb" \
-              "stage/CDCedit-${VERSION}-${{ matrix.arch }}.AppImage"
+              "stage/CDCAi-${VERSION}-linux-${{ matrix.arch }}.deb" \
+              "stage/CDCAi-${VERSION}-${{ matrix.arch }}.AppImage"
           done
 
       # ── Package: Windows ───────────────────────────────────────────────
@@ -973,10 +973,10 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           $ErrorActionPreference = "Stop"
-          $name = "CDCedit-$env:VERSION-windows-${{ matrix.arch }}"
+          $name = "CDCAi-$env:VERSION-windows-${{ matrix.arch }}"
           $dir = "stage\$name"
           New-Item -ItemType Directory -Force $dir | Out-Null
-          Copy-Item "src\target\${{ matrix.target }}\app\cdcedit.exe" $dir
+          Copy-Item "src\target\${{ matrix.target }}\app\cdcai.exe" $dir
           Copy-Item "$env:FFMPEG_DIR\bin\*.dll" $dir
           # The sherpa-onnx runtime, set aside by the download step above.
           Copy-Item "$env:SHERPA_DLL_DIR\*.dll" $dir
@@ -984,7 +984,7 @@ jobs:
           # whisper's DLLs and its CPU modules, one per x86_64 generation
           # (the job's `env` says why), from the bin\ whisper-rs-sys
           # installed them to; see the Linux stage for why not from beside
-          # the program. Beside cdcedit.exe Windows finds the DLLs and
+          # the program. Beside cdcai.exe Windows finds the DLLs and
           # concat-speech's `cpu_backend` the modules.
           if ("${{ matrix.ggml }}" -eq "variants") {
             $built = Get-ChildItem "src\target\${{ matrix.target }}\app\build\whisper-rs-sys-*\out\bin\ggml-cpu-x64.dll" |
@@ -1061,12 +1061,12 @@ jobs:
           if (-not $signtool) { throw "signtool.exe is not in the Windows SDK" }
           "SIGNTOOL=$($signtool.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
           "SIGNING_THUMBPRINT=$($cert.Thumbprint)" | Out-File -FilePath $env:GITHUB_ENV -Append
-          $dir = "stage\CDCedit-$env:VERSION-windows-${{ matrix.arch }}"
+          $dir = "stage\CDCAi-$env:VERSION-windows-${{ matrix.arch }}"
           $unsigned = Get-ChildItem $dir -Recurse -File -Include *.exe, *.dll |
             Where-Object { (Get-AuthenticodeSignature $_.FullName).Status -ne "Valid" }
           foreach ($file in $unsigned) {
             & $signtool.FullName sign /sha1 $cert.Thumbprint /s My /fd SHA256 `
-              /tr http://timestamp.digicert.com /td SHA256 /d CDCedit $file.FullName
+              /tr http://timestamp.digicert.com /td SHA256 /d CDCAi $file.FullName
             if ($LASTEXITCODE -ne 0) { throw "signtool failed on $($file.Name)" }
           }
           Write-Host "Signed $(@($unsigned).Count) files."
@@ -1082,7 +1082,7 @@ jobs:
         shell: pwsh
         env:
           VERSION: ${{ steps.version.outputs.version }}
-        run: scripts/ci/smoke-windows.ps1 -Bundle "stage\CDCedit-$env:VERSION-windows-${{ matrix.arch }}"
+        run: scripts/ci/smoke-windows.ps1 -Bundle "stage\CDCAi-$env:VERSION-windows-${{ matrix.arch }}"
 
       # The same, then `--version` under Intel's emulator posing as an Ivy
       # Bridge (#313). A step of its own, after the plain smoke test: in
@@ -1110,7 +1110,7 @@ jobs:
           $sde = (Get-ChildItem sde -Recurse -Filter sde.exe | Select-Object -First 1).FullName
           if (-not $sde) { throw "sde.exe is not in the archive" }
           Write-Host "SDE at $sde"
-          scripts/ci/smoke-windows.ps1 -Bundle "stage\CDCedit-$env:VERSION-windows-x86_64" -Sde $sde
+          scripts/ci/smoke-windows.ps1 -Bundle "stage\CDCAi-$env:VERSION-windows-x86_64" -Sde $sde
 
       # Every x86_64 binary in the folder, disassembled and counted for
       # instructions an Ivy Bridge does not have, against what
@@ -1122,7 +1122,7 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
         # llvm-objdump from the LLVM installed above, on the path.
-        run: scripts/ci/isa-scan.sh "stage/CDCedit-${VERSION}-windows-${{ matrix.arch }}"
+        run: scripts/ci/isa-scan.sh "stage/CDCAi-${VERSION}-windows-${{ matrix.arch }}"
 
       # The installers, from the checked folder: Inno Setup's .exe and
       # WiX's .msi, each signed when the folder was.
@@ -1133,11 +1133,11 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           $ErrorActionPreference = "Stop"
-          $name = "CDCedit-$env:VERSION-windows-${{ matrix.arch }}"
+          $name = "CDCAi-$env:VERSION-windows-${{ matrix.arch }}"
           function Sign($file) {
             if (-not $env:SIGNING_THUMBPRINT) { return }
             & $env:SIGNTOOL sign /sha1 $env:SIGNING_THUMBPRINT /s My /fd SHA256 `
-              /tr http://timestamp.digicert.com /td SHA256 /d CDCedit $file
+              /tr http://timestamp.digicert.com /td SHA256 /d CDCAi $file
             if ($LASTEXITCODE -ne 0) { throw "signtool failed on $file" }
           }
           # The installer, from that folder: Inno Setup, which the x64
@@ -1176,6 +1176,6 @@ jobs:
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: CDCedit-${{ matrix.platform }}-${{ matrix.arch }}
+          name: CDCAi-${{ matrix.platform }}-${{ matrix.arch }}
           path: stage/*
           if-no-files-found: error

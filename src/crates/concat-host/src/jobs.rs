@@ -151,7 +151,7 @@ impl Tripwire {
 
     /// Whether a job on `dir` was running when its process died: the mark
     /// is there and the process that left it is not running any more. A
-    /// second CDCedit open beside the first sees the first's mark as a job
+    /// second CDCAi open beside the first sees the first's mark as a job
     /// running, not as a death. Only meaningful while no job on `dir` is
     /// running in this process.
     pub fn tripped(dir: &std::path::Path) -> bool {

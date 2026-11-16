@@ -1,12 +1,12 @@
-; CDCedit's Windows installer.
+; CDCAi's Windows installer.
 ;
 ; Built by build-app.yml with Inno Setup from the staged folder the .msi
 ; is also made of, so the two ship the same files; this is the one a
-; person double-clicks, and it puts CDCedit in the Start menu and can take
+; person double-clicks, and it puts CDCAi in the Start menu and can take
 ; it out again. Everything it needs is handed in on the command line:
 ;
 ;   iscc /DVersion=0.2.8 /DArch=x64compatible /DSuffix=x86_64 ^
-;        /DStage=C:\...\stage\CDCedit-0.2.8-windows-x86_64 /DOut=C:\...\stage ^
+;        /DStage=C:\...\stage\CDCAi-0.2.8-windows-x86_64 /DOut=C:\...\stage ^
 ;        assets\windows\concat.iss
 ;
 ; Arch is Inno's own word for the machine: x64compatible for the x86_64
@@ -33,19 +33,19 @@
 ; One id for the life of the product, so an install over an older one is
 ; an upgrade and not a second copy.
 AppId={{953778A2-60DA-4E3E-91B5-377A14927EF6}
-AppName=CDCedit
+AppName=CDCAi
 AppVersion={#Version}
-AppVerName=CDCedit {#Version}
-AppPublisher=CDCedit contributors
-DefaultDirName={autopf}\CDCedit
-DefaultGroupName=CDCedit
+AppVerName=CDCAi {#Version}
+AppPublisher=CDCAi contributors
+DefaultDirName={autopf}\CDCAi
+DefaultGroupName=CDCAi
 DisableProgramGroupPage=yes
 LicenseFile=..\..\LICENSE
 OutputDir={#Out}
-OutputBaseFilename=CDCedit-{#Version}-windows-{#Suffix}-setup
-SetupIconFile=..\icons\cdcedit.ico
-UninstallDisplayIcon={app}\cdcedit.ico
-UninstallDisplayName=CDCedit
+OutputBaseFilename=CDCAi-{#Version}-windows-{#Suffix}-setup
+SetupIconFile=..\icons\cdcai.ico
+UninstallDisplayIcon={app}\cdcai.ico
+UninstallDisplayName=CDCAi
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
@@ -102,14 +102,14 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 Source: "{#Stage}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "..\icons\cdcedit.ico"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\icons\cdcai.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{autoprograms}\CDCedit"; Filename: "{app}\cdcedit.exe"; IconFilename: "{app}\cdcedit.ico"
+Name: "{autoprograms}\CDCAi"; Filename: "{app}\cdcai.exe"; IconFilename: "{app}\cdcai.ico"
 ; The way in when a graphics driver draws the window as coloured squares:
 ; it turns off Settings > General > Draw on the GPU, which that window hides.
-Name: "{autoprograms}\CDCedit (safe graphics)"; Filename: "{app}\cdcedit.exe"; Parameters: "--software"; IconFilename: "{app}\cdcedit.ico"
-Name: "{autodesktop}\CDCedit"; Filename: "{app}\cdcedit.exe"; IconFilename: "{app}\cdcedit.ico"; Tasks: desktopicon
+Name: "{autoprograms}\CDCAi (safe graphics)"; Filename: "{app}\cdcai.exe"; Parameters: "--software"; IconFilename: "{app}\cdcai.ico"
+Name: "{autodesktop}\CDCAi"; Filename: "{app}\cdcai.exe"; IconFilename: "{app}\cdcai.ico"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\cdcedit.exe"; Description: "{cm:LaunchProgram,CDCedit}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\cdcai.exe"; Description: "{cm:LaunchProgram,CDCAi}"; Flags: nowait postinstall skipifsilent

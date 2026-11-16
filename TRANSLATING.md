@@ -1,6 +1,6 @@
-# Translating CDCedit
+# Translating CDCAi
 
-CDCedit speaks the language you choose in Settings › General › Language, and a
+CDCAi speaks the language you choose in Settings › General › Language, and a
 language is one file. This is how to add or improve one.
 
 ## How it works
@@ -41,7 +41,7 @@ The file's name is the language code: `de.json`, `pt-BR.json`, `zh-Hans.json`.
 
 ## Trying a translation without building
 
-Drop your file into the `locales` folder of CDCedit's config directory and
+Drop your file into the `locales` folder of CDCAi's config directory and
 restart the app; the language appears in Settings.
 
 | Platform | Folder |
@@ -50,11 +50,11 @@ restart the app; the language appears in Settings.
 | Linux | `~/.config/org.standalones.concat/locales/` |
 | Windows | `%APPDATA%\org.standalones.concat\locales\` |
 
-A file there with the code of a language CDCedit ships lays its lines over
+A file there with the code of a language CDCAi ships lays its lines over
 the shipped ones, so a correction is a file holding only the lines that
 change.
 
-## Shipping a language with CDCedit
+## Shipping a language with CDCAi
 
 1. Put the file in `src/crates/concat/locales/`.
 2. Add its code and file to the `BUILT_IN` table at the top of
@@ -66,10 +66,10 @@ change.
 4. Run `python3 scripts/locales.py --check`. It lists every line each
    locale still lacks, refuses a key nothing in the source asks for, and
    fails on a locale with no README or a README with no locale.
-5. Open a pull request. Corrections to the languages CDCedit already ships
+5. Open a pull request. Corrections to the languages CDCAi already ships
    are just as welcome as new ones.
 
-CDCedit ships 26 languages: English, العربية, Azərbaycanca, বাংলা, Deutsch, Español, فارسی,
+CDCAi ships 26 languages: English, العربية, Azərbaycanca, বাংলা, Deutsch, Español, فارسی,
 Français, עברית, हिन्दी, Hrvatski, Bahasa Indonesia, Italiano, 日本語, 한국어,
 Nederlands, Polski, Português (Brasil), Русский, ไทย, Türkçe, Українська,
 اردو, Tiếng Việt, 简体中文 and 繁體中文.

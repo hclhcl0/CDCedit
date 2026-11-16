@@ -382,7 +382,7 @@ impl Cutouts {
 /// Streams a model into `file`, by way of a `.part` beside it, reporting
 /// every couple of megabytes and stopping when `cancel` is set.
 ///
-/// CDCedit's own mirror first, the upstream it was filled from second: see
+/// CDCAi's own mirror first, the upstream it was filled from second: see
 /// [`crate::models`]. Whichever answers, the bytes are checked against the
 /// digest the table carries before anything is renamed into place, so a
 /// truncated or substituted file never becomes an installed model.

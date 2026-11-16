@@ -2,12 +2,12 @@
 # Launches the built macOS bundle the way a person would, and fails if it
 # does not start: nothing else in the build ever runs what it packages.
 #
-#   smoke-macos.sh CDCedit.app
+#   smoke-macos.sh CDCAi.app
 #
 # The signature holds over the whole bundle (an ad-hoc one, which is what
 # a fork's build gets, passes and is reported); no binary in it loads a
-# library from Homebrew or anywhere else outside the bundle; `cdcedit
-# --version` exits 0; and `cdcedit --smoke` - start-up through the first
+# library from Homebrew or anywhere else outside the bundle; `cdcai
+# --version` exits 0; and `cdcai --smoke` - start-up through the first
 # frame of the window, then out - exits 0. Runs in CI after signing
 # (build-app.yml), and locally against a bundle built the same way.
 set -euo pipefail
@@ -35,9 +35,9 @@ expect_ok() {
   fi
 }
 
-[ $# -eq 1 ] || { echo "usage: $0 CDCedit.app" >&2; exit 2; }
+[ $# -eq 1 ] || { echo "usage: $0 CDCAi.app" >&2; exit 2; }
 app=$1
-bin="$app/Contents/MacOS/cdcedit"
+bin="$app/Contents/MacOS/cdcai"
 [ -x "$bin" ] || fail "$bin is not there"
 
 say "the signature"
@@ -63,10 +63,10 @@ if [ -n "$leaks" ]; then
 fi
 echo "every load path is the system's or the bundle's"
 
-say "cdcedit --version"
-HOME=$(mktemp -d) expect_ok "cdcedit --version" 60 "$bin" --version
+say "cdcai --version"
+HOME=$(mktemp -d) expect_ok "cdcai --version" 60 "$bin" --version
 
-say "cdcedit --smoke"
-HOME=$(mktemp -d) expect_ok "cdcedit --smoke" 180 "$bin" --smoke
+say "cdcai --smoke"
+HOME=$(mktemp -d) expect_ok "cdcai --smoke" 180 "$bin" --smoke
 
 say "ok"

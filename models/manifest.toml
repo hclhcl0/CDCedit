@@ -1,6 +1,6 @@
-# The models CDCedit downloads, and where they come from.
+# The models CDCAi downloads, and where they come from.
 #
-# CDCedit ships no weights inside its bundles - a cutout network, a Kokoro
+# CDCAi ships no weights inside its bundles - a cutout network, a Kokoro
 # voice bank and a whisper model together outweigh the editor many times
 # over, and most people never ask for all three. They are fetched the first
 # time a feature needs one.
@@ -9,7 +9,7 @@
 # release of this repository, under the `release` tag below, and that mirror
 # is what the app asks for; `upstream` is where the mirror was filled from
 # and what the app falls back to if our own release cannot be reached. The
-# point of the mirror is that a model CDCedit offers stays reachable, stays
+# point of the mirror is that a model CDCAi offers stays reachable, stays
 # the bytes we tested, and stays under one roof, rather than depending on a
 # third party's bucket keeping a path alive.
 #

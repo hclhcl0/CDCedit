@@ -1,23 +1,23 @@
-# CDCedit for AI agents (MCP)
+# CDCAi for AI agents (MCP)
 
-CDCedit ships an [MCP](https://modelcontextprotocol.io) server inside the app. An agent - Claude Code, Claude Desktop, or any other MCP client - starts it as `cdcedit --mcp` and can then create projects, import media, cut, add titles and captions, keyframe, apply effects, look at frames and export, with the same edit commands the window uses. Nothing extra to install.
+CDCAi ships an [MCP](https://modelcontextprotocol.io) server inside the app. An agent - Claude Code, Claude Desktop, or any other MCP client - starts it as `cdcai --mcp` and can then create projects, import media, cut, add titles and captions, keyframe, apply effects, look at frames and export, with the same edit commands the window uses. Nothing extra to install.
 
 ## Set it up
 
-Point your client at the CDCedit binary with the one argument `--mcp`.
+Point your client at the CDCAi binary with the one argument `--mcp`.
 
 | System | Command |
 | --- | --- |
-| macOS | `/Applications/CDCedit.app/Contents/MacOS/concat` |
-| Windows (installed for you) | `%LOCALAPPDATA%\Programs\CDCedit\cdcedit.exe` |
-| Windows (installed for everyone, or the .msi) | `C:\Program Files\CDCedit\cdcedit.exe` |
+| macOS | `/Applications/CDCAi.app/Contents/MacOS/concat` |
+| Windows (installed for you) | `%LOCALAPPDATA%\Programs\CDCAi\cdcai.exe` |
+| Windows (installed for everyone, or the .msi) | `C:\Program Files\CDCAi\cdcai.exe` |
 | Linux (.deb, .rpm, Arch) | `/usr/bin/concat` |
 | Linux (AppImage) | the `.AppImage` file itself |
 
 **Claude Code:**
 
 ```sh
-claude mcp add concat -- /Applications/CDCedit.app/Contents/MacOS/cdcedit --mcp
+claude mcp add concat -- /Applications/CDCAi.app/Contents/MacOS/cdcai --mcp
 ```
 
 **Claude Desktop** (Settings > Developer > Edit Config, `claude_desktop_config.json`), and most other clients, which take the same shape:
@@ -26,21 +26,21 @@ claude mcp add concat -- /Applications/CDCedit.app/Contents/MacOS/cdcedit --mcp
 {
   "mcpServers": {
     "concat": {
-      "command": "/Applications/CDCedit.app/Contents/MacOS/cdcedit",
+      "command": "/Applications/CDCAi.app/Contents/MacOS/cdcai",
       "args": ["--mcp"]
     }
   }
 }
 ```
 
-On Windows, write the path with doubled backslashes in JSON: `"C:\\Program Files\\CDCedit\\cdcedit.exe"`.
+On Windows, write the path with doubled backslashes in JSON: `"C:\\Program Files\\CDCAi\\cdcai.exe"`.
 
-## How it reaches CDCedit
+## How it reaches CDCAi
 
-`cdcedit --mcp` works one of two ways, and the `concat_version` tool says which (`mcp.mode`):
+`cdcai --mcp` works one of two ways, and the `concat_version` tool says which (`mcp.mode`):
 
-- **Through the window** (`window`). When CDCedit is open with **Settings > Automation > Scripts and apps** on, the window writes where its server is, and its token, to `automation.json` in CDCedit's config folder (readable only by you). The MCP server finds it and goes through the window's server. This is the safer way while you are editing: the agent cannot open the project you have on screen and save over it, and exports take turns with yours.
-- **On its own** (`headless`). Otherwise the MCP server runs CDCedit's engine itself, with no window. Nothing has to be open. Every CDCedit process locks the project folders it has open (`concat.lock`, let go on close or when the process dies), so a project open in the window is refused here with a note to turn on Automation and use `--mcp window`, and the window refuses a project an agent has open.
+- **Through the window** (`window`). When CDCAi is open with **Settings > Automation > Scripts and apps** on, the window writes where its server is, and its token, to `automation.json` in CDCAi's config folder (readable only by you). The MCP server finds it and goes through the window's server. This is the safer way while you are editing: the agent cannot open the project you have on screen and save over it, and exports take turns with yours.
+- **On its own** (`headless`). Otherwise the MCP server runs CDCAi's engine itself, with no window. Nothing has to be open. Every CDCAi process locks the project folders it has open (`concat.lock`, let go on close or when the process dies), so a project open in the window is refused here with a note to turn on Automation and use `--mcp window`, and the window refuses a project an agent has open.
 
 Choose explicitly with `--mcp window` (fail rather than run on its own) or `--mcp headless`; the default is `--mcp auto`. To reach a server elsewhere, set `CONCAT_API_ADDRESS` (e.g. `127.0.0.1:7420`) and `CONCAT_API_TOKEN` in the client's `env` for the server.
 
@@ -50,7 +50,7 @@ The agent edits projects of its own; it does not edit the project open in the wi
 
 ## What the agent can do
 
-Tools are named for what they do, and their argument schemas are generated from the CDCedit API's own types, so they carry the same limits and descriptions the engine does.
+Tools are named for what they do, and their argument schemas are generated from the CDCAi API's own types, so they carry the same limits and descriptions the engine does.
 
 | Area | Tools |
 | --- | --- |

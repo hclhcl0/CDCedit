@@ -1,8 +1,8 @@
 name: Mirror models
 
-# Fills CDCedit's model mirror from upstream and publishes it as a release.
+# Fills CDCAi's model mirror from upstream and publishes it as a release.
 #
-# CDCedit fetches its cutout networks, its Kokoro voice bank and its whisper
+# CDCAi fetches its cutout networks, its Kokoro voice bank and its whisper
 # models on demand, and it fetches them from a release of this repository
 # rather than from whoever published them. models/manifest.toml is the table
 # of what those are; this workflow is what turns that table into the release
@@ -113,8 +113,8 @@ jobs:
           set -euo pipefail
           if ! gh release view "$RELEASE" >/dev/null 2>&1; then
             gh release create "$RELEASE" \
-              --title "CDCedit models ($RELEASE)" \
-              --notes "The models CDCedit downloads on demand, mirrored from the upstreams named in models/manifest.toml. Not an app release: see the tags beginning with v for those." \
+              --title "CDCAi models ($RELEASE)" \
+              --notes "The models CDCAi downloads on demand, mirrored from the upstreams named in models/manifest.toml. Not an app release: see the tags beginning with v for those." \
               --latest=false
           fi
           gh release upload "$RELEASE" mirror/* --clobber

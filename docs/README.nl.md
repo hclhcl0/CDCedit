@@ -1,9 +1,9 @@
-<p align="center"><img src="../assets/icons/cdcedit_logo_256.png" alt="CDCedit" width="100" /></p>
-<h1 align="center">CDCedit</h1>
+<p align="center"><img src="../assets/icons/cdcai_logo_256.png" alt="CDCAi" width="100" /></p>
+<h1 align="center">CDCAi</h1>
 
-CDCedit is a customized video editor derived from [Concat](https://github.com/jub0t/Concat). Original author and license notices are retained. Build this fork to use CDCedit features; upstream release links below refer to the original project.
+CDCAi is a customized video editor derived from [Concat](https://github.com/jub0t/Concat). Original author and license notices are retained. Build this fork to use CDCAi features; upstream release links below refer to the original project.
 
-CDCedit is een gratis, open-source video-editor en een alternatief voor CapCut op macOS, Windows, Linux en Android. Het doet waarvoor mensen CapCut eigenlijk openen: automatische ondertitels, tekst-naar-spraak, achtergrond verwijderen, keyframe-animatie, effecten en titels, monteren op meerdere sporen, exporteren in 4K. En dat zonder addertjes onder het gras: geen watermerk, geen account, geen abonnement, geen upload.
+CDCAi is een gratis, open-source video-editor en een alternatief voor CapCut op macOS, Windows, Linux en Android. Het doet waarvoor mensen CapCut eigenlijk openen: automatische ondertitels, tekst-naar-spraak, achtergrond verwijderen, keyframe-animatie, effecten en titels, monteren op meerdere sporen, exporteren in 4K. En dat zonder addertjes onder het gras: geen watermerk, geen account, geen abonnement, geen upload.
 
 Alles draait lokaal, op een native Rust-engine met een GPU-compositor. Installeren, beeldmateriaal erin slepen, knippen. De AI-modellen voor ondertitels, stemmen en uitsnijden download je één keer via Instellingen, daarna werken ze offline. Je beeldmateriaal verlaat je schijf nooit.
 
@@ -36,12 +36,12 @@ Twee manieren:
 1. **[De website](https://concatenate.pages.dev/#download)** geeft je de juiste build voor je computer. Begin hier.
 2. **[GitHub Releases](https://github.com/jub0t/Concat/releases)** heeft elke build voor elk platform, met installers, pakketten en checksums. Voor als je zelf wilt kiezen.
 
-CDCedit is in **bèta**: het werkt, maar er zitten nog ruwe randjes aan. [Laat het weten](https://github.com/jub0t/Concat/issues) als je er een tegenkomt.
+CDCAi is in **bèta**: het werkt, maar er zitten nog ruwe randjes aan. [Laat het weten](https://github.com/jub0t/Concat/issues) als je er een tegenkomt.
 
 **Platforms**
 
 - ✅ **Windows** · x86_64 (ARM-builds zijn gepauzeerd, zie [#326](https://github.com/jub0t/Concat/issues/326)). Een setup en een `.msi`. Als SmartScreen een niet-ondertekende build tegenhoudt: **Meer informatie** › **Toch uitvoeren**
-- ✅ **macOS** · Intel en Apple silicon. Als macOS een niet-ondertekende build niet wil openen: `xattr -dr com.apple.quarantine /Applications/CDCedit.app`
+- ✅ **macOS** · Intel en Apple silicon. Als macOS een niet-ondertekende build niet wil openen: `xattr -dr com.apple.quarantine /Applications/CDCAi.app`
 - ✅ **Linux** · x86_64 en ARM. `.deb`, `.rpm`, `.AppImage` en een Arch-pakket. Ook als Flatpak op **[Flatpark](https://flatpark.org/apps/app.concat.editor/)**, een Flatpak-remote uit de community die de x86_64-`.deb` van elke release verpakt en met elke release meegaat
 - ✅ **Android** · telefoons en tablets
 - ✅ **iOS / iPadOS** · iPhone en iPad, via sideloading
@@ -57,7 +57,7 @@ CDCedit is in **bèta**: het werkt, maar er zitten nog ruwe randjes aan. [Laat h
 > [!IMPORTANT]
 > De beste manier om bij te dragen is een build van de [Releases](https://github.com/jub0t/Concat/releases)-pagina te halen en die te gebruiken: zoek uit waar hij stukgaat, en zeg wat er beter kan.
 >
-> Klaar om code te schrijven? [CONTRIBUTING.md](../CONTRIBUTING.md) beschrijft de installatie, de indeling van de broncode, de controles die je moet draaien en onder welke licentie bijdragen vallen. Stuur je CDCedit aan vanuit een script, een service of een agent? [De ontwikkelaarsdocumentatie](https://concatenate.pages.dev/docs) beschrijft de CDCedit-API en de transports ervan: JSON-RPC en gRPC. In [deze Discussion](https://github.com/jub0t/Concat/discussions/3) werd het project aangekondigd.
+> Klaar om code te schrijven? [CONTRIBUTING.md](../CONTRIBUTING.md) beschrijft de installatie, de indeling van de broncode, de controles die je moet draaien en onder welke licentie bijdragen vallen. Stuur je CDCAi aan vanuit een script, een service of een agent? [De ontwikkelaarsdocumentatie](https://concatenate.pages.dev/docs) beschrijft de CDCAi-API en de transports ervan: JSON-RPC en gRPC. In [deze Discussion](https://github.com/jub0t/Concat/discussions/3) werd het project aangekondigd.
 > 
 > Bijdragers kunnen een `@Contributor`-rol krijgen op de Discord-server: vraag er gewoon om.
 

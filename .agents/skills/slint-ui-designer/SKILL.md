@@ -1,11 +1,11 @@
 ---
 name: slint-ui-designer
-description: Master skill for crafting modern, minimalist, responsive, and high-performance desktop application UIs using Slint and Rust in CDCedit. Use whenever designing, refactoring, styling, or creating UI components, layout structures, animations, design systems, dark modes, or AI tool studios in .slint files.
+description: Master skill for crafting modern, minimalist, responsive, and high-performance desktop application UIs using Slint and Rust in CDCAi. Use whenever designing, refactoring, styling, or creating UI components, layout structures, animations, design systems, dark modes, or AI tool studios in .slint files.
 ---
 
 # Slint UI Designer: Minimalist & Modern Desktop Studio
 
-Bộ kỹ năng chuyên sâu để thiết kế và hiện thực hóa giao diện ứng dụng desktop bằng **Slint UI** trong dự án CDCedit (Rust). Skill này giúp AI và lập trình viên luôn tạo ra các giao diện tinh gọn, thẩm mỹ cao (Dark Slate Minimalist), chuẩn công thái học và khai thác tối đa sức mạnh của Slint.
+Bộ kỹ năng chuyên sâu để thiết kế và hiện thực hóa giao diện ứng dụng desktop bằng **Slint UI** trong dự án CDCAi (Rust). Skill này giúp AI và lập trình viên luôn tạo ra các giao diện tinh gọn, thẩm mỹ cao (Dark Slate Minimalist), chuẩn công thái học và khai thác tối đa sức mạnh của Slint.
 
 ---
 
@@ -27,7 +27,7 @@ Khi làm giao diện cho ứng dụng bản Lite hoặc AI Companion, luôn tuâ
 
 ---
 
-## 2. Design System chuẩn của CDCedit (Dark Slate Theme)
+## 2. Design System chuẩn của CDCAi (Dark Slate Theme)
 
 ### Bảng màu (Color Palette)
 - **Background chính (Page)**: `#0a0b10` (Deep Dark) hoặc `Theme.page`

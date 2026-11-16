@@ -7,7 +7,7 @@
         --version 0.2.1 --tag v0.2.1 \\
         --bundles dir --out manifest.json     # what a release describes
 
-CDCedit fetches its cutout networks, its Kokoro voice bank and its whisper
+CDCAi fetches its cutout networks, its Kokoro voice bank and its whisper
 models on demand rather than carrying them in the bundle. models/manifest.toml
 says what they are and where they come from; this script is what fills the
 mirror from upstream, and what turns the table into the manifest.json every
@@ -52,22 +52,22 @@ TABLES = {
 # version to fill in. Installers and binaries, never an archive of a
 # folder - a person downloads the thing they run.
 BUNDLES = [
-    ("macos", "arm64", "dmg", "CDCedit-{v}-macos-arm64.dmg"),
-    ("macos", "x86_64", "dmg", "CDCedit-{v}-macos-x86_64.dmg"),
-    ("linux", "x86_64", "deb", "CDCedit-{v}-linux-x86_64.deb"),
-    ("linux", "x86_64", "rpm", "CDCedit-{v}-linux-x86_64.rpm"),
-    ("linux", "x86_64", "appimage", "CDCedit-{v}-x86_64.AppImage"),
-    ("linux", "x86_64", "pacman", "CDCedit-{v}-linux-x86_64.pkg.tar.zst"),
-    ("linux", "aarch64", "deb", "CDCedit-{v}-linux-aarch64.deb"),
-    ("linux", "aarch64", "rpm", "CDCedit-{v}-linux-aarch64.rpm"),
-    ("linux", "aarch64", "appimage", "CDCedit-{v}-aarch64.AppImage"),
-    ("linux", "aarch64", "pacman", "CDCedit-{v}-linux-aarch64.pkg.tar.zst"),
-    ("windows", "x86_64", "setup", "CDCedit-{v}-windows-x86_64-setup.exe"),
-    ("windows", "x86_64", "msi", "CDCedit-{v}-windows-x86_64.msi"),
-    ("windows", "aarch64", "setup", "CDCedit-{v}-windows-aarch64-setup.exe"),
-    ("windows", "aarch64", "msi", "CDCedit-{v}-windows-aarch64.msi"),
-    ("android", "arm64", "apk", "CDCedit-{v}-android-arm64.apk"),
-    ("ios", "arm64", "ipa", "CDCedit-{v}-ios-arm64.ipa"),
+    ("macos", "arm64", "dmg", "CDCAi-{v}-macos-arm64.dmg"),
+    ("macos", "x86_64", "dmg", "CDCAi-{v}-macos-x86_64.dmg"),
+    ("linux", "x86_64", "deb", "CDCAi-{v}-linux-x86_64.deb"),
+    ("linux", "x86_64", "rpm", "CDCAi-{v}-linux-x86_64.rpm"),
+    ("linux", "x86_64", "appimage", "CDCAi-{v}-x86_64.AppImage"),
+    ("linux", "x86_64", "pacman", "CDCAi-{v}-linux-x86_64.pkg.tar.zst"),
+    ("linux", "aarch64", "deb", "CDCAi-{v}-linux-aarch64.deb"),
+    ("linux", "aarch64", "rpm", "CDCAi-{v}-linux-aarch64.rpm"),
+    ("linux", "aarch64", "appimage", "CDCAi-{v}-aarch64.AppImage"),
+    ("linux", "aarch64", "pacman", "CDCAi-{v}-linux-aarch64.pkg.tar.zst"),
+    ("windows", "x86_64", "setup", "CDCAi-{v}-windows-x86_64-setup.exe"),
+    ("windows", "x86_64", "msi", "CDCAi-{v}-windows-x86_64.msi"),
+    ("windows", "aarch64", "setup", "CDCAi-{v}-windows-aarch64-setup.exe"),
+    ("windows", "aarch64", "msi", "CDCAi-{v}-windows-aarch64.msi"),
+    ("android", "arm64", "apk", "CDCAi-{v}-android-arm64.apk"),
+    ("ios", "arm64", "ipa", "CDCAi-{v}-ios-arm64.ipa"),
 ]
 
 
@@ -375,7 +375,7 @@ def release_manifest(version: str, tag: str, bundles: pathlib.Path | None) -> di
     return {
         # 2: a target holds one row per kind of file, not one file.
         "schema": 2,
-        "product": "CDCedit",
+        "product": "CDCAi",
         "version": version,
         "tag": tag,
         "models_release": release,

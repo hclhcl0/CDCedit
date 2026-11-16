@@ -38,7 +38,7 @@ pub mod proto {
     tonic::include_proto!("concat.v1");
 }
 
-use proto::concat_server::{CDCedit, ConcatServer};
+use proto::concat_server::{Concat, ConcatServer};
 
 /// The service: the hub, and nothing else.
 struct Service {
@@ -46,7 +46,7 @@ struct Service {
 }
 
 #[tonic::async_trait]
-impl CDCedit for Service {
+impl Concat for Service {
     async fn call(
         &self,
         request: Request<proto::Request>,

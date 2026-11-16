@@ -34,7 +34,7 @@ impl Client {
     /// long as their method does.
     pub fn connect(address: SocketAddr, token: &str, patience: Duration) -> Result<Client, String> {
         let could_not = |error: &dyn std::fmt::Display| {
-            format!("could not reach the CDCedit server at {address}: {error}")
+            format!("could not reach the CDCAi server at {address}: {error}")
         };
         let stream =
             TcpStream::connect_timeout(&address, patience).map_err(|error| could_not(&error))?;
@@ -87,7 +87,7 @@ impl Client {
         let line = json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params });
         let gone = |error: &dyn std::fmt::Display| {
             ApiError::failed(format!(
-                "the connection to the CDCedit server failed: {error}"
+                "the connection to the CDCAi server failed: {error}"
             ))
         };
         writeln!(self.writer, "{line}").map_err(|error| gone(&error))?;

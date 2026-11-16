@@ -1,9 +1,9 @@
-<p align="center"><img src="../assets/icons/cdcedit_logo_256.png" alt="CDCedit" width="100" /></p>
-<h1 align="center">CDCedit</h1>
+<p align="center"><img src="../assets/icons/cdcai_logo_256.png" alt="CDCAi" width="100" /></p>
+<h1 align="center">CDCAi</h1>
 
-CDCedit is a customized video editor derived from [Concat](https://github.com/jub0t/Concat). Original author and license notices are retained. Build this fork to use CDCedit features; upstream release links below refer to the original project.
+CDCAi is a customized video editor derived from [Concat](https://github.com/jub0t/Concat). Original author and license notices are retained. Build this fork to use CDCAi features; upstream release links below refer to the original project.
 
-CDCedit є безкоштовним відеоредактором з відкритим кодом і альтернативою CapCut для macOS, Windows, Linux та Android. Він уміє те, заради чого люди насправді відкривають CapCut: автоматичні субтитри, синтез мовлення, видалення фону, анімацію за ключовими кадрами, ефекти й титри, багатодоріжковий монтаж, експорт у 4K. І без пасток: ані водяного знака, ані облікового запису, ані підписки, ані завантаження на сервер.
+CDCAi є безкоштовним відеоредактором з відкритим кодом і альтернативою CapCut для macOS, Windows, Linux та Android. Він уміє те, заради чого люди насправді відкривають CapCut: автоматичні субтитри, синтез мовлення, видалення фону, анімацію за ключовими кадрами, ефекти й титри, багатодоріжковий монтаж, експорт у 4K. І без пасток: ані водяного знака, ані облікового запису, ані підписки, ані завантаження на сервер.
 
 Усе працює локально на нативному рушії на Rust із GPU-композитором. Встановіть, перетягніть матеріал, ріжте. Моделі ШІ для субтитрів, голосів і вирізання фону завантажуються один раз із налаштувань і далі працюють офлайн. Ваш матеріал ніколи не залишає ваш диск.
 
@@ -36,12 +36,12 @@ CDCedit є безкоштовним відеоредактором з відкр
 1. **[Сайт](https://concatenate.pages.dev/#download)** добере збірку під вашу машину. Почніть звідси.
 2. **[GitHub Releases](https://github.com/jub0t/Concat/releases)** містить кожну збірку для кожної платформи, з інсталяторами, пакетами й контрольними сумами. Коли хочеться обрати самому.
 
-CDCedit у **беті**: він працює, але шорсткості ще є. [Повідомте](https://github.com/jub0t/Concat/issues), якщо знайдете.
+CDCAi у **беті**: він працює, але шорсткості ще є. [Повідомте](https://github.com/jub0t/Concat/issues), якщо знайдете.
 
 **Платформи**
 
 - ✅ **Windows** · x86_64 (збірки для ARM призупинено, див. [#326](https://github.com/jub0t/Concat/issues/326)). Інсталятор і `.msi`. Якщо SmartScreen зупиняє непідписану збірку: **Докладніше** › **Все одно запустити**
-- ✅ **macOS** · Intel і Apple Silicon. Якщо macOS відмовляється відкрити непідписану збірку: `xattr -dr com.apple.quarantine /Applications/CDCedit.app`
+- ✅ **macOS** · Intel і Apple Silicon. Якщо macOS відмовляється відкрити непідписану збірку: `xattr -dr com.apple.quarantine /Applications/CDCAi.app`
 - ✅ **Linux** · x86_64 і ARM. `.deb`, `.rpm`, `.AppImage` і пакет для Arch. А ще Flatpak на **[Flatpark](https://flatpark.org/apps/app.concat.editor/)**, спільнотному Flatpak-репозиторії, який обгортає `.deb` x86_64 кожного релізу й оновлюється разом із ним
 - ✅ **Android** · телефони та планшети
 - ✅ **iOS / iPadOS** · iPhone та iPad, через sideload
@@ -57,7 +57,7 @@ CDCedit у **беті**: він працює, але шорсткості ще �
 > [!IMPORTANT]
 > Найкраще ви допоможете, якщо візьмете збірку зі сторінки [Releases](https://github.com/jub0t/Concat/releases) і користуватиметеся нею: знайдете, де вона ламається, і скажете, де вона могла б бути кращою.
 >
-> Готові писати код? У [CONTRIBUTING.md](../CONTRIBUTING.md) описано налаштування, будову дерева, які перевірки запускати та як ліцензуються внески. Керуєте CDCedit зі скрипту, сервісу чи агента? [Документація для розробників](https://concatenate.pages.dev/docs) описує API CDCedit та його транспорти: JSON-RPC і gRPC. [У цьому обговоренні](https://github.com/jub0t/Concat/discussions/3) проєкт було анонсовано.
+> Готові писати код? У [CONTRIBUTING.md](../CONTRIBUTING.md) описано налаштування, будову дерева, які перевірки запускати та як ліцензуються внески. Керуєте CDCAi зі скрипту, сервісу чи агента? [Документація для розробників](https://concatenate.pages.dev/docs) описує API CDCAi та його транспорти: JSON-RPC і gRPC. [У цьому обговоренні](https://github.com/jub0t/Concat/discussions/3) проєкт було анонсовано.
 > 
 > Учасники можуть отримати роль `@Contributor` на сервері Discord: достатньо попросити.
 

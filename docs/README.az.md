@@ -1,15 +1,15 @@
-<p align="center"><img src="../assets/icons/cdcedit_logo_256.png" alt="CDCedit" width="100" /></p>
-<h1 align="center">CDCedit</h1>
+<p align="center"><img src="../assets/icons/cdcai_logo_256.png" alt="CDCAi" width="100" /></p>
+<h1 align="center">CDCAi</h1>
 
-CDCedit is a customized video editor derived from [Concat](https://github.com/jub0t/Concat). Original author and license notices are retained. Build this fork to use CDCedit features; upstream release links below refer to the original project.
+CDCAi is a customized video editor derived from [Concat](https://github.com/jub0t/Concat). Original author and license notices are retained. Build this fork to use CDCAi features; upstream release links below refer to the original project.
 
-CDCedit macOS, Windows, Linux və Android üçün pulsuz, açıq mənbəli video redaktorudur və CapCut-a alternativdir. İnsanların CapCut-dan ən çox istifadə etdiyi imkanların hamısı burada var: avtomatik subtitrlər, mətnin səsləndirilməsi, fonun silinməsi, açar kadrlarla animasiya, effektlər və yazılar, bir neçə trekdə montaj, 4K ixrac. Üstəlik heç bir gizli şərt yoxdur: nə su nişanı, nə hesab, nə abunəlik, nə də faylların serverə yüklənməsi.
+CDCAi macOS, Windows, Linux və Android üçün pulsuz, açıq mənbəli video redaktorudur və CapCut-a alternativdir. İnsanların CapCut-dan ən çox istifadə etdiyi imkanların hamısı burada var: avtomatik subtitrlər, mətnin səsləndirilməsi, fonun silinməsi, açar kadrlarla animasiya, effektlər və yazılar, bir neçə trekdə montaj, 4K ixrac. Üstəlik heç bir gizli şərt yoxdur: nə su nişanı, nə hesab, nə abunəlik, nə də faylların serverə yüklənməsi.
 
 Hər şey Rust ilə yazılmış öz mühərriki üzərində, birbaşa kompüterinizdə işləyir; görüntünün birləşdirilməsi (kompozitinq) GPU-da aparılır. Proqramı quraşdırın, videonuzu əlavə edin və montaja başlayın. Subtitr, səsləndirmə və fon silmə üçün süni intellekt modelləri Parametrlər bölməsindən bir dəfə cihazınıza endirilir, sonra internetsiz işləyir. Videolarınız heç vaxt kompüterinizdən kənara çıxmır.
 
 **Nə üçün uyğundur:** TikTok, Reels və Shorts, YouTube videoları, dərslər və ekran yazıları, podkastlardan kəsiklər, memlər.
 
-**Avtomatlaşdırma üçün də:** süni intellekt agentləri üçün daxili MCP serveri (`cdcedit --mcp`, [quraşdırma](MCP.md)) və skriptlər üçün JSON-RPC API. Belə ki, onlar da CDCedit ilə video montaj edə bilər.
+**Avtomatlaşdırma üçün də:** süni intellekt agentləri üçün daxili MCP serveri (`cdcai --mcp`, [quraşdırma](MCP.md)) və skriptlər üçün JSON-RPC API. Belə ki, onlar da CDCAi ilə video montaj edə bilər.
 
 ## Əsas imkanlar
 
@@ -26,22 +26,22 @@ Hər şey Rust ilə yazılmış öz mühərriki üzərində, birbaşa kompüteri
 - 🎙️ **Bir düymə ilə səs təmizləmə.** Küyü azaldır, nitqi aydınlaşdırır, səs gücünü bərabərləşdirir. Üstəlik sincab, robot, telefon və digər səs effektləri.
 - 📤 **İxrac.** H.264, HEVC, AV1. 4K 60 kadr/san-a qədər, 10-bit rəng.
 - 🦀 **Rust ilə yazılmış öz mühərriki.** GPU-da kompozitinq, proxy fayllar, aparat səviyyəsində dekodlama. 4K videolarda da zaman xətti boyunca axıcı hərəkət edin.
-- 🤖 **Skriptlərlə idarə oluna bilər.** Daxili MCP serveri sayəsində Claude və digər süni intellekt agentləri CDCedit ilə montaj edə bilər ([bir sətirlə quraşdırılır](MCP.md)), skriptlər üçün isə JSON-RPC API var. Mənbə kodundan yığılan versiyaya əlavə olaraq gRPC və komanda sətri aləti daxildir.
+- 🤖 **Skriptlərlə idarə oluna bilər.** Daxili MCP serveri sayəsində Claude və digər süni intellekt agentləri CDCAi ilə montaj edə bilər ([bir sətirlə quraşdırılır](MCP.md)), skriptlər üçün isə JSON-RPC API var. Mənbə kodundan yığılan versiyaya əlavə olaraq gRPC və komanda sətri aləti daxildir.
 - 🖥️ **macOS, Windows, Linux, Android.** 26 dil. Eyni proqram, eyni layihə faylları.
 
 ## Yükləmə
 
-CDCedit-ı iki yolla əldə edə bilərsiniz:
+CDCAi-ı iki yolla əldə edə bilərsiniz:
 
 1. **[Veb sayt](https://concatenate.pages.dev/#download)** cihazınıza uyğun versiyanı avtomatik təklif edir. Buradan başlamağınız tövsiyə olunur.
 2. **[GitHub Releases](https://github.com/jub0t/Concat/releases)** bütün platformalar üçün bütün versiyaları quraşdırıcılar, paketlər və yoxlama cəmləri (checksum) ilə birlikdə təqdim edir. Versiyanı özünüz seçmək istəyirsinizsə, bura baxın.
 
-CDCedit hələ **beta** mərhələsindədir: işləyir, amma hələ də bəzi çatışmazlıqları var. Problemlə qarşılaşsanız, [bizə bildirin](https://github.com/jub0t/Concat/issues).
+CDCAi hələ **beta** mərhələsindədir: işləyir, amma hələ də bəzi çatışmazlıqları var. Problemlə qarşılaşsanız, [bizə bildirin](https://github.com/jub0t/Concat/issues).
 
 **Platformalar**
 
 - ✅ **Windows** · x86_64 (ARM versiyalarının buraxılışı müvəqqəti dayandırılıb, bax: [#326](https://github.com/jub0t/Concat/issues/326)). Quraşdırıcı və `.msi` paketi. SmartScreen imzasız versiyanın açılmasının qarşısını alsa: **More info** › **Run anyway**
-- ✅ **macOS** · Intel və Apple silicon. macOS imzasız versiyanı açmaq istəməsə: `xattr -dr com.apple.quarantine /Applications/CDCedit.app`
+- ✅ **macOS** · Intel və Apple silicon. macOS imzasız versiyanı açmaq istəməsə: `xattr -dr com.apple.quarantine /Applications/CDCAi.app`
 - ✅ **Linux** · x86_64 və ARM. `.deb`, `.rpm`, `.AppImage` və Arch paketi. Bundan əlavə, Flatpak versiyası da var: o, **[Flatpark](https://flatpark.org/apps/app.concat.editor/)** icma deposundadır. Bu depo hər buraxılışın x86_64 `.deb` paketini Flatpak formatına salır və onunla birlikdə yenilənir
 - ✅ **Android** · telefonlar və planşetlər
 - ✅ **iOS / iPadOS** · iPhone və iPad, App Store-dan kənar quraşdırma (sideload) ilə
@@ -57,7 +57,7 @@ CDCedit hələ **beta** mərhələsindədir: işləyir, amma hələ də bəzi ç
 > [!IMPORTANT]
 > Ən faydalı töhfə [Releases](https://github.com/jub0t/Concat/releases) səhifəsindən son versiyanı yükləyib istifadə etməkdir: rastlaşdığınız xətaları bildirin və nəyin daha yaxşı ola biləcəyini təklif edin.
 >
-> Kod yazmağa hazırsınız? [CONTRIBUTING.md](../CONTRIBUTING.md) mühitin qurulmasını, layihənin fayl strukturunu, işə salınmalı olan yoxlamaları və töhfələrin hansı lisenziya ilə qəbul edildiyini izah edir. CDCedit-ı skriptdən, servisdən və ya agentdən idarə etmək istəyirsiniz? [Developer sənədləri](https://concatenate.pages.dev/docs) CDCedit API-ni və onun əlaqə protokollarını, yəni JSON-RPC və gRPC-ni izah edir; [docs/MCP.md](MCP.md) isə süni intellekt agentini MCP vasitəsilə necə qoşmağı göstərir. Layihə ilk dəfə [bu müzakirədə](https://github.com/jub0t/Concat/discussions/3) elan olunub.
+> Kod yazmağa hazırsınız? [CONTRIBUTING.md](../CONTRIBUTING.md) mühitin qurulmasını, layihənin fayl strukturunu, işə salınmalı olan yoxlamaları və töhfələrin hansı lisenziya ilə qəbul edildiyini izah edir. CDCAi-ı skriptdən, servisdən və ya agentdən idarə etmək istəyirsiniz? [Developer sənədləri](https://concatenate.pages.dev/docs) CDCAi API-ni və onun əlaqə protokollarını, yəni JSON-RPC və gRPC-ni izah edir; [docs/MCP.md](MCP.md) isə süni intellekt agentini MCP vasitəsilə necə qoşmağı göstərir. Layihə ilk dəfə [bu müzakirədə](https://github.com/jub0t/Concat/discussions/3) elan olunub.
 > 
 > Töhfə verənlər Discord serverində `@Contributor` rolu ala bilər: sadəcə bunu istəyin.
 

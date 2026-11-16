@@ -1,10 +1,10 @@
 name: Build for phones
 
-# Builds CDCedit for Android and iOS and uploads one artifact per phone,
+# Builds CDCAi for Android and iOS and uploads one artifact per phone,
 # named like the desktop bundles from build-app.yml:
 #
-#   Android  arm64  -> CDCedit-<version>-android-arm64.apk
-#   iOS      arm64  -> CDCedit-<version>-ios-arm64.ipa
+#   Android  arm64  -> CDCAi-<version>-android-arm64.apk
+#   iOS      arm64  -> CDCAi-<version>-ios-arm64.ipa
 #
 # Reusable, the way build-app.yml is: release.yml calls it on every tag,
 # so a release carries the phones beside the desktops. Pull requests build
@@ -135,7 +135,7 @@ jobs:
         run: |
           version=$(sed -n 's/^version = "\(.*\)"/\1/p' src/Cargo.toml | head -1)
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "Building CDCedit $version for ${{ matrix.target }}"
+          echo "Building CDCAi $version for ${{ matrix.target }}"
       # The toolchain src/rust-toolchain.toml pins, installed by name, with
       # the phone's standard library.
       - name: The pinned toolchain
@@ -200,7 +200,7 @@ jobs:
           keystore=$RUNNER_TEMP/run.keystore
           keytool -genkeypair -v -keystore "$keystore" -storepass concat -keypass concat \
             -alias concat -keyalg RSA -keysize 2048 -validity 10000 \
-            -dname "CN=CDCedit, O=CDCedit" >/dev/null 2>&1
+            -dname "CN=CDCAi, O=CDCAi" >/dev/null 2>&1
           echo "CARGO_APK_RELEASE_KEYSTORE=$keystore" >> "$GITHUB_ENV"
           echo "CARGO_APK_RELEASE_KEYSTORE_PASSWORD=concat" >> "$GITHUB_ENV"
 
@@ -254,7 +254,7 @@ jobs:
           fi
           sdk=${ANDROID_HOME:-$ANDROID_SDK_ROOT}
           tools=$(find "$sdk/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
-          apk=src/target/release/apk/CDCedit.apk
+          apk=src/target/release/apk/CDCAi.apk
           "$tools/apksigner" sign --ks "$keystore" --ks-pass env:KEYSTORE_PASSWORD \
             --ks-key-alias "$alias" --key-pass env:KEY_PASSWORD "$apk" < /dev/null
           rm -f "$keystore"
@@ -264,7 +264,7 @@ jobs:
       # and the build would not say so.
       - name: Every library is aligned for 16 KB pages
         if: matrix.ship
-        run: python3 scripts/ci/check-16k-pages.py src/target/release/apk/CDCedit.apk
+        run: python3 scripts/ci/check-16k-pages.py src/target/release/apk/CDCAi.apk
 
       - name: Build log to the summary (failure only)
         if: failure()
@@ -285,14 +285,14 @@ jobs:
         run: |
           set -euo pipefail
           mkdir stage
-          cp src/target/release/apk/CDCedit.apk "stage/CDCedit-$VERSION-android-${{ matrix.abi }}.apk"
+          cp src/target/release/apk/CDCAi.apk "stage/CDCAi-$VERSION-android-${{ matrix.abi }}.apk"
           ls -l stage
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          # CDCedit-* is what a release publishes; the emulator's APK is
+          # CDCAi-* is what a release publishes; the emulator's APK is
           # named so it never is.
-          name: ${{ matrix.ship && 'CDCedit-android-arm64' || 'smoke-apk-android-x86_64' }}
+          name: ${{ matrix.ship && 'CDCAi-android-arm64' || 'smoke-apk-android-x86_64' }}
           path: stage/*
           if-no-files-found: error
 
@@ -351,7 +351,7 @@ jobs:
           emulator-boot-timeout: 900
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-boot-anim -camera-back none -camera-front none
           disable-animations: true
-          script: scripts/ci/smoke-android.sh --out smoke-android --wait 60 apk/CDCedit-*.apk
+          script: scripts/ci/smoke-android.sh --out smoke-android --wait 60 apk/CDCAi-*.apk
 
       # The log, the screenshot and the rest, pass or fail.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -376,7 +376,7 @@ jobs:
         run: |
           version=$(sed -n 's/^version = "\(.*\)"/\1/p' src/Cargo.toml | head -1)
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "Building CDCedit $version for aarch64-apple-ios"
+          echo "Building CDCAi $version for aarch64-apple-ios"
       - name: The pinned toolchain
         id: toolchain
         run: echo "channel=$(sed -n 's/^channel = "\(.*\)"/\1/p' src/rust-toolchain.toml)" >> "$GITHUB_OUTPUT"
@@ -443,7 +443,7 @@ jobs:
       # warning until a run has shown what is there.
       - name: Minimum iOS of everything in the app
         run: |
-          app=src/target/aarch64-apple-ios/release/CDCedit.app
+          app=src/target/aarch64-apple-ios/release/CDCAi.app
           scripts/ci/check-min-os.sh "$app" "$(/usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$app/Info.plist")"
 
       # An .ipa is the bundle under Payload/ in a zip: the form every
@@ -457,13 +457,13 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p stage payload/Payload
-          cp -R src/target/aarch64-apple-ios/release/CDCedit.app payload/Payload/
-          (cd payload && ditto -c -k --keepParent Payload "../stage/CDCedit-$VERSION-ios-arm64.ipa")
+          cp -R src/target/aarch64-apple-ios/release/CDCAi.app payload/Payload/
+          (cd payload && ditto -c -k --keepParent Payload "../stage/CDCAi-$VERSION-ios-arm64.ipa")
           ls -l stage
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: CDCedit-ios-arm64
+          name: CDCAi-ios-arm64
           path: stage/*
           if-no-files-found: error
 
@@ -572,7 +572,7 @@ jobs:
       # a launch as from the home screen, watched for a minute.
       - name: Start the app on a simulator
         timeout-minutes: 25
-        run: scripts/ci/smoke-ios.sh --out smoke-ios --wait 60 src/target/aarch64-apple-ios-sim/release/CDCedit.app
+        run: scripts/ci/smoke-ios.sh --out smoke-ios --wait 60 src/target/aarch64-apple-ios-sim/release/CDCAi.app
 
       # The app's output, the system log, the screenshot and any crash
       # report, pass or fail.

@@ -80,7 +80,7 @@ pub fn system_facts() -> Vec<(String, String)> {
     let mut facts = vec![
         (
             t("sysinfo.application"),
-            format!("CDCedit {}", env!("CARGO_PKG_VERSION")),
+            format!("CDCAi {}", env!("CARGO_PKG_VERSION")),
         ),
         (
             t("sysinfo.build"),

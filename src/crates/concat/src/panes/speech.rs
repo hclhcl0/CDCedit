@@ -62,7 +62,7 @@ const STEPS: [i32; 3] = [3, 5, 8];
 /// The breath between sentences the sheet opens on: sherpa's own.
 const DEFAULT_PAUSES: f32 = 0.2;
 
-/// A style a voice can be read in: a few of the audio effects CDCedit ships,
+/// A style a voice can be read in: a few of the audio effects CDCAi ships,
 /// laid on the speech clip once it lands, where they stay as ordinary
 /// effects to change or take off. Original looks of the effects alone -
 /// no one's voice, no character's name. The Audio page's card carries

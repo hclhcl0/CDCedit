@@ -92,5 +92,5 @@ whisper.dll                    48    0     0      0          0
 # prints each binary's counts. Once it has, set the limit a margin above
 # the count shown, without the `~`, so the next library compiled for
 # Haswell fails the build.
-cdcedit.exe                    -     -     ~1000  -          -
-cdcedit                        -     -     ~1000  -          -
+cdcai.exe                    -     -     ~1000  -          -
+cdcai                        -     -     ~1000  -          -

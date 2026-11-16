@@ -343,7 +343,7 @@ pub enum Reply {
 pub struct VersionInfo {
     /// [`API_VERSION`].
     pub api_version: String,
-    /// The CDCedit build.
+    /// The CDCAi build.
     pub concat: String,
     /// Where this machine keeps recents, templates and models.
     pub dirs: Dirs,

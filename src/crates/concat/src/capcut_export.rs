@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-//! Export a Concat / CDCedit timeline and project directly into a CapCut PC Draft.
+//! Export a Concat / CDCAi timeline and project directly into a CapCut PC Draft.
 //!
 //! CapCut PC stores drafts locally at:
 //! Windows: `%LOCALAPPDATA%\CapCut\User Data\Projects\com.lveditor.draft\<Draft_Name>\`
@@ -610,7 +610,7 @@ fn perform_export(studio: &Studio) -> Result<(PathBuf, bool), String> {
     } else if !studio.timeline().name.trim().is_empty() {
         studio.timeline().name.trim()
     } else {
-        "Dự án Concat"
+        "Dự án CDCAi"
     };
 
     // Sanitize folder name

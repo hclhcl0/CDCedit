@@ -2,13 +2,13 @@
 
 **Windows releases are not code-signed yet.** Windows shows a SmartScreen
 warning before an unsigned program runs (**More info** › **Run anyway**), and
-where Smart App Control is on, it refuses to run it at all. Once CDCedit has a
+where Smart App Control is on, it refuses to run it at all. Once CDCAi has a
 signing certificate, every Windows release is signed under this policy.
 
 ## What will be signed
 
-The Windows program (`cdcedit.exe`) and its installers (the setup `.exe` and the
-`.msi`), built from this repository. Libraries CDCedit ships but does not build
+The Windows program (`cdcai.exe`) and its installers (the setup `.exe` and the
+`.msi`), built from this repository. Libraries CDCAi ships but does not build
 from its own source, such as FFmpeg's and sherpa-onnx's DLLs and Microsoft's
 ONNX Runtime and Visual C++ runtime, are not signed with this certificate; they
 carry their own maintainers' signatures where they have them.
@@ -41,7 +41,7 @@ merged. Every member uses multi-factor authentication on GitHub.
 
 This program will not transfer any information to other networked systems
 unless specifically requested by the user or the person installing or operating
-it. CDCedit reaches the network only when you ask it to:
+it. CDCAi reaches the network only when you ask it to:
 
 - **Settings › Version** asks GitHub for the list of releases when you open
   it or press **Check for updates**, and installing one downloads it from

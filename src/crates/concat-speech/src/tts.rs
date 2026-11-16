@@ -633,7 +633,7 @@ impl Speech {
         })
     }
 
-    /// Streams one Kokoro bundle from CDCedit's mirror and unpacks it.
+    /// Streams one Kokoro bundle from CDCAi's mirror and unpacks it.
     /// Blocks for the whole download: run it on its own thread.
     ///
     /// The archive lands in a `.part`, unpacks into a `.staging-<id>` folder,
@@ -733,7 +733,7 @@ impl Speech {
 
     /// What bundle `id` is called as a file, and every address a download
     /// of it tries, in order; see [`crate::Transcriber::model_sources`].
-    /// `None` for one CDCedit does not know, and for Chatterbox, which is
+    /// `None` for one CDCAi does not know, and for Chatterbox, which is
     /// several files rather than one.
     pub fn model_sources(id: &str) -> Option<(String, Vec<String>)> {
         known(id)?;

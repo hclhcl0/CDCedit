@@ -1,9 +1,9 @@
-<p align="center"><img src="../assets/icons/cdcedit_logo_256.png" alt="CDCedit" width="100" /></p>
-<h1 align="center">CDCedit</h1>
+<p align="center"><img src="../assets/icons/cdcai_logo_256.png" alt="CDCAi" width="100" /></p>
+<h1 align="center">CDCAi</h1>
 
-CDCedit is a customized video editor derived from [Concat](https://github.com/jub0t/Concat). Original author and license notices are retained. Build this fork to use CDCedit features; upstream release links below refer to the original project.
+CDCAi is a customized video editor derived from [Concat](https://github.com/jub0t/Concat). Original author and license notices are retained. Build this fork to use CDCAi features; upstream release links below refer to the original project.
 
-CDCedit คือโปรแกรมตัดต่อวิดีโอที่ฟรีและเป็นโอเพนซอร์ส เป็นทางเลือกแทน CapCut บน macOS, Windows, Linux และ Android ทำได้ครบในสิ่งที่คนเปิด CapCut ขึ้นมาใช้จริง ๆ ทั้งคำบรรยายอัตโนมัติ แปลงข้อความเป็นเสียงพูด ลบพื้นหลัง แอนิเมชันคีย์เฟรม เอฟเฟกต์และไตเติล ตัดต่อหลายแทร็ก และส่งออก 4K โดยไม่มีข้อแม้ใด ๆ ไม่มีลายน้ำ ไม่ต้องมีบัญชี ไม่ต้องสมัครสมาชิก ไม่ต้องอัปโหลด
+CDCAi คือโปรแกรมตัดต่อวิดีโอที่ฟรีและเป็นโอเพนซอร์ส เป็นทางเลือกแทน CapCut บน macOS, Windows, Linux และ Android ทำได้ครบในสิ่งที่คนเปิด CapCut ขึ้นมาใช้จริง ๆ ทั้งคำบรรยายอัตโนมัติ แปลงข้อความเป็นเสียงพูด ลบพื้นหลัง แอนิเมชันคีย์เฟรม เอฟเฟกต์และไตเติล ตัดต่อหลายแทร็ก และส่งออก 4K โดยไม่มีข้อแม้ใด ๆ ไม่มีลายน้ำ ไม่ต้องมีบัญชี ไม่ต้องสมัครสมาชิก ไม่ต้องอัปโหลด
 
 ทุกอย่างทำงานบนเครื่องของคุณเอง ด้วยเอนจิน Rust แบบเนทีฟพร้อมตัวคอมโพสิตบน GPU ติดตั้ง ลากฟุตเทจเข้ามา แล้วตัดได้เลย โมเดล AI สำหรับคำบรรยาย เสียงพูด และการตัดพื้นหลัง ดาวน์โหลดครั้งเดียวจากหน้าการตั้งค่า แล้วหลังจากนั้นก็ใช้งานแบบออฟไลน์ได้ ฟุตเทจของคุณไม่เคยออกจากดิสก์ของคุณ
 
@@ -36,12 +36,12 @@ CDCedit คือโปรแกรมตัดต่อวิดีโอที
 1. **[เว็บไซต์](https://concatenate.pages.dev/#download)** จะให้บิลด์ที่เหมาะกับเครื่องของคุณ เริ่มที่นี่
 2. **[GitHub Releases](https://github.com/jub0t/Concat/releases)** มีทุกบิลด์สำหรับทุกแพลตฟอร์ม พร้อมตัวติดตั้ง แพ็กเกจ และเช็กซัม สำหรับตอนที่คุณอยากเลือกเอง
 
-CDCedit อยู่ในช่วง **เบต้า**: ใช้งานได้แล้ว แต่ยังมีจุดที่ไม่เรียบร้อยอยู่บ้าง เจอเมื่อไหร่ [บอกเราได้เลย](https://github.com/jub0t/Concat/issues)
+CDCAi อยู่ในช่วง **เบต้า**: ใช้งานได้แล้ว แต่ยังมีจุดที่ไม่เรียบร้อยอยู่บ้าง เจอเมื่อไหร่ [บอกเราได้เลย](https://github.com/jub0t/Concat/issues)
 
 **แพลตฟอร์ม**
 
 - ✅ **Windows** · x86_64 (บิลด์สำหรับ ARM หยุดไว้ชั่วคราว ดู [#326](https://github.com/jub0t/Concat/issues/326)) มีทั้งตัวติดตั้งแบบ setup และ `.msi` หาก SmartScreen บล็อกบิลด์ที่ไม่ได้ลงนาม: **More info** › **Run anyway**
-- ✅ **macOS** · Intel และ Apple silicon หาก macOS ไม่ยอมเปิดบิลด์ที่ไม่ได้ลงนาม: `xattr -dr com.apple.quarantine /Applications/CDCedit.app`
+- ✅ **macOS** · Intel และ Apple silicon หาก macOS ไม่ยอมเปิดบิลด์ที่ไม่ได้ลงนาม: `xattr -dr com.apple.quarantine /Applications/CDCAi.app`
 - ✅ **Linux** · x86_64 และ ARM มี `.deb`, `.rpm`, `.AppImage` และแพ็กเกจสำหรับ Arch และยังมี Flatpak บน **[Flatpark](https://flatpark.org/apps/app.concat.editor/)** ซึ่งเป็นรีโมต Flatpak ของชุมชนที่แพ็ก `.deb` สำหรับ x86_64 ของแต่ละรีลีส และอัปเดตตามทุกรีลีส
 - ✅ **Android** · โทรศัพท์และแท็บเล็ต
 - ✅ **iOS / iPadOS** · iPhone และ iPad ผ่านการไซด์โหลด
@@ -57,7 +57,7 @@ CDCedit อยู่ในช่วง **เบต้า**: ใช้งาน�
 > [!IMPORTANT]
 > วิธีที่ดีที่สุดในการมีส่วนร่วม คือดาวน์โหลดบิลด์จากหน้า [Releases](https://github.com/jub0t/Concat/releases) แล้วใช้งานจริง: หาว่าตรงไหนพัง และบอกว่าตรงไหนน่าจะดีขึ้นได้
 >
-> พร้อมเขียนโค้ดแล้วหรือยัง? [CONTRIBUTING.md](../CONTRIBUTING.md) อธิบายการตั้งค่า โครงสร้างของซอร์สโค้ด การตรวจสอบที่ต้องรัน และสัญญาอนุญาตของงานที่ส่งเข้ามา จะควบคุม CDCedit จากสคริปต์ บริการ หรือเอเจนต์ใช่ไหม? [เอกสารสำหรับนักพัฒนา](https://concatenate.pages.dev/docs) อธิบาย CDCedit API และช่องทางรับส่งข้อมูลของมัน ได้แก่ JSON-RPC และ gRPC ส่วน [Discussion นี้](https://github.com/jub0t/Concat/discussions/3) คือที่ที่โปรเจกต์ประกาศเปิดตัว
+> พร้อมเขียนโค้ดแล้วหรือยัง? [CONTRIBUTING.md](../CONTRIBUTING.md) อธิบายการตั้งค่า โครงสร้างของซอร์สโค้ด การตรวจสอบที่ต้องรัน และสัญญาอนุญาตของงานที่ส่งเข้ามา จะควบคุม CDCAi จากสคริปต์ บริการ หรือเอเจนต์ใช่ไหม? [เอกสารสำหรับนักพัฒนา](https://concatenate.pages.dev/docs) อธิบาย CDCAi API และช่องทางรับส่งข้อมูลของมัน ได้แก่ JSON-RPC และ gRPC ส่วน [Discussion นี้](https://github.com/jub0t/Concat/discussions/3) คือที่ที่โปรเจกต์ประกาศเปิดตัว
 > 
 > ผู้ร่วมพัฒนาขอรับบทบาท `@Contributor` ในเซิร์ฟเวอร์ Discord ได้ แค่บอกมา
 

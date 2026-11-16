@@ -4,12 +4,12 @@
 //! Where a downloadable model is fetched from, and what proves it arrived
 //! whole.
 //!
-//! CDCedit carries no weights in its bundle: a cutout network, a Kokoro voice
+//! CDCAi carries no weights in its bundle: a cutout network, a Kokoro voice
 //! bank and a whisper model together outweigh the editor many times over,
 //! and most people never ask for all three. Each is fetched the first time a
 //! feature needs one.
 //!
-//! Every model CDCedit offers is mirrored onto a release of its own
+//! Every model CDCAi offers is mirrored onto a release of its own
 //! repository, and the mirror is what a download asks for first. Upstream -
 //! the third party the mirror was filled from - is the second try and
 //! nothing more: a model the editor offers should not stop existing because
@@ -40,12 +40,12 @@ pub const REPO: &str = "jub0t/Concat";
 /// in `models/manifest.toml`; the check script enforces that.
 pub const RELEASE: &str = "models-v1";
 
-/// Where `file` is mirrored: CDCedit's own release.
+/// Where `file` is mirrored: CDCAi's own release.
 pub fn mirror(file: &str) -> String {
     format!("https://github.com/{REPO}/releases/download/{RELEASE}/{file}")
 }
 
-/// The Audio page's CDCedit sounds: the list of them, read the first time
+/// The Audio page's CDCAi sounds: the list of them, read the first time
 /// the shelf is asked for and never at startup. The schema, and where the
 /// files go, is `docs/AUDIO_LIBRARY.md`.
 pub const SOUNDS_MANIFEST: &str =
@@ -89,10 +89,10 @@ pub fn hf_mirror(url: &str) -> Option<String> {
 /// preference is where to look first, never the only place to look.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum SourcePreference {
-    /// CDCedit's mirror, then Hugging Face, then upstream, then hf-mirror.
+    /// CDCAi's mirror, then Hugging Face, then upstream, then hf-mirror.
     #[default]
     Auto,
-    /// CDCedit's own release first.
+    /// CDCAi's own release first.
     Mirror,
     /// hf-mirror.com first: for mainland China, where GitHub's downloads
     /// crawl and huggingface.co needs a VPN, and hf-mirror.com does not.
@@ -251,7 +251,7 @@ fn record_failure(file: &str, failure: Option<Failure>) {
 }
 
 /// Hands [`fetch`] a copy of `file` the person downloaded themselves - in
-/// a browser the network lets through when it does not let CDCedit - for
+/// a browser the network lets through when it does not let CDCAi - for
 /// the next fetch of that file to install instead of downloading.
 ///
 /// It is held to the same digest as a download, so a wrong file is

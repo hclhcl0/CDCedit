@@ -4128,7 +4128,7 @@ impl Flow {
                 }
                 14 => {
                     if studio.session.is_none() {
-                        self.message = "Mở dự án Concat để nhập clip vào thư viện.".into();
+                        self.message = "Mở dự án CDCAi để nhập clip vào thư viện.".into();
                         return;
                     }
                     if let Some(file) = self.files.get(index.max(0) as usize).cloned() {

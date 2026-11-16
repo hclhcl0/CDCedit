@@ -8991,7 +8991,7 @@ impl Studio {
         // project is closed first, as a close would - saved, its folder let
         // go, its jobs stopped. Swapping the session alone dropped what the
         // last autosave had not written yet and kept the old folder locked
-        // against every other CDCedit for the rest of the run. A save that
+        // against every other CDCAi for the rest of the run. A save that
         // fails keeps it open and the other one shut.
         if let Some(open) = self
             .session
@@ -13923,8 +13923,8 @@ mod tests {
     #[test]
     fn home_folder_is_under_home_with_native_separators() {
         let home = std::env::home_dir().expect("a home directory");
-        let folder = std::path::PathBuf::from(home_folder("Desktop/CDCedit"));
-        assert_eq!(folder, home.join("Desktop").join("CDCedit"));
+        let folder = std::path::PathBuf::from(home_folder("Desktop/CDCAi"));
+        assert_eq!(folder, home.join("Desktop").join("CDCAi"));
         #[cfg(windows)]
         assert!(!folder.to_string_lossy().contains('/'));
     }

@@ -94,7 +94,7 @@ try {
         if($taskVS){
             $taskMsvc=Get-ChildItem (Join-Path $taskVS 'VC/Tools/MSVC') -Directory|Sort-Object Name|Select-Object -Last 1
             $taskEditbin=Join-Path $taskMsvc.FullName 'bin/Hostx64/x64/editbin.exe'
-            if(Test-Path $taskEditbin){& $taskEditbin /NOLOGO /STACK:33554432 (Join-Path $taskBin 'cdcedit.exe');if($LASTEXITCODE -ne 0){throw 'Could not set native UI stack size'}}
+            if(Test-Path $taskEditbin){& $taskEditbin /NOLOGO /STACK:33554432 (Join-Path $taskBin 'cdcai.exe');if($LASTEXITCODE -ne 0){throw 'Could not set native UI stack size'}}
         }
         # Preserve the final overlay order, but do not rewrite identical DLLs
         # held by an older running editor. ORT wins shared sherpa filenames.

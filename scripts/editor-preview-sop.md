@@ -12,7 +12,7 @@ editor window floating on a soft gradient card, built by
    panel. Make the window wide (the composite assumes a landscape window).
 
 2. **Capture the window.** In dark theme, press `⌘⇧4`, then `Space`, then
-   click the CDCedit window. macOS saves the window with a transparent margin
+   click the CDCAi window. macOS saves the window with a transparent margin
    and its drop shadow; the script trims that away itself.
 
 3. **Build the composite:**

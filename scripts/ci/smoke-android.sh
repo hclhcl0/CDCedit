@@ -22,7 +22,7 @@
 #     #312),
 #
 # and passes if none of that has happened by the end of the wait, with the
-# app's own first line ("CDCedit <version> starting") in the log, so a pass
+# app's own first line ("CDCAi <version> starting") in the log, so a pass
 # means its native code ran. With --ready, it also requires a line matching
 # REGEX (an extended regular expression) by the end of the wait, and stops
 # waiting once it appears.
@@ -44,7 +44,7 @@
 # whole logcat from before the launch to the end, the app's lines alone,
 # a screenshot of the screen at the end, the window focus, and the
 # device's properties. CI uploads that folder. The package is
-# app.cdcedit.editor unless --package names another.
+# app.cdcai.editor unless --package names another.
 #
 # --no-install starts what is already installed, which leaves a device
 # somebody is using as it was apart from the restart of the app. Runs in
@@ -56,7 +56,7 @@ out=smoke-android
 wait_secs=45
 ready=""
 install=1
-package=app.cdcedit.editor
+package=app.cdcai.editor
 
 usage() {
   echo "usage: $0 [--out DIR] [--wait SECS] [--ready REGEX] [--no-install] [--package NAME] APK" >&2
@@ -314,8 +314,8 @@ grep -i 'ResumedActivity' "$out/focus.txt" | grep -q "$package/" \
   || fail "the app's activity is not the one in front after ${wait_secs}s"
 # The app's own first line, from android_main: proof its native code ran,
 # and not only that a process by its name exists.
-grep -E -q ' concat +: ([A-Za-z0-9_:]+: )?CDCedit .* starting' "$logcat_file" \
-  || fail "the app's first line (\"CDCedit <version> starting\") never reached logcat"
+grep -E -q ' concat +: ([A-Za-z0-9_:]+: )?CDCAi .* starting' "$logcat_file" \
+  || fail "the app's first line (\"CDCAi <version> starting\") never reached logcat"
 if [ -n "$ready" ] && [ -z "$seen_ready" ]; then
   fail "no line matching '$ready' within ${wait_secs}s"
 fi

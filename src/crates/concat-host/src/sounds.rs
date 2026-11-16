@@ -10,7 +10,7 @@
 //! envelope of it - sixty-four bars, read once at import - so the shelf
 //! draws every card without decoding anything when it opens.
 //!
-//! Beside them, CDCedit's own sounds: a manifest read from the assets
+//! Beside them, CDCAi's own sounds: a manifest read from the assets
 //! repository when the shelf is first asked for, and each sound fetched
 //! on first use into `<data>/sounds/`, checked against its digest; see
 //! `docs/AUDIO_LIBRARY.md`.
@@ -283,9 +283,9 @@ fn now() -> u64 {
         .map_or(0, |since| since.as_secs())
 }
 
-// ── CDCedit's own sounds ─────────────────────────────────────────────────
+// ── CDCAi's own sounds ─────────────────────────────────────────────────
 
-/// The CDCedit shelf's manifest, as `concatapp/assets/audio/manifest.json`
+/// The CDCAi shelf's manifest, as `concatapp/assets/audio/manifest.json`
 /// has it; the schema is `docs/AUDIO_LIBRARY.md`.
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
 pub struct Catalogue {
@@ -297,7 +297,7 @@ pub struct Catalogue {
     pub sounds: Vec<Listed>,
 }
 
-/// One sound of CDCedit's.
+/// One sound of CDCAi's.
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
 pub struct Listed {
     /// Stable for ever: `[a-z0-9-]`.
@@ -365,7 +365,7 @@ impl Catalogue {
     }
 }
 
-/// Where CDCedit's sounds and their manifest are cached: `<data>/sounds/`.
+/// Where CDCAi's sounds and their manifest are cached: `<data>/sounds/`.
 pub fn cache_dir(dirs: &AppDirs) -> PathBuf {
     dirs.data.join("sounds")
 }

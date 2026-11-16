@@ -1,6 +1,6 @@
-# Contributing to CDCedit
+# Contributing to CDCAi
 
-Thanks for being here. CDCedit is a video editor that runs entirely on the
+Thanks for being here. CDCAi is a video editor that runs entirely on the
 user's machine, and it gets better mostly through people using it hard and
 reporting what broke.
 
@@ -75,7 +75,7 @@ around you; the engine avoids cleverness on purpose.
 
 ## Licensing your contribution
 
-CDCedit is **AGPL-3.0-or-later** ([`LICENSE`](LICENSE)).
+CDCAi is **AGPL-3.0-or-later** ([`LICENSE`](LICENSE)).
 
 Contributions are accepted under the agreement in [`CLA.md`](CLA.md). **You
 assign the copyright in your contribution to Concat's owner**, and get a
@@ -111,7 +111,7 @@ catch before a merge than after a release.
 
 ## Trademarks
 
-The code is free to fork. The CDCedit name and logo are not covered by the AGPL
+The code is free to fork. The CDCAi name and logo are not covered by the AGPL
 grant; see [`TRADEMARK.md`](TRADEMARK.md). Forks are welcome; please ship them
 under your own name.
 

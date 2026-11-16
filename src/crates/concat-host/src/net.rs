@@ -7,7 +7,7 @@
 //! ([`Cause`]).
 //!
 //! An HTTPS connection is trusted when its certificate chains to a root
-//! CDCedit ships (Mozilla's list, as webpki-roots carries it) or to a root
+//! CDCAi ships (Mozilla's list, as webpki-roots carries it) or to a root
 //! the system trusts. ureq trusted the shipped list alone, so a network that
 //! re-signs HTTPS with a root of its own - a proxy or a GitHub accelerator
 //! in China, an antivirus that scans HTTPS, a company's gateway - failed
@@ -25,7 +25,7 @@ use crate::route::Route;
 /// Which roots a connection trusts.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Trust {
-    /// The shipped roots and the system's: for a file whose digest CDCedit
+    /// The shipped roots and the system's: for a file whose digest CDCAi
     /// already knows - a model, whose sums are compiled in, or an
     /// installer or sound checked against a manifest fetched with
     /// [`Trust::Shipped`].
@@ -46,7 +46,7 @@ pub enum Trust {
 /// class it falls in, which is the same on every platform.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Cause {
-    /// Something on this computer refused CDCedit a connection before it
+    /// Something on this computer refused CDCAi a connection before it
     /// left the machine: a firewall, an antivirus's web shield, parental
     /// controls, a VPN's kill switch. Windows says WSAEACCES (10013), Unix
     /// EACCES or EPERM. The browser beside it is usually allowed.
@@ -56,10 +56,10 @@ pub enum Cause {
     /// The name could not be looked up.
     Dns,
     /// The proxy the settings name could not be reached or would not
-    /// carry the request: not running, a sign-in CDCedit cannot give, a
+    /// carry the request: not running, a sign-in CDCAi cannot give, a
     /// policy that turns the host away.
     Proxy,
-    /// The certificate was not one CDCedit trusts: something re-signs
+    /// The certificate was not one CDCAi trusts: something re-signs
     /// secure connections on the way.
     Certificate,
     /// The connection was cut, as a network that filters traffic cuts it.
@@ -80,9 +80,9 @@ impl Cause {
     /// language from the cause itself.
     pub fn describe(self) -> String {
         match self {
-            Cause::Blocked => "something on this computer blocked CDCedit from the network - \
+            Cause::Blocked => "something on this computer blocked CDCAi from the network - \
                                a firewall, an antivirus or a VPN; the browser may be allowed \
-                               where CDCedit is not"
+                               where CDCAi is not"
                 .to_owned(),
             Cause::Offline => "this computer is not connected to the internet".to_owned(),
             Cause::Dns => "the server's name could not be looked up".to_owned(),
@@ -320,7 +320,7 @@ fn roots() -> rustls::RootCertStore {
         log::debug!("network: the system's root certificates were not all read: {error}");
     }
     let (added, _) = roots.add_parsable_certificates(system.certs);
-    log::debug!("network: {added} of the system's root certificates trusted beside CDCedit's");
+    log::debug!("network: {added} of the system's root certificates trusted beside CDCAi's");
     roots
 }
 

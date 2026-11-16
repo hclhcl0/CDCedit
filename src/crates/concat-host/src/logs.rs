@@ -218,7 +218,7 @@ pub fn level_name(level: log::LevelFilter) -> &'static str {
 /// Sets the level for the rest of the run - the Settings sheet's choice,
 /// or the remembered one applied at launch - and says so in the log.
 ///
-/// The level is CDCedit's own: what the app says about what it is doing,
+/// The level is CDCAi's own: what the app says about what it is doing,
 /// for whoever is chasing a bug with it. The crates underneath - wgpu,
 /// naga, Slint, fontdb, the decoders - stay at warnings and errors
 /// whatever the sheet says, since at Debug they bury a run in lines
@@ -230,13 +230,13 @@ pub fn set_level(level: log::LevelFilter) {
 }
 
 /// Whether the environment set the level: then every crate's lines come
-/// through at it, not only CDCedit's.
+/// through at it, not only CDCAi's.
 fn firehose() -> bool {
     static FIREHOSE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
     *FIREHOSE.get_or_init(|| environment_level().is_some())
 }
 
-/// Whether a target is one of CDCedit's own crates.
+/// Whether a target is one of CDCAi's own crates.
 fn own(target: &str) -> bool {
     target.starts_with("concat")
 }
@@ -261,7 +261,7 @@ impl log::Log for Logger {
         if metadata.level() > log::max_level() {
             return false;
         }
-        // CDCedit's own lines at the level asked for; the crates underneath
+        // CDCAi's own lines at the level asked for; the crates underneath
         // at warnings and up, unless the environment asked for everything.
         own(metadata.target()) || firehose() || metadata.level() <= log::Level::Warn
     }

@@ -1714,9 +1714,9 @@ mod tests {
             assert_eq!(&bytes[..4], b"RIFF");
             assert_eq!(&bytes[8..12], b"WAVE");
             let mut decoder = AudioDecoder::open(&output, &AudioOptions::default())
-                .expect("CDCedit opens the saved WAV");
+                .expect("CDCAi opens the saved WAV");
             let mut actual = Vec::new();
-            while let Some(samples) = decoder.next_i16().expect("CDCedit decodes the WAV") {
+            while let Some(samples) = decoder.next_i16().expect("CDCAi decodes the WAV") {
                 actual.extend(samples);
             }
             assert_eq!(actual.len(), 6007 * 2, "exact stereo sample count");

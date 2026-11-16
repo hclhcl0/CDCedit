@@ -1,4 +1,4 @@
-# CDCedit Android Local APK Build Script
+# CDCAi Android Local APK Build Script
 # 100% Portable - No global machine changes required
 $ErrorActionPreference = 'Stop'
 $repoRoot = $PSScriptRoot
@@ -47,13 +47,13 @@ $env:PATH = "$env:CARGO_HOME\bin;$env:JAVA_HOME\bin;$env:ANDROID_HOME\cmdline-to
 
 $keystore = Join-Path $localTools 'android-release.keystore'
 if (-not (Test-Path $keystore)) {
-    & "$env:JAVA_HOME\bin\keytool.exe" -genkeypair -v -keystore $keystore -storepass concat -keypass concat -alias concat -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=CDCedit, O=CDCedit" | Out-Null
+    & "$env:JAVA_HOME\bin\keytool.exe" -genkeypair -v -keystore $keystore -storepass concat -keypass concat -alias concat -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=CDCAi, O=CDCAi" | Out-Null
 }
 $env:CARGO_APK_RELEASE_KEYSTORE = $keystore
 $env:CARGO_APK_RELEASE_KEYSTORE_PASSWORD = "concat"
 
 Set-Location (Join-Path $repoRoot 'src')
-Write-Host "Building CDCedit Android APK (Release)..." -ForegroundColor Cyan
+Write-Host "Building CDCAi Android APK (Release)..." -ForegroundColor Cyan
 $prevEap = $ErrorActionPreference
 $ErrorActionPreference = 'Continue'
 & "$env:CARGO_HOME\bin\cargo-apk.exe" apk build --release -p concat-android --target aarch64-linux-android
@@ -64,9 +64,9 @@ if ($exitCode -ne 0) {
     exit $exitCode
 }
 
-$apkPath = Join-Path $repoRoot 'src\target\aarch64-linux-android\release\apk\CDCedit.apk'
+$apkPath = Join-Path $repoRoot 'src\target\aarch64-linux-android\release\apk\CDCAi.apk'
 if (Test-Path $apkPath) {
-    $outApk = "C:\Users\Admin\Desktop\CDCedit-android-arm64.apk"
+    $outApk = "C:\Users\Admin\Desktop\CDCAi-android-arm64.apk"
     Copy-Item $apkPath $outApk -Force
     Write-Host "Build complete! APK saved to: $outApk" -ForegroundColor Green
 }

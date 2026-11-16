@@ -1471,7 +1471,7 @@ component EmptyProjects inherits Rectangle {
     }
 }
 
-// The line at the foot of the page: which CDCedit this is, and what changed
+// The line at the foot of the page: which CDCAi this is, and what changed
 // in it.
 component VersionLine inherits HorizontalLayout {
     in property <string> version;
@@ -1483,7 +1483,7 @@ component VersionLine inherits HorizontalLayout {
     VerticalLayout {
         alignment: center;
         Text {
-            text: "CDCedit " + root.version;
+            text: "CDCAi " + root.version;
             color: Theme.fg-dim;
             font-family: Theme.font-technical;
             font-size: Theme.fs-sm;
@@ -1535,7 +1535,7 @@ global Learn {
     };
     out property <LearnItem> github: {
         name: "github", glyph: Glyph.github, external: true,
-        title: "GitHub CDCedit (hclhcl0)", note: "Tài liệu, mã nguồn & bản phát hành mới nhất",
+        title: "GitHub CDCAi (hclhcl0)", note: "Tài liệu, mã nguồn & bản phát hành mới nhất",
     };
     out property <[LearnItem]> desk: [docs, guide, flow-setup, keys, report, github];
     out property <[LearnItem]> phone: [docs, guide, flow-setup, report, github];
@@ -2050,7 +2050,7 @@ component WideHome inherits Rectangle {
                             spacing: 1px;
 
                             Text {
-                                text: "Hướng dẫn sử dụng CDCedit 1.0";
+                                text: "Hướng dẫn sử dụng CDCAi 1.0";
                                 color: Theme.fg;
                                 font-size: Theme.fs-lg;
                                 font-weight: Theme.weight-display;
@@ -2377,7 +2377,7 @@ component WideHome inherits Rectangle {
                         alignment: center;
                         SegmentedControl {
                             width: 250px;
-                            options: ["Dự án CDCedit", "Dự án CapCut"];
+                            options: ["Dự án CDCAi", "Dự án CapCut"];
                             current: root.project-tab;
                             changed(index) => { root.project-tab-changed(index); }
                         }

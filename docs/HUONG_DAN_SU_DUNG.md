@@ -1,9 +1,9 @@
-# Hướng Dẫn Sử Dụng Chi Tiết CDCedit
+# Hướng Dẫn Sử Dụng Chi Tiết CDCAi
 
-**CDCedit** là phần mềm dựng phim đa nền tảng (**Windows x86_64 Setup/MSI, macOS, Linux, Android, iOS**) với lõi xử lý viết bằng **Rust** kết hợp tăng tốc phần cứng **GPU**, tích hợp sẵn hệ sinh thái **AI Studio** (Phụ đề AI, Dịch thuật, Lồng tiếng TTS, Voice Changer), công cụ làm phim **Google Flow Studio 5 bước**, tải tư liệu từ liên kết và xuất video **4K 60fps 10-bit / HDR không đóng watermark**.
+**CDCAi** là phần mềm dựng phim đa nền tảng (**Windows x86_64 Setup/MSI, macOS, Linux, Android, iOS**) với lõi xử lý viết bằng **Rust** kết hợp tăng tốc phần cứng **GPU**, tích hợp sẵn hệ sinh thái **AI Studio** (Phụ đề AI, Dịch thuật, Lồng tiếng TTS, Voice Changer), công cụ làm phim **Google Flow Studio 5 bước**, tải tư liệu từ liên kết và xuất video **4K 60fps 10-bit / HDR không đóng watermark**.
 
 > [!TIP]
-> Bạn có thể dùng CDCedit hoàn toàn miễn phí và không cần Internet cho các tác vụ dựng phim, thêm hiệu ứng, xuất 4K và chạy AI cục bộ (**Whisper / PhoWhisper Small VinAI**, **Piper Tiếng Việt – VAIS-1000 / VIVOS / 25Hours**, **10 preset DSP Voice Changer**) sau khi tải mô hình lần đầu trong phần **Cài đặt**.
+> Bạn có thể dùng CDCAi hoàn toàn miễn phí và không cần Internet cho các tác vụ dựng phim, thêm hiệu ứng, xuất 4K và chạy AI cục bộ (**Whisper / PhoWhisper Small VinAI**, **Piper Tiếng Việt – VAIS-1000 / VIVOS / 25Hours**, **10 preset DSP Voice Changer**) sau khi tải mô hình lần đầu trong phần **Cài đặt**.
 
 ---
 
@@ -25,7 +25,7 @@
 
 Ngay khi mở ứng dụng, màn hình khởi động cho phép bạn bắt đầu dựng phim hoặc truy cập nhanh 5 công cụ AI độc lập mà không cần tạo Timeline trước:
 
-![Màn hình khởi động và Công cụ AI Studio CDCedit](./images/01-khoi-dong-ai-studio.png)
+![Màn hình khởi động và Công cụ AI Studio CDCAi](./images/01-khoi-dong-ai-studio.png)
 
 ### Các thao tác chính tại màn hình khởi động
 
@@ -53,9 +53,9 @@ Chi tiết cơ chế xoay vòng key xem thêm tại [API-KEY-ROTATION.md](./API-
 
 1. Mở trình duyệt và truy cập trang Google AI Studio: **`https://aistudio.google.com/apikey`**.
 2. Đăng nhập bằng tài khoản Google của bạn, bấm nút tạo API key (**Create API key**), chọn hoặc tạo Google Cloud project theo hướng dẫn trên trang rồi sao chép chuỗi key vừa sinh.
-3. Trong CDCedit, mở **Cài đặt (`Ctrl + ,`) → Chung → mục `Gemini API keys`**.
+3. Trong CDCAi, mở **Cài đặt (`Ctrl + ,`) → Chung → mục `Gemini API keys`**.
 4. Dán API key vừa sao chép vào ô nhập *(ô hiển thị dạng mật khẩu bảo vệ)*.
-5. **Nếu muốn nhập nhiều key để dự phòng giới hạn**: Dán tối đa **32 key** vào cùng ô đó, cách nhau bằng **dấu chấm phẩy (`;`) hoặc dấu phẩy (`,`)** *(hoặc dán danh sách cách nhau bằng khoảng trắng/xuống dòng)* — ví dụ `key1; key2; key3`. Khi gặp mã lỗi **HTTP `401`, `403` hoặc `429`**, CDCedit tự động xoay vòng sang key kế tiếp trong danh sách.
+5. **Nếu muốn nhập nhiều key để dự phòng giới hạn**: Dán tối đa **32 key** vào cùng ô đó, cách nhau bằng **dấu chấm phẩy (`;`) hoặc dấu phẩy (`,`)** *(hoặc dán danh sách cách nhau bằng khoảng trắng/xuống dòng)* — ví dụ `key1; key2; key3`. Khi gặp mã lỗi **HTTP `401`, `403` hoặc `429`**, CDCAi tự động xoay vòng sang key kế tiếp trong danh sách.
 
 #### B. Cách lấy & nhập ElevenLabs API Key *(tùy chọn cho TTS cao cấp)*
 
@@ -80,18 +80,18 @@ Chi tiết cơ chế xoay vòng key xem thêm tại [API-KEY-ROTATION.md](./API-
 
 ### 2.3. Tab `Google Flow` — Hướng dẫn kết nối từng bước & chạy 1–4 luồng
 
-Tham khảo thêm chi tiết tại [FLOW_ACCOUNTS_VI.md](./FLOW_ACCOUNTS_VI.md). CDCedit tự động hóa **Google Flow** thông qua trình duyệt **Google Chrome** chạy giao thức CDP — bạn **không nhập mật khẩu Google vào ứng dụng** mà đăng nhập trực tiếp trong cửa sổ Chrome.
+Tham khảo thêm chi tiết tại [FLOW_ACCOUNTS_VI.md](./FLOW_ACCOUNTS_VI.md). CDCAi tự động hóa **Google Flow** thông qua trình duyệt **Google Chrome** chạy giao thức CDP — bạn **không nhập mật khẩu Google vào ứng dụng** mà đăng nhập trực tiếp trong cửa sổ Chrome.
 
 #### Cách kết nối tài khoản đầu tiên (`Flow 1` — Khuyên dùng cho người mới)
 
 1. Đảm bảo máy đã cài **Google Chrome**.
 2. Mở **Cài đặt (`Ctrl + ,`) → Google Flow**. Mặc định đã có sẵn hồ sơ **`Flow 1`** (hoặc bấm **`+ Thêm tài khoản`** nếu muốn tạo mới).
-3. Ở danh sách chế độ kết nối, chọn **`Profile riêng của Concat`** *(chế độ khuyến nghị — tự mở một cửa sổ Chrome riêng và lưu giữ phiên đăng nhập cho các lần sau)*.
+3. Ở danh sách chế độ kết nối, chọn **`Profile riêng của CDCAi`** *(chế độ khuyến nghị — tự mở một cửa sổ Chrome riêng và lưu giữ phiên đăng nhập cho các lần sau)*.
 4. Giữ nguyên **Cổng CDP riêng** mặc định **`9337`** (tài khoản thứ 2 dùng cổng khác như `9338`…) và để trống ô **Đường dẫn `chrome.exe`** nếu dùng Chrome cài chuẩn của hệ thống.
 5. *(Tùy chọn)* Dán **URL dự án Flow mặc định** (dạng `https://labs.google/fx/tools/flow/project/<UUID>` hoặc `https://flow.google.com/project/<UUID>`) nếu bạn muốn mở thẳng vào một project cố định.
 6. Nhấn **`Lưu cấu hình`**, rồi nhấn **`Kết nối / mở Chrome`**.
 7. Trên cửa sổ Chrome vừa bật lên, **đăng nhập thủ công tài khoản Google của bạn** vào Google Flow (và tạo/mở sẵn 1 project nếu đây là lần đầu dùng Flow).
-8. Quay lại cửa sổ CDCedit, bấm **`Kiểm tra`** để xác nhận trạng thái:
+8. Quay lại cửa sổ CDCAi, bấm **`Kiểm tra`** để xác nhận trạng thái:
    - `"Chưa mở Chrome · bấm Kết nối / mở Chrome"` → Chrome chưa chạy ở cổng đó, bấm lại **`Kết nối / mở Chrome`**.
    - `"Đã mở Chrome · cần đăng nhập Google Flow trong cửa sổ Chrome"` → hoàn tất đăng nhập trên trình duyệt vừa mở rồi bấm **`Kiểm tra`** lại.
    - **`"Đã kết nối & đăng nhập Google Flow"`** *(hoặc kèm 8 ký tự ID dự án)* → đã sẵn sàng sử dụng trong **Flow Studio**.
@@ -113,21 +113,21 @@ Tham khảo thêm chi tiết tại [FLOW_ACCOUNTS_VI.md](./FLOW_ACCOUNTS_VI.md).
 
 - **Giao diện**: Chuyển đổi chế độ **Tối / Sáng** và tùy chỉnh màu nhấn.
 - **Phím tắt**: Xem bảng phím tắt đầy đủ và gán lại phím tắt dựng phim theo thói quen cá nhân.
-- **Tự động hóa**: Cấu hình máy chủ tự động hóa **MCP / JSON-RPC** để điều khiển CDCedit từ tác nhân hoặc kịch bản ngoài.
+- **Tự động hóa**: Cấu hình máy chủ tự động hóa **MCP / JSON-RPC** để điều khiển CDCAi từ tác nhân hoặc kịch bản ngoài.
 - **Phiên bản & Giới thiệu**: Kiểm tra phiên bản ứng dụng và thông tin phát hành.
 
 ---
 
 ## 3. Giao diện Biên tập chính & Tùy biến Bố cục
 
-Cửa sổ biên tập video của CDCedit chia thành các vùng làm việc rõ ràng và cho phép đổi loại vùng hiển thị qua bộ chuyển **Pane Switcher** ở góc mỗi khung (`Thư viện`, `Xem trước`, `Trình kiểm tra`, `Khung hình khóa`, `Dòng thời gian`):
+Cửa sổ biên tập video của CDCAi chia thành các vùng làm việc rõ ràng và cho phép đổi loại vùng hiển thị qua bộ chuyển **Pane Switcher** ở góc mỗi khung (`Thư viện`, `Xem trước`, `Trình kiểm tra`, `Khung hình khóa`, `Dòng thời gian`):
 
-![Giao diện biên tập chính 6 vùng của CDCedit](./images/02-giao-dien-bien-tap.png)
+![Giao diện biên tập chính 6 vùng của CDCAi](./images/02-giao-dien-bien-tap.png)
 
 ### Thành phần từng khu vực
 
 1. **Thanh Menu & Tiêu đề**: Truy cập nhanh `Tệp`, `Chỉnh sửa`, `Xem`, nút cài đặt **`Google Flow`**, **`Mở trong CapCut`** và nút **`Xuất`** (`Ctrl + E`).
-2. **Kho Media (bên trái)**: Gồm nút **`Nhập tệp`**, **`Nhập Link (URL)`**, thanh lọc phân loại nhanh (`Tất cả`, `Video`, `Âm thanh`, `Hình ảnh`, `AI tạo`, `Nhân vật`, `Kho cảnh`) và bảng chuyển nhanh sang các thư viện Văn bản, Chuyển cảnh, Hiệu ứng, Bộ lọc, Điều chỉnh màu, Âm thanh tích hợp **CDCedit** (xem [AUDIO_LIBRARY.md](./AUDIO_LIBRARY.md)).
+2. **Kho Media (bên trái)**: Gồm nút **`Nhập tệp`**, **`Nhập Link (URL)`**, thanh lọc phân loại nhanh (`Tất cả`, `Video`, `Âm thanh`, `Hình ảnh`, `AI tạo`, `Nhân vật`, `Kho cảnh`) và bảng chuyển nhanh sang các thư viện Văn bản, Chuyển cảnh, Hiệu ứng, Bộ lọc, Điều chỉnh màu, Âm thanh tích hợp **CDCAi** (xem [AUDIO_LIBRARY.md](./AUDIO_LIBRARY.md)).
 3. **Khung Xem trước (giữa)**: Hiển thị hình ảnh timeline theo thời gian thực (cùng khung căn chỉnh `100% · 0°`), thanh chọn chất lượng xem trước (`Một nửa`…) và cụm nút tua/phát khung hình.
 4. **Thanh kiểm tra / Inspector (bên phải)**: Có **4 tab trên cùng** để chuyển đổi nhanh giữa:
    - **`Flow Studio`**: Xưởng làm phim AI 5 bước.
@@ -140,7 +140,7 @@ Cửa sổ biên tập video của CDCedit chia thành các vùng làm việc r�
 
 ## 4. Nhập Media từ máy & Tải Video / Nhạc từ Liên kết
 
-Bên cạnh cách nhập tệp truyền thống từ máy tính (`Nhập tệp`, `Ctrl + I` hoặc kéo-thả trực tiếp vào Kho Media / Timeline), CDCedit tích hợp trình tải đa nền tảng giúp lấy thẳng video và âm thanh vào dự án (chi tiết xem [LINK-IMPORT.md](./LINK-IMPORT.md)):
+Bên cạnh cách nhập tệp truyền thống từ máy tính (`Nhập tệp`, `Ctrl + I` hoặc kéo-thả trực tiếp vào Kho Media / Timeline), CDCAi tích hợp trình tải đa nền tảng giúp lấy thẳng video và âm thanh vào dự án (chi tiết xem [LINK-IMPORT.md](./LINK-IMPORT.md)):
 
 ![Nhập Media từ liên kết và Xuất Video chất lượng cao](./images/07-tai-link-va-xuat-video.png)
 
@@ -163,7 +163,7 @@ Bên cạnh cách nhập tệp truyền thống từ máy tính (`Nhập tệp`,
 
 Khu vực **Dòng thời gian (Timeline)** cho phép dựng đồng thời nhiều lớp video, lớp phủ, chữ/phụ đề và âm thanh với độ chính xác từng khung hình:
 
-![Thanh công cụ Dòng thời gian và cấu trúc đa lớp CDCedit](./images/03-timeline-cong-cu.png)
+![Thanh công cụ Dòng thời gian và cấu trúc đa lớp CDCAi](./images/03-timeline-cong-cu.png)
 
 ### 5.1. Thao tác cắt ghép cơ bản trên Timeline
 
@@ -265,7 +265,7 @@ Mở tab **Flow Studio** ở khung bên phải để sản xuất một dự án
 
 ### Bước 5: `5. Kết quả`
 
-- Kiểm tra từng clip ở **`Kết quả Video — Cảnh hiện tại`** (`Sửa nhanh Thoại / Prompt`, **`Tạo lại cảnh này`**, `Làm mới`) và quản lý tại **`Thư viện Kết quả`** để đưa các cảnh đạt yêu cầu xuống Timeline CDCedit, ghép nhạc và xuất phim.
+- Kiểm tra từng clip ở **`Kết quả Video — Cảnh hiện tại`** (`Sửa nhanh Thoại / Prompt`, **`Tạo lại cảnh này`**, `Làm mới`) và quản lý tại **`Thư viện Kết quả`** để đưa các cảnh đạt yêu cầu xuống Timeline CDCAi, ghép nhạc và xuất phim.
 
 ---
 

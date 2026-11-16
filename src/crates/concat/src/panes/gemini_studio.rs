@@ -74,7 +74,7 @@ impl Default for GeminiStudio {
             mode: 0,
             model: 0,
             temperature: 1.0,
-            text: "Xin chào! Đây là giọng đọc thử của CDCedit.".into(),
+            text: "Xin chào! Đây là giọng đọc thử của CDCAi.".into(),
             style: String::new(),
             turns: vec![
                 Turn {

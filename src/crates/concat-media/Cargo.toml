@@ -16,7 +16,7 @@ concat-core.workspace = true
 # Without libavdevice, its default "device" feature: nothing here records
 # from a camera or a screen through FFmpeg, and on macOS the library's
 # AVFoundation input names AVCaptureDeviceTypeContinuityCamera, a macOS 13
-# symbol, so dyld refused to start CDCedit on macOS 12 (#342).
+# symbol, so dyld refused to start CDCAi on macOS 12 (#342).
 ffmpeg-the-third = { version = "6", default-features = false, features = [
     "codec",
     "filter",

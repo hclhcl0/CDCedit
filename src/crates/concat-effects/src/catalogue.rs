@@ -202,11 +202,11 @@ impl Package {
         };
         // A picture is drawn by its shader on the GPU, in light: a picture
         // package written for format 1, or one that is an FFmpeg chain, is
-        // one this CDCedit no longer draws. Sound is still FFmpeg's.
+        // one this CDCAi no longer draws. Sound is still FFmpeg's.
         if manifest.effect.kind.is_visual() {
             if !manifest.scene_linear() {
                 return Err(invalid(
-                    "a picture package written for format 1, which this CDCedit no longer \
+                    "a picture package written for format 1, which this CDCAi no longer \
                      draws: it needs `format = 2` and a shader (see the package guide)"
                         .to_owned(),
                 ));

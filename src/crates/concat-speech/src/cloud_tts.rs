@@ -669,7 +669,7 @@ pub fn synthesize_speech_to_speech(
             "use_speaker_boost": options.speaker_boost,
         }))
         .map_err(|e| e.to_string())?;
-        let boundary = "----CDCeditElevenLabsSTSBoundary98421";
+        let boundary = "----CDCAiElevenLabsSTSBoundary98421";
         let mut body = Vec::with_capacity(source_wav.len() + 1024);
         let mut add_field = |name: &str, val: &str| {
             body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());

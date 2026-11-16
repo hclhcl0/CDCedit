@@ -138,7 +138,7 @@ impl MediaSummary {
     }
 }
 
-/// Extensions CDCedit is willing to treat as stills.
+/// Extensions CDCAi is willing to treat as stills.
 const IMAGE_EXTENSIONS: &[&str] = &[
     "png", "jpg", "jpeg", "webp", "bmp", "tif", "tiff", "avif", "heic", "heif", "gif", "svg",
     "svgz",

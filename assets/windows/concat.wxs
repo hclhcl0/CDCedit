@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  CDCedit's Windows Installer package, the .msi beside the Inno Setup .exe.
+  CDCAi's Windows Installer package, the .msi beside the Inno Setup .exe.
 
   Built by build-app.yml with WiX from the staged folder the .exe is made
   of, so the two installers ship the same files. The .exe is the
@@ -8,9 +8,9 @@
   Group Policy, Intune, winget - and it installs for the machine, into
   Program Files, with a Start menu entry and a clean uninstall. Handed in:
 
-    wix build -arch x64 -d Version=0.2.8 -d Root=C:\...\CDCedit
-              -d Stage=C:\...\stage\CDCedit-0.2.8-windows-x86_64
-              -o stage\CDCedit-0.2.8-windows-x86_64.msi assets\windows\concat.wxs
+    wix build -arch x64 -d Version=0.2.8 -d Root=C:\...\CDCAi
+              -d Stage=C:\...\stage\CDCAi-0.2.8-windows-x86_64
+              -o stage\CDCAi-0.2.8-windows-x86_64.msi assets\windows\concat.wxs
 
   Root is the repository: WiX resolves a source path against where it is
   run from, not against this file.
@@ -18,26 +18,26 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <!-- One upgrade code for the life of the product, so a newer .msi
        replaces an older one rather than sitting beside it. -->
-  <Package Name="CDCedit"
-           Manufacturer="CDCedit contributors"
+  <Package Name="CDCAi"
+           Manufacturer="CDCAi contributors"
            Version="$(var.Version)"
            UpgradeCode="D34B87CE-512D-4BF2-AB1B-A35DFB595F39"
            Scope="perMachine"
            Language="1033">
-    <MajorUpgrade DowngradeErrorMessage="A newer version of CDCedit is already installed." />
+    <MajorUpgrade DowngradeErrorMessage="A newer version of CDCAi is already installed." />
     <MediaTemplate EmbedCab="yes" />
 
-    <Icon Id="cdcedit.ico" SourceFile="$(var.Root)\assets\icons\cdcedit.ico" />
-    <Property Id="ARPPRODUCTICON" Value="cdcedit.ico" />
+    <Icon Id="cdcai.ico" SourceFile="$(var.Root)\assets\icons\cdcai.ico" />
+    <Property Id="ARPPRODUCTICON" Value="cdcai.ico" />
 
     <StandardDirectory Id="ProgramFiles64Folder">
-      <Directory Id="INSTALLFOLDER" Name="CDCedit" />
+      <Directory Id="INSTALLFOLDER" Name="CDCAi" />
     </StandardDirectory>
     <StandardDirectory Id="ProgramMenuFolder">
-      <Directory Id="ShortcutFolder" Name="CDCedit" />
+      <Directory Id="ShortcutFolder" Name="CDCAi" />
     </StandardDirectory>
 
-    <Feature Id="Main" Title="CDCedit" Level="1">
+    <Feature Id="Main" Title="CDCAi" Level="1">
       <ComponentGroupRef Id="Program" />
       <ComponentRef Id="StartMenu" />
     </Feature>
@@ -49,23 +49,23 @@
 
     <Component Id="StartMenu" Directory="ShortcutFolder" Guid="69418EE8-AE28-41CB-B145-0AC9158A69FC">
       <Shortcut Id="StartMenuShortcut"
-                Name="CDCedit"
+                Name="CDCAi"
                 Description="Video editor"
-                Target="[INSTALLFOLDER]cdcedit.exe"
+                Target="[INSTALLFOLDER]cdcai.exe"
                 WorkingDirectory="INSTALLFOLDER"
-                Icon="cdcedit.ico" />
+                Icon="cdcai.ico" />
       <!-- The way in when a graphics driver draws the window as coloured
            squares: it turns off Settings > General > Draw on the GPU,
            which that window hides. -->
       <Shortcut Id="SafeGraphicsShortcut"
-                Name="CDCedit (safe graphics)"
-                Description="CDCedit, drawn in software"
-                Target="[INSTALLFOLDER]cdcedit.exe"
+                Name="CDCAi (safe graphics)"
+                Description="CDCAi, drawn in software"
+                Target="[INSTALLFOLDER]cdcai.exe"
                 Arguments="--software"
                 WorkingDirectory="INSTALLFOLDER"
-                Icon="cdcedit.ico" />
+                Icon="cdcai.ico" />
       <RemoveFolder Id="RemoveShortcutFolder" On="uninstall" />
-      <RegistryValue Root="HKCU" Key="Software\CDCedit" Name="StartMenu" Type="integer" Value="1" KeyPath="yes" />
+      <RegistryValue Root="HKCU" Key="Software\CDCAi" Name="StartMenu" Type="integer" Value="1" KeyPath="yes" />
     </Component>
   </Package>
 </Wix>

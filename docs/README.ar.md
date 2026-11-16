@@ -1,9 +1,9 @@
-<p align="center"><img src="../assets/icons/cdcedit_logo_256.png" alt="CDCedit" width="100" /></p>
-<h1 align="center">CDCedit</h1>
+<p align="center"><img src="../assets/icons/cdcai_logo_256.png" alt="CDCAi" width="100" /></p>
+<h1 align="center">CDCAi</h1>
 
-CDCedit is a customized video editor derived from [Concat](https://github.com/jub0t/Concat). Original author and license notices are retained. Build this fork to use CDCedit features; upstream release links below refer to the original project.
+CDCAi is a customized video editor derived from [Concat](https://github.com/jub0t/Concat). Original author and license notices are retained. Build this fork to use CDCAi features; upstream release links below refer to the original project.
 
-CDCedit محرر فيديو مجاني ومفتوح المصدر وبديل لـ CapCut على macOS وWindows وLinux وAndroid. يغطي ما يفتح الناس CapCut من أجله فعلًا: الترجمة التلقائية، تحويل النص إلى كلام، إزالة الخلفية، التحريك بالإطارات المفتاحية، المؤثرات والعناوين، القص متعدد المسارات، التصدير بدقة 4K. وبلا أي فخاخ: لا علامة مائية، لا حساب، لا اشتراك، لا رفع للملفات.
+CDCAi محرر فيديو مجاني ومفتوح المصدر وبديل لـ CapCut على macOS وWindows وLinux وAndroid. يغطي ما يفتح الناس CapCut من أجله فعلًا: الترجمة التلقائية، تحويل النص إلى كلام، إزالة الخلفية، التحريك بالإطارات المفتاحية، المؤثرات والعناوين، القص متعدد المسارات، التصدير بدقة 4K. وبلا أي فخاخ: لا علامة مائية، لا حساب، لا اشتراك، لا رفع للملفات.
 
 كل شيء يعمل محليًا على محرك Rust أصلي مع مركّب رسوميات على بطاقة الرسوميات. ثبّته، أسقط لقطاتك، وقصّ. نماذج الذكاء الاصطناعي للترجمة والأصوات والقص تُنزَّل مرة واحدة من الإعدادات ثم تعمل دون اتصال. لقطاتك لا تغادر قرصك أبدًا.
 
@@ -36,12 +36,12 @@ CDCedit محرر فيديو مجاني ومفتوح المصدر وبديل لـ
 1. **[الموقع](https://concatenate.pages.dev/#download)** يعطيك الإصدار المناسب لجهازك. ابدأ من هنا.
 2. **[GitHub Releases](https://github.com/jub0t/Concat/releases)** يضم كل إصدار لكل منصة، مع المثبّتات والحزم ومجاميع التحقق. حين تريد الاختيار بنفسك.
 
-CDCedit في مرحلة **بيتا**: يعمل، وما زالت فيه حواف. [أخبرنا](https://github.com/jub0t/Concat/issues) حين تجد واحدة.
+CDCAi في مرحلة **بيتا**: يعمل، وما زالت فيه حواف. [أخبرنا](https://github.com/jub0t/Concat/issues) حين تجد واحدة.
 
 **المنصات**
 
 - ✅ **Windows** · x86_64 (إصدارات ARM متوقفة مؤقتًا، انظر [#326](https://github.com/jub0t/Concat/issues/326)). مثبّت وملف `.msi`. إذا أوقف SmartScreen إصدارًا غير موقّع: **مزيد من المعلومات** › **التشغيل على أي حال**
-- ✅ **macOS** · Intel وApple Silicon. إذا رفض macOS فتح إصدار غير موقّع: `xattr -dr com.apple.quarantine /Applications/CDCedit.app`
+- ✅ **macOS** · Intel وApple Silicon. إذا رفض macOS فتح إصدار غير موقّع: `xattr -dr com.apple.quarantine /Applications/CDCAi.app`
 - ✅ **Linux** · x86_64 وARM. ‏`.deb` و`.rpm` و`.AppImage` وحزمة Arch. وأيضًا Flatpak على **[Flatpark](https://flatpark.org/apps/app.concat.editor/)**، وهو مستودع Flatpak مجتمعي يغلّف ملف `.deb` لمعمارية x86_64 من كل إصدار ويتحدّث معه
 - ✅ **Android** · الهواتف والأجهزة اللوحية
 - ✅ **iOS / iPadOS** · iPhone وiPad، بالتثبيت الجانبي
@@ -57,7 +57,7 @@ CDCedit في مرحلة **بيتا**: يعمل، وما زالت فيه حواف
 > [!IMPORTANT]
 > أفضل طريقة للمساهمة أن تأخذ إصدارًا من صفحة [Releases](https://github.com/jub0t/Concat/releases) وتستخدمه: اعثر على ما يتعطّل، وقل أين يمكن أن يكون أفضل.
 >
-> مستعد لكتابة الشيفرة؟ يغطي [CONTRIBUTING.md](../CONTRIBUTING.md) الإعداد وبنية الشجرة والفحوصات التي تُشغَّل وكيفية ترخيص المساهمات. تقود CDCedit من سكربت أو خدمة أو وكيل؟ تغطي [وثائق المطوّرين](https://concatenate.pages.dev/docs) واجهة CDCedit ووسائل نقلها: JSON-RPC وgRPC. [هذه المناقشة](https://github.com/jub0t/Concat/discussions/3) هي حيث أُعلن عن المشروع.
+> مستعد لكتابة الشيفرة؟ يغطي [CONTRIBUTING.md](../CONTRIBUTING.md) الإعداد وبنية الشجرة والفحوصات التي تُشغَّل وكيفية ترخيص المساهمات. تقود CDCAi من سكربت أو خدمة أو وكيل؟ تغطي [وثائق المطوّرين](https://concatenate.pages.dev/docs) واجهة CDCAi ووسائل نقلها: JSON-RPC وgRPC. [هذه المناقشة](https://github.com/jub0t/Concat/discussions/3) هي حيث أُعلن عن المشروع.
 > 
 > يمكن للمساهمين الحصول على دور `@Contributor` في خادم Discord: فقط اطلبه.
 

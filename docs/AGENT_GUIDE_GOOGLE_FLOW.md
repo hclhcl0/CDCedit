@@ -1,6 +1,6 @@
 # Hướng Dẫn Kỹ Thuật & Cấu Trúc Mã Nguồn Google Flow Cho AI Agents
 
-> **Dành cho AI Agents và Lập trình viên tiếp nhận dự án**: Tài liệu này mô tả toàn diện kiến trúc, các luồng dữ liệu, mã nguồn và bảng tra cứu action của hệ thống tích hợp **Google Flow & Google Vids Studio** trong ứng dụng **Concat / CDCedit**.
+> **Dành cho AI Agents và Lập trình viên tiếp nhận dự án**: Tài liệu này mô tả toàn diện kiến trúc, các luồng dữ liệu, mã nguồn và bảng tra cứu action của hệ thống tích hợp **Google Flow & Google Vids Studio** trong ứng dụng **Concat / CDCAi**.
 
 ---
 
@@ -199,7 +199,7 @@ Dự án được trang bị sẵn script build tự động phát hiện và li
 .\scripts\build-concat-desktop.ps1 -Mode Build
 ```
 
-File thực thi sau khi biên dịch nằm tại: `src/target/quick/cdcedit.exe`.
+File thực thi sau khi biên dịch nằm tại: `src/target/quick/cdcai.exe`.
 
 ### 4.3. Biên dịch Worker Google Flow
 Khi chỉnh sửa mã TypeScript trong `tools/google-flow-worker/src/`:
@@ -208,7 +208,7 @@ Khi chỉnh sửa mã TypeScript trong `tools/google-flow-worker/src/`:
 cd tools/google-flow-worker
 npm run build
 # Copy bản build dist sang thư mục release desktop nếu cần kiểm thử trên app chạy thật
-Copy-Item -Recurse -Force dist/* "C:\Users\Admin\Desktop\CDCedit-windows-x64\google-flow-worker\dist\"
+Copy-Item -Recurse -Force dist/* "C:\Users\Admin\Desktop\CDCAi-windows-x64\google-flow-worker\dist\"
 ```
 
 ### 4.4. Đảm bảo an toàn dữ liệu kịch bản

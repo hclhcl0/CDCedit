@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "The CDCedit API: one dispatcher for projects, edits, media, effects, templates, exports and frames, which every transport - the command line, a daemon, a plugin - calls."
+description = "The CDCAi API: one dispatcher for projects, edits, media, effects, templates, exports and frames, which every transport - the command line, a daemon, a plugin - calls."
 
 [dependencies]
 concat-core.workspace = true

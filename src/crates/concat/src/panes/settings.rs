@@ -88,7 +88,7 @@ pub enum SettingsMsg {
     ModelRemove(String),
     /// A failed download's way round: open the model's first source in
     /// the browser, which the network may let through where it did not
-    /// let CDCedit ...
+    /// let CDCAi ...
     ModelOpenLink(String),
     /// ... and install the file that browser saved, once it is picked.
     ModelChooseFile(String),

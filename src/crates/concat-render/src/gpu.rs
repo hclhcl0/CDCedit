@@ -891,7 +891,7 @@ impl WgpuCompositor {
             backends,
             ..wgpu::InstanceDescriptor::new_without_display_handle()
         };
-        // FXC, never wgpu's default `Auto`: CDCedit ships no dxcompiler.dll,
+        // FXC, never wgpu's default `Auto`: CDCAi ships no dxcompiler.dll,
         // so `Auto` loads whichever one Windows finds on PATH - Obsidian's or
         // another Electron app's - and a build that does not match wgpu, or
         // needs instructions the CPU lacks, kills the process at the first

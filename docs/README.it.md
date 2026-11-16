@@ -1,15 +1,15 @@
-<p align="center"><img src="../assets/icons/cdcedit_logo_256.png" alt="CDCedit" width="100" /></p>
-<h1 align="center">CDCedit</h1>
+<p align="center"><img src="../assets/icons/cdcai_logo_256.png" alt="CDCAi" width="100" /></p>
+<h1 align="center">CDCAi</h1>
 
-CDCedit is a customized video editor derived from [Concat](https://github.com/jub0t/Concat). Original author and license notices are retained. Build this fork to use CDCedit features; upstream release links below refer to the original project.
+CDCAi is a customized video editor derived from [Concat](https://github.com/jub0t/Concat). Original author and license notices are retained. Build this fork to use CDCAi features; upstream release links below refer to the original project.
 
-CDCedit è un editor video gratuito e open source, un’alternativa a CapCut per macOS, Windows, Linux e Android. Copre ciò per cui la gente apre davvero CapCut: sottotitoli automatici, sintesi vocale, rimozione dello sfondo, animazione con fotogrammi chiave, effetti e titoli, montaggio multitraccia, esportazione 4K. Senza nessuna fregatura: niente filigrana, niente account, niente abbonamento, niente caricamenti.
+CDCAi è un editor video gratuito e open source, un’alternativa a CapCut per macOS, Windows, Linux e Android. Copre ciò per cui la gente apre davvero CapCut: sottotitoli automatici, sintesi vocale, rimozione dello sfondo, animazione con fotogrammi chiave, effetti e titoli, montaggio multitraccia, esportazione 4K. Senza nessuna fregatura: niente filigrana, niente account, niente abbonamento, niente caricamenti.
 
 Tutto gira in locale su un motore nativo in Rust con un compositore su GPU. Installalo, trascina il girato, taglia. I modelli di IA per sottotitoli, voci e scontorno si scaricano una volta dalle Impostazioni e poi funzionano offline. Il tuo girato non lascia mai il tuo disco.
 
 **Adatto a:** TikTok, Reels e Shorts, video YouTube, tutorial e registrazioni dello schermo, clip di podcast, meme.
 
-**Anche per le macchine:** un’API JSON-RPC, così anche script e agenti IA possono montare video con CDCedit.
+**Anche per le macchine:** un’API JSON-RPC, così anche script e agenti IA possono montare video con CDCAi.
 
 ## In evidenza
 
@@ -36,12 +36,12 @@ Due strade:
 1. **[Il sito web](https://concatenate.pages.dev/#download)** ti dà la build giusta per la tua macchina. Parti da qui.
 2. **[GitHub Releases](https://github.com/jub0t/Concat/releases)** ha ogni build per ogni piattaforma, con installer, pacchetti e checksum. Per quando vuoi scegliere.
 
-CDCedit è in **beta**: funziona, e ha ancora qualche spigolo. [Segnalalo](https://github.com/jub0t/Concat/issues) quando ne trovi uno.
+CDCAi è in **beta**: funziona, e ha ancora qualche spigolo. [Segnalalo](https://github.com/jub0t/Concat/issues) quando ne trovi uno.
 
 **Piattaforme**
 
 - ✅ **Windows** · x86_64 (le build ARM sono in pausa, vedi [#326](https://github.com/jub0t/Concat/issues/326)). Un setup e un `.msi`. Se SmartScreen blocca una build non firmata: **Ulteriori informazioni** › **Esegui comunque**
-- ✅ **macOS** · Intel e Apple Silicon. Se macOS si rifiuta di aprire una build non firmata: `xattr -dr com.apple.quarantine /Applications/CDCedit.app`
+- ✅ **macOS** · Intel e Apple Silicon. Se macOS si rifiuta di aprire una build non firmata: `xattr -dr com.apple.quarantine /Applications/CDCAi.app`
 - ✅ **Linux** · x86_64 e ARM. `.deb`, `.rpm`, `.AppImage` e un pacchetto Arch. Anche un Flatpak su **[Flatpark](https://flatpark.org/apps/app.concat.editor/)**, un remote Flatpak della community che impacchetta il `.deb` x86_64 di ogni versione e si aggiorna con essa
 - ✅ **Android** · telefoni e tablet
 - ✅ **iOS / iPadOS** · iPhone e iPad, con sideload
@@ -57,7 +57,7 @@ I **requisiti di sistema** e le dimensioni dei modelli opzionali sono sul [sito 
 > [!IMPORTANT]
 > Il modo migliore per contribuire è prendere una build dalla pagina [Releases](https://github.com/jub0t/Concat/releases) e usarla: trova dove si rompe, e di’ dove potrebbe essere migliore.
 >
-> Pronto a scrivere codice? [CONTRIBUTING.md](../CONTRIBUTING.md) copre la configurazione, la struttura dell’albero, i controlli da eseguire e come vengono licenziati i contributi. Guidi CDCedit da uno script, un servizio o un agente? [La documentazione per sviluppatori](https://concatenate.pages.dev/docs) copre l’API di CDCedit e i suoi trasporti: JSON-RPC e gRPC. [Questa Discussion](https://github.com/jub0t/Concat/discussions/3) è dove il progetto è stato annunciato.
+> Pronto a scrivere codice? [CONTRIBUTING.md](../CONTRIBUTING.md) copre la configurazione, la struttura dell’albero, i controlli da eseguire e come vengono licenziati i contributi. Guidi CDCAi da uno script, un servizio o un agente? [La documentazione per sviluppatori](https://concatenate.pages.dev/docs) copre l’API di CDCAi e i suoi trasporti: JSON-RPC e gRPC. [Questa Discussion](https://github.com/jub0t/Concat/discussions/3) è dove il progetto è stato annunciato.
 > 
 > I contributori possono ottenere un ruolo `@Contributor` sul server Discord: basta chiederlo.
 
