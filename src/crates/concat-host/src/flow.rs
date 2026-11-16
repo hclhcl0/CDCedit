@@ -593,6 +593,7 @@ mod desktop {
 
     use serde_json::{Value, json};
 
+    #[derive(Debug)]
     pub(super) struct Worker {
         pub(super) child: Child,
         pub(super) input: ChildStdin,
