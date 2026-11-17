@@ -67,7 +67,7 @@ case "$target" in
     # a library aligned to 4 KB, and v0.2.8's libconcat_android.so was.
     # One RUSTFLAGS for both: cargo reads it whole and ignores the
     # target's own flags when it is set.
-    rustflags='-C link-arg=-Wl,-z,max-page-size=16384'
+    rustflags='-C link-arg=-Wl,-z,max-page-size=16384 -C link-arg=-Wl,--threads=1'
     if [ "$(uname -s)" = Darwin ]; then
       shim=$workspace/vendor/shim/$target
       mkdir -p "$shim"

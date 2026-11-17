@@ -98,6 +98,24 @@ codegen-units = 1
 opt-level = 0
 codegen-units = 1
 
+# Keep large serde/JSON/CapCut/Flow host & RPC glue crates bounded on mobile
+# release builds (Android/iOS CI) while engine, DSP and render crates keep -O3.
+[profile.release.package.concat-api]
+opt-level = 1
+codegen-units = 1
+
+[profile.release.package.concat-host]
+opt-level = 2
+codegen-units = 1
+
+[profile.release.package.concat-mcp]
+opt-level = 0
+codegen-units = 1
+
+[profile.release.package.concat-android]
+opt-level = 1
+codegen-units = 1
+
 # The shipping build of the editor window: `cargo build --profile app -p concat`.
 #
 # Every knob here is set for the fastest possible binary, and each one costs
@@ -143,6 +161,15 @@ strip = "symbols"
 [profile.app.package.concat]
 opt-level = 0
 codegen-units = 1
+
+[profile.app.package.concat-host]
+opt-level = 3
+
+[profile.app.package.concat-api]
+opt-level = 3
+
+[profile.app.package.concat-mcp]
+opt-level = 3
 
 # Decoding and compositing are unusably slow in an unoptimised build, even when
 # the rest of the engine is being debugged.
