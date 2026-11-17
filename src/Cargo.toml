@@ -116,6 +116,10 @@ codegen-units = 1
 opt-level = 1
 codegen-units = 1
 
+[profile.release.package.concat-server]
+opt-level = 1
+codegen-units = 1
+
 # The shipping build of the editor window: `cargo build --profile app -p concat`.
 #
 # Every knob here is set for the fastest possible binary, and each one costs
@@ -169,6 +173,9 @@ opt-level = 3
 opt-level = 3
 
 [profile.app.package.concat-mcp]
+opt-level = 3
+
+[profile.app.package.concat-server]
 opt-level = 3
 
 # Decoding and compositing are unusably slow in an unoptimised build, even when

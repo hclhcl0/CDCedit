@@ -39,6 +39,7 @@ jobs:
     env:
       CARGO_PROFILE_RELEASE_LTO: "false"
       CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "2"
+      CARGO_PROFILE_RELEASE_STRIP: "debuginfo"
       CARGO_PROFILE_RELEASE_PACKAGE_CONCAT_CODEGEN_UNITS: "1"
       CARGO_BUILD_JOBS: "2"
       CARGO_INCREMENTAL: "0"
@@ -52,7 +53,7 @@ jobs:
         run: |
           sudo systemctl stop systemd-oomd 2>/dev/null || true
           sudo systemctl disable systemd-oomd 2>/dev/null || true
-          sudo sysctl vm.swappiness=60 || true
+          sudo sysctl vm.swappiness=10 || true
           ROOT_SRC=$(df -Pk / | awk 'NR==2 {print $1}')
           MNT_SRC=$(df -Pk /mnt 2>/dev/null | awk 'NR==2 {print $1}')
           MNT_AVAIL_KB=$(df -Pk /mnt 2>/dev/null | awk 'NR==2 {print $4}')
@@ -147,7 +148,17 @@ jobs:
         run: |
           set -o pipefail
           eval "$(scripts/mobile-env.sh aarch64-linux-android)"
-          cargo apk build --release -p concat-android --target aarch64-linux-android 2>&1 | tee build.log
+          echo "=== Pre-build disk & memory ==="
+          df -h
+          free -h
+          du -sh target 2>/dev/null || true
+          echo "::notice title=AndroidPreBuild::avail=$(df -h / | awk 'NR==2{print $4}') mnt=$(df -h /mnt 2>/dev/null | awk 'NR==2{print $4}') ram=$(free -h | awk '/Mem:/{print $2}') swap=$(free -h | awk '/Swap:/{print $2}') target=$(du -sh target 2>/dev/null | awk '{print $1}')"
+          timeout --kill-after=30s 42m cargo apk build --release -p concat-android --target aarch64-linux-android 2>&1 | tee build.log
+          rc=${PIPESTATUS[0]}
+          if [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ]; then
+            echo "::error title=AndroidTimeout::cargo apk timed out at 42m (rc=$rc) so logs and rust-cache can be saved cleanly"
+          fi
+          exit "$rc"
 
       - name: Every library is aligned for 16 KB pages
         run: python3 scripts/ci/check-16k-pages.py src/target/release/apk/CDCAi.apk
@@ -156,13 +167,24 @@ jobs:
         if: always()
         run: |
           if [ -f src/build.log ]; then
-            PASTE_URL=$(curl -s -F "content=<-" https://dpaste.org/api/ < src/build.log | tr -d '"') || true
-            echo "::error title=BuildLog::$PASTE_URL"
+            {
+              echo "=== Post-build disk & memory ==="
+              df -h /
+              free -h
+              echo "=== Tail of build.log ==="
+              tail -n 500 src/build.log
+            } > src/build-tail.log
+            PASTE_URL=$(curl -s -F "content=<-" https://dpaste.org/api/ < src/build-tail.log | tr -d '"') || true
+            if [ "${{ job.status }}" = "failure" ]; then
+              echo "::error title=BuildLog::$PASTE_URL"
+            else
+              echo "::notice title=BuildLog::$PASTE_URL"
+            fi
             {
               echo "### Build status: Android arm64"
               echo "Log URL: $PASTE_URL"
               echo '```'
-              tail -n 150 src/build.log
+              tail -n 150 src/build-tail.log
               echo '```'
             } >> "$GITHUB_STEP_SUMMARY"
           fi
